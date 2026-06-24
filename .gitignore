@@ -12,3 +12,12 @@ coverage/
 # Local audit/browser-profile & screenshot artifacts (not source)
 .edge-home-audit-*/
 work-home-redesign-*.png
+
+# Python caches & build artifacts
+__pycache__/
+*.pyc
+
+# 임시/마커/테스트 산출물 (소스 아님)
+_tmp_*
+.metis_seeded
+sdks/python/e2e_report.txt
