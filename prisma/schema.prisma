@@ -1,0 +1,2222 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  PLATFORM_ADMIN
+  TENANT_ADMIN
+  OPERATOR
+  DEVELOPER
+  AUDITOR
+  VIEWER
+}
+
+enum PackSourceType {
+  GITHUB
+  MCP
+  N8N
+  MANUAL
+  INTERNAL
+}
+
+enum PackStatus {
+  DRAFT
+  IMPORTED
+  VALIDATED
+  CERTIFIED
+  PUBLISHED
+  DEPRECATED
+  BLOCKED
+}
+
+enum InstallationStatus {
+  INSTALLED
+  DISABLED
+  UPGRADE_AVAILABLE
+  FAILED
+  REMOVED
+}
+
+enum ExecutionStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  BLOCKED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+  INSTALL
+  UNINSTALL
+  EXECUTE
+  CERTIFY
+  REVOKE_CERTIFICATION
+  PUBLISH
+  LOGIN
+  POLICY_CHECK
+  STATUS_TRANSITION
+  BLOCK
+  DEPRECATE
+  // Phase 3: Controlled Release Engineering
+  REPLAY_DATASET_CREATE
+  REPLAY_RUN_START
+  SHADOW_CONFIG_CREATE
+  SHADOW_PAIR_CREATE
+  CANARY_START
+  CANARY_GATE_EVALUATE
+  CANARY_PROMOTE
+  CANARY_ROLLBACK
+  VERSION_PROMOTE
+  VERSION_ROLLBACK
+  // Phase 6: Workflow Persistence
+  ARCHIVE
+  RESTORE
+}
+
+// ══════════════════════════════════════════════════════
+//  Phase 3 Enums
+// ══════════════════════════════════════════════════════
+
+enum ReplayRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ShadowPairStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum CanaryStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  PROMOTED
+  ROLLED_BACK
+  FAILED
+}
+
+enum CanaryGateResult {
+  PASS
+  FAIL
+  WARN
+  PENDING
+}
+
+enum PromotionAction {
+  PROMOTE
+  ROLLBACK
+}
+
+model Tenant {
+  id            String               @id @default(cuid())
+  slug          String               @unique
+  name          String
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  // G6a (governance): when true, all external LLM API calls for this tenant are
+  // blocked at the executor / evaluator and replaced with a safe local fallback.
+  externalLlmDisabled Boolean        @default(false)
+
+  users         Membership[]
+  policies      Policy[]
+  packs         PackInstallation[]
+  executions    ExecutionSession[]
+  auditLogs     AuditLog[]
+  connectors    Connector[]
+  knowledge     KnowledgeArtifact[]
+  finOpsConfig          FinOpsConfig?
+  finOpsAgentConfigs    FinOpsAgentConfig[]
+  finOpsSkills          FinOpsSkill[]
+  finOpsNamespaces      FinOpsNamespace[]
+  finOpsTokenLogs       FinOpsTokenLog[]
+  builderRequests       BuilderRequest[]
+  // Phase 5 (Redesign)
+  missions              Mission[]
+  agentMessages         AgentMessage[]
+  agentHandoffs         AgentHandoff[]
+  autoActions           AutoAction[]
+  fdsRules              FDSRule[]
+  fdsAlerts             FDSAlert[]
+  apInvoices            APInvoice[]
+  // Phase 6
+  agentDefinitions      AgentDefinition[]
+  adapterRegistrations  AdapterRegistration[]
+  capabilityBindings    CapabilityBinding[]
+  // Phase 6 Step 2 — Workflow Persistence
+  workflows             Workflow[]
+  // Agent Evaluator
+  agentEvaluations      AgentEvaluation[]
+  // ORB Review Board
+  orbReviews            OrbReview[]
+  // Agent Evaluator — Gate 정책 설정 (Phase 1)
+  evaluationPolicies    EvaluationPolicy[]
+  // Agent Evaluator — 정책 피드백 루프 (Phase 2)
+  policySuggestions     PolicySuggestion[]
+  // Effectiveness Signals — measured MTTD / coverage source data
+  effectivenessSignals  EffectivenessSignal[]
+  // Ingestion on-ramp (Phase 1) — external-agent API keys
+  ingestApiKeys         IngestApiKey[]
+  teams                 Team[]
+  // 운영 기준값(인건비 시급·근무시간·health 임계값·등급 컷오프) 기준정보
+  opsReference          OpsReferenceConfig?
+}
+
+model User {
+  id            String               @id @default(cuid())
+  email         String               @unique
+  name          String
+  isActive      Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  memberships   Membership[]
+  auditLogs     AuditLog[]
+  // Phase 6 Step 2 — Workflow Persistence
+  workflowsCreated        Workflow[]        @relation("WorkflowCreatedBy")
+  workflowsUpdated        Workflow[]        @relation("WorkflowUpdatedBy")
+  workflowVersionsCreated WorkflowVersion[] @relation("WorkflowVersionCreatedBy")
+}
+
+model Membership {
+  id            String               @id @default(cuid())
+  tenantId      String
+  userId        String
+  role          MembershipRole
+  createdAt     DateTime             @default(now())
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, role])
+}
+
+model Policy {
+  id            String               @id @default(cuid())
+  tenantId      String
+  key           String
+  name          String
+  description   String?
+  version       Int                  @default(1)
+  isActive      Boolean              @default(true)
+  ruleYaml      String
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  evaluations   PolicyEvaluation[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, isActive])
+}
+
+model PolicyEvaluation {
+  id                String           @id @default(cuid())
+  tenantId          String
+  policyId          String
+  executionSessionId String?
+  result            String
+  reason            String?
+  createdAt         DateTime         @default(now())
+
+  policy            Policy           @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, policyId])
+  @@index([executionSessionId])
+}
+
+/// Evaluation Gate Policy — configurable thresholds/weights for the 4-Gate evaluation engine.
+/// Phase 1: 설정만 변경하면 코드 수정 없이 Gate 동작이 바뀐다.
+/// EvaluatorService loads the active policy (5-min cache) instead of hardcoded constants.
+model EvaluationPolicy {
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String   @default("default")
+  /// Optional agent group scope: "운영" | "개발" | "고도화" (null = tenant default)
+  agentGroup      String?
+
+  // ── 품질 Gate ──
+  qualityWeight           Float    @default(0.40)
+  qualityHardGateMin      Int      @default(50)     // 이 점수 미만이면 종합 max 40
+  llmJudgeEnabled         Boolean  @default(true)
+  llmJudgeModel           String   @default("claude-haiku-4-5-20251001")
+  llmJudgeBudgetPerDay    Float    @default(1.0)
+
+  // ── 보안 Gate ──
+  securityWeight          Float    @default(0.30)
+  securityCriticalCap     Int      @default(40)
+  securityHighCap         Int      @default(60)
+  piiScanEnabled          Boolean  @default(true)
+  promptInjectionEnabled  Boolean  @default(true)
+
+  // ── 이상탐지 Gate ──
+  anomalyWeight           Float    @default(0.15)
+  zScoreThreshold         Float    @default(2.5)
+  iqrFactor               Float    @default(2.0)
+
+  // ── 비용 Gate ──
+  costWeight              Float    @default(0.15)
+  dailyBudgetUsd          Float    @default(100.0)
+  latencySlowMs           Int      @default(5000)
+  latencyCriticalMs       Int      @default(10000)
+
+  // ── Canary Gate 연동 ──
+  canaryQualityMin        Int      @default(70)
+  canarySecurityMin       Int      @default(60)
+
+  // ── ORB 연동 ──
+  orbPassThreshold        Int      @default(70)
+  orbConditionalMin       Int      @default(50)
+
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+}
+
+/// Policy adjustment suggestion produced by the feedback loop (Phase 2).
+/// Generated by analyzing recent AgentEvaluation history, then awaiting
+/// human approval before being applied to an EvaluationPolicy.
+enum PolicySuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  APPLIED
+}
+
+model PolicySuggestion {
+  id              String   @id @default(cuid())
+  tenantId        String
+  /// Target policy name this suggestion would modify (default "default").
+  policyName      String   @default("default")
+  /// Optional agent group scope this suggestion concerns (e.g. "운영").
+  agentGroup      String?
+  /// Detected pattern category that triggered this suggestion.
+  patternType     String   /// "repeated_security_failure" | "quality_decline" | "cost_overrun" | "anomaly_surge" | ...
+  /// Affected agent (if pattern is agent-specific).
+  agentName       String?
+  severity        String   @default("medium")  /// "low" | "medium" | "high"
+
+  /// Human-readable explanation of the pattern + recommendation.
+  title           String
+  rationale       String   @db.Text
+
+  /// The concrete policy change proposed: { field, currentValue, suggestedValue }
+  proposedChanges Json     /// Array<{ field: string; from: number|boolean; to: number|boolean }>
+
+  /// Evidence snapshot used to generate the suggestion (counts, averages, window).
+  evidenceJson    Json?
+
+  status          PolicySuggestionStatus @default(PENDING)
+  /// Audit of the decision.
+  decidedByUserId String?
+  decidedAt       DateTime?
+  appliedAt       DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, agentName])
+}
+
+model Pack {
+  id            String               @id @default(cuid())
+  key           String               @unique
+  name          String
+  sourceType    PackSourceType
+  sourceUrl     String?
+  description   String?
+  icon          String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  versions      PackVersion[]
+  installs      PackInstallation[]
+}
+
+model PackVersion {
+  id            String               @id @default(cuid())
+  packId        String
+  version       String
+  manifestJson  Json
+  checksum      String?
+  status        PackStatus           @default(DRAFT)
+  certifiedAt   DateTime?
+  publishedAt   DateTime?
+  createdAt     DateTime             @default(now())
+
+  pack          Pack                 @relation(fields: [packId], references: [id], onDelete: Cascade)
+  certifications Certification[]
+  installs      PackInstallation[]
+
+  @@unique([packId, version])
+  @@index([status, createdAt])
+}
+
+model Certification {
+  id             String              @id @default(cuid())
+  tenantId       String?
+  packVersionId  String
+  level          String
+  score          Int?
+  findingsJson   Json?
+  createdAt      DateTime            @default(now())
+
+  packVersion    PackVersion         @relation(fields: [packVersionId], references: [id], onDelete: Cascade)
+
+  @@index([packVersionId, createdAt])
+}
+
+model PackInstallation {
+  id             String              @id @default(cuid())
+  tenantId       String
+  packId         String
+  packVersionId  String
+  status         InstallationStatus  @default(INSTALLED)
+  installedById  String?
+  installedAt    DateTime            @default(now())
+  configJson     Json?
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pack           Pack                @relation(fields: [packId], references: [id], onDelete: Cascade)
+  packVersion    PackVersion         @relation(fields: [packVersionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@unique([tenantId, packId, packVersionId])
+}
+
+model Connector {
+  id             String              @id @default(cuid())
+  tenantId       String
+  key            String
+  name           String
+  type           String
+  status         String
+  configJson     Json?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId, type, status])
+}
+
+model ExecutionSession {
+  id             String              @id @default(cuid())
+  tenantId       String
+  packInstallationId String?
+  workflowKey    String?
+  capabilityKey  String?
+  correlationId  String?
+  status         ExecutionStatus     @default(QUEUED)
+  startedAt      DateTime?
+  endedAt        DateTime?
+  completedAt    DateTime?
+  triggeredById  String?
+  inputJson      Json?
+  outputJson     Json?
+  costUsd        Decimal?            @db.Decimal(12, 4)
+  latencyMs      Int?
+  createdAt      DateTime            @default(now())
+
+  // Ingestion on-ramp (Phase 1): origin of this session and the external
+  // agent's own run identifier used for idempotent upserts.
+  source         String              @default("internal") // internal | sdk
+  externalRunId  String?
+  // 이 외부 run을 인증한 Ingest 키 — 키별/Sub-Agent별 호출 추적·현황표 집계용.
+  ingestKeyId    String?
+
+  // Hermes adapter (autonomy governance PoC): execution runtime + the
+  // autonomous-agent extras (self-created skills, persistent memory reads/
+  // writes, autonomous tool calls) carried alongside the standard run.
+  runtime        String              @default("internal") // internal | sdk | hermes
+  agentMetaJson  Json?
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  steps          ExecutionStep[]
+  traces         ExecutionTrace[]
+
+  @@unique([tenantId, externalRunId])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, runtime, createdAt])
+  @@index([workflowKey])
+  @@index([correlationId])
+}
+
+model ExecutionStep {
+  id               String            @id @default(cuid())
+  executionSessionId String
+  stepKey          String
+  stepType         String
+  capabilityKey    String?
+  status           ExecutionStatus
+  startedAt        DateTime?
+  endedAt          DateTime?
+  inputJson        Json?
+  outputJson       Json?
+  errorMessage     String?
+  latencyMs        Int?
+
+  session          ExecutionSession  @relation(fields: [executionSessionId], references: [id], onDelete: Cascade)
+
+  @@index([executionSessionId, status])
+}
+
+model ExecutionTrace {
+  id               String            @id @default(cuid())
+  executionSessionId String
+  correlationId    String
+  traceJson        Json
+  createdAt        DateTime          @default(now())
+
+  session          ExecutionSession  @relation(fields: [executionSessionId], references: [id], onDelete: Cascade)
+
+  @@index([executionSessionId])
+  @@index([correlationId])
+}
+
+/// Agent Evaluator — per-step quality/security/anomaly/cost evaluation result.
+/// Powered by Agent Evaluator SDK engine (7-Gate evaluation framework).
+model AgentEvaluation {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  executionSessionId   String
+  stepKey              String
+  nodeType             String                    /// e.g. "ai_analysis", "pentest"
+  agentName            String?                   /// Executor display name
+  /// Denormalized parent workflow key (main agent) — set at evaluate() time so
+  /// the dashboard can group sub-agent evaluations by main agent without a join.
+  workflowKey          String?
+
+  // ── Gate 1 & 2: Quality Scores ──
+  overallScore         Float    @default(0)      /// 0-100 composite quality score
+  accuracyScore        Float?                    /// 0-1 accuracy (response vs ground truth)
+  completionScore      Float?                    /// 0-1 task completion rate
+  hallucationRate      Float?                    /// 0-1 hallucination rate
+  responseQuality      Float?                    /// 0-5 response quality score
+  qualityGrade         String?                   /// "A" | "B" | "C" | "D" | "F"
+
+  // ── Gate 5: Security Scores ──
+  securityScore        Float?                    /// 0-100 security composite
+  inputThreatCount     Int      @default(0)      /// injection/XSS/traversal threats detected
+  outputLeakageCount   Int      @default(0)      /// API key/password/PII leakage
+  toolChainRisk        Boolean  @default(false)  /// suspicious tool chain detected
+  securityRiskLevel    String?                   /// "critical" | "high" | "medium" | "low"
+
+  // ── Gate 7: Anomaly Detection ──
+  anomalyDetected      Boolean  @default(false)
+  anomalyEvents        Json?                     /// AnomalyEvent[] — type, severity, detail, value, threshold
+
+  // ── Gate 4: Cost/Performance ──
+  executionTimeMs      Int?
+  tokensUsed           Int?
+  estimatedCostUsd     Float?
+  costEfficiency       Float?                    /// 0-1 cost efficiency ratio
+  latencyGrade         String?                   /// "fast" | "normal" | "slow" | "critical"
+
+  // ── Metadata ──
+  evaluationEngine     String   @default("agent-evaluator-v0.9.3")
+  gatesApplied         String[]                  /// ["quality","security","anomaly","cost"]
+  rawResultJson        Json?                     /// Full evaluation detail (all gates)
+  recommendations      Json?                     /// Suggested improvements
+
+  createdAt            DateTime @default(now())
+
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([executionSessionId, stepKey])
+  @@index([tenantId, overallScore])
+  @@index([tenantId, anomalyDetected])
+  @@index([tenantId, workflowKey, createdAt])
+}
+
+model AuditLog {
+  id             String              @id @default(cuid())
+  tenantId       String
+  actorUserId    String?
+  action         AuditAction
+  targetType     String
+  targetId       String?
+  policyResult   String?
+  correlationId  String
+  metadataJson   Json?
+  createdAt      DateTime            @default(now())
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor          User?               @relation(fields: [actorUserId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([correlationId])
+  @@index([targetType, targetId])
+}
+
+model KnowledgeArtifact {
+  id             String              @id @default(cuid())
+  tenantId       String
+  key            String
+  title          String
+  category       String
+  status         String              // DRAFT | ACTIVE | ARCHIVED | DEPRECATED
+  version        String
+  contentJson    Json?
+  // ── Operational Knowledge Management (grounding + lifecycle) ──
+  content        String?             // markdown/plain knowledge body injected into agents
+  tags           String[]            @default([])
+  scopeJson      Json?               // { global?: bool, workflowKeys?: string[], categories?: string[], capabilityKeys?: string[] }
+  /// Semantic-search embedding of title+content (text-embedding-3-small, 1536
+  /// dims). Empty when no OPENAI_API_KEY / external LLM disabled — retrieval
+  /// falls back to lexical relevance. Same pattern as FinOpsTokenLog.promptEmbedding.
+  embedding      Float[]             @default([])
+  source         String              @default("MANUAL") // MANUAL | AUTO_ERROR | EVALUATION | IMPORTED
+  priority       Int                 @default(0)        // higher = injected first
+  usageCount     Int                 @default(0)
+  lastUsedAt     DateTime?
+  linkedPolicyKey String?            // set when promoted to a governance Policy
+  createdById    String?
+  validUntil     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usages         KnowledgeUsage[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, category, status])
+  @@index([tenantId, status, priority])
+}
+
+/// Records each time an agent execution actually consumed a knowledge artifact.
+model KnowledgeUsage {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  artifactId         String
+  workflowKey        String?
+  executionSessionId String?
+  stepKey            String?
+  agentName          String?
+  usedAt             DateTime @default(now())
+
+  artifact           KnowledgeArtifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, artifactId, usedAt])
+  @@index([tenantId, workflowKey, usedAt])
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  Phase 3: Controlled Release Engineering — Replay / Shadow / Canary
+// ══════════════════════════════════════════════════════════════════
+
+/// Replay Dataset — collection of captured execution inputs/outputs for regression testing
+model ReplayDataset {
+  id             String              @id @default(cuid())
+  tenantId       String
+  name           String
+  description    String?
+  /// Filters used to create this dataset
+  filterJson     Json?               // { workflowKey, capabilityKey, packVersionId, dateFrom, dateTo, status }
+  /// Baseline PackVersion this dataset was captured from
+  baselineVersionId String?
+  caseCount      Int                 @default(0)
+  createdById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  cases          ReplayCase[]
+  runs           ReplayRun[]
+
+  @@index([tenantId, createdAt])
+  @@index([baselineVersionId])
+}
+
+/// Replay Case — individual test case within a dataset
+model ReplayCase {
+  id               String            @id @default(cuid())
+  datasetId        String
+  /// Source execution this case was captured from
+  sourceExecutionId String?
+  /// Execution parameters
+  workflowKey      String?
+  capabilityKey    String?
+  packVersionId    String?
+  inputJson        Json
+  /// Expected baseline output (from source execution)
+  expectedOutputJson Json?
+  expectedStatus     String?         // SUCCEEDED, FAILED, etc.
+  expectedLatencyMs  Int?
+  /// Tagging
+  isGolden         Boolean           @default(false)
+  riskLevel        String?           // low, medium, high, critical
+  tags             String[]          @default([])
+  createdAt        DateTime          @default(now())
+
+  dataset          ReplayDataset     @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  results          ReplayCaseResult[]
+
+  @@index([datasetId, isGolden])
+  @@index([datasetId, riskLevel])
+}
+
+/// Replay Run — execution of a dataset against a candidate version
+model ReplayRun {
+  id               String            @id @default(cuid())
+  tenantId         String
+  datasetId        String
+  /// Candidate version being tested
+  candidateVersionId String
+  /// Baseline version for comparison
+  baselineVersionId  String?
+  status           ReplayRunStatus   @default(PENDING)
+  /// Aggregate metrics
+  totalCases       Int               @default(0)
+  passedCases      Int               @default(0)
+  failedCases      Int               @default(0)
+  errorCases       Int               @default(0)
+  /// Aggregate comparison metrics
+  metricsJson      Json?             // { avgLatencyMs, totalCostUsd, policyViolations, errorRate, successRate }
+  startedAt        DateTime?
+  completedAt      DateTime?
+  triggeredById    String?
+  createdAt        DateTime          @default(now())
+
+  dataset          ReplayDataset     @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  caseResults      ReplayCaseResult[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([candidateVersionId])
+}
+
+/// Replay Case Result — per-case outcome within a replay run
+model ReplayCaseResult {
+  id               String            @id @default(cuid())
+  runId            String
+  caseId           String
+  /// Actual execution details
+  executionSessionId String?         // links to actual ExecutionSession
+  actualStatus     String?
+  actualOutputJson Json?
+  actualLatencyMs  Int?
+  actualCostUsd    Decimal?          @db.Decimal(12, 4)
+  /// Comparison results
+  statusMatch      Boolean?
+  outputDiffJson   Json?             // structured diff of expected vs actual
+  latencyDeltaMs   Int?
+  costDeltaUsd     Decimal?          @db.Decimal(12, 4)
+  policyViolations Int               @default(0)
+  retryCount       Int               @default(0)
+  /// Overall verdict for this case
+  verdict          String?           // PASS, FAIL, REGRESSION, IMPROVEMENT, ERROR
+  verdictReason    String?
+  createdAt        DateTime          @default(now())
+
+  run              ReplayRun         @relation(fields: [runId], references: [id], onDelete: Cascade)
+  replayCase       ReplayCase        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([runId, verdict])
+  @@index([caseId])
+}
+
+/// Shadow Configuration — defines how shadow traffic is routed
+model ShadowConfig {
+  id               String            @id @default(cuid())
+  tenantId         String
+  name             String
+  /// Production version (control)
+  controlVersionId   String
+  /// Candidate version (shadow)
+  candidateVersionId String
+  /// Routing rules
+  workflowFilter     String[]        @default([])  // empty = all workflows
+  capabilityFilter   String[]        @default([])
+  samplingRate       Float           @default(1.0)  // 0.0-1.0 fraction of traffic to shadow
+  isActive           Boolean         @default(true)
+  /// Aggregate metrics
+  totalPairs         Int             @default(0)
+  metricsJson        Json?
+  createdById        String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  pairs              ShadowPair[]
+
+  @@index([tenantId, isActive])
+  @@index([controlVersionId])
+}
+
+/// Shadow Pair — paired execution: production (control) vs shadow (candidate)
+model ShadowPair {
+  id                   String        @id @default(cuid())
+  configId             String
+  tenantId             String
+  /// Control (production) execution
+  controlExecutionId   String
+  /// Shadow (candidate) execution — runs without side-effects
+  shadowExecutionId    String?
+  status               ShadowPairStatus @default(PENDING)
+  /// Comparison results
+  controlStatus        String?
+  shadowStatus         String?
+  controlOutputJson    Json?
+  shadowOutputJson     Json?
+  controlLatencyMs     Int?
+  shadowLatencyMs      Int?
+  controlCostUsd       Decimal?      @db.Decimal(12, 4)
+  shadowCostUsd        Decimal?      @db.Decimal(12, 4)
+  /// Diff analysis
+  outputDiffJson       Json?
+  policyViolationsDelta Int          @default(0)
+  verdict              String?       // MATCH, DIVERGED, REGRESSION, IMPROVEMENT, ERROR
+  verdictReason        String?
+  createdAt            DateTime      @default(now())
+
+  config               ShadowConfig  @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([configId, status])
+  @@index([tenantId, createdAt])
+  @@index([controlExecutionId])
+}
+
+/// Canary Deployment — staged rollout of a candidate version
+model CanaryDeployment {
+  id                   String        @id @default(cuid())
+  tenantId             String
+  name                 String
+  /// Versions
+  stableVersionId      String        // currently active stable version
+  candidateVersionId   String        // version being rolled out
+  packId               String
+  /// Rollout configuration
+  initialTrafficPct    Int           @default(5)    // starting traffic %
+  currentTrafficPct    Int           @default(0)    // current traffic %
+  maxTrafficPct        Int           @default(100)
+  incrementStepPct     Int           @default(10)   // % increase per window
+  windowDurationMs     Int           @default(3600000) // evaluation window (default 1hr)
+  /// Scope filters
+  workflowFilter       String[]      @default([])
+  capabilityFilter     String[]      @default([])
+  tenantSubset         String[]      @default([])   // for platform-level canary
+  /// State
+  status               CanaryStatus  @default(PENDING)
+  currentWindow        Int           @default(0)
+  startedAt            DateTime?
+  completedAt          DateTime?
+  /// Rollback config
+  autoRollbackEnabled  Boolean       @default(true)
+  rollbackReason       String?
+  /// Metadata
+  createdById          String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  gates                CanaryGate[]
+  metrics              CanaryMetricSnapshot[]
+
+  @@index([tenantId, status])
+  @@index([packId, status])
+}
+
+/// Canary Gate — evaluation checkpoint during canary rollout
+model CanaryGate {
+  id                   String        @id @default(cuid())
+  deploymentId         String
+  windowNumber         Int
+  /// Gate rules evaluated
+  rulesJson            Json          // [{ metric, operator, threshold, weight }]
+  /// Results
+  result               CanaryGateResult @default(PENDING)
+  metricsJson          Json?         // snapshot of metrics at gate time
+  /// Mandatory comparison metrics
+  successRate          Float?
+  errorRate            Float?
+  policyViolationCount Int?
+  avgLatencyMs         Int?
+  p99LatencyMs         Int?
+  avgCostUsd           Decimal?      @db.Decimal(12, 4)
+  retryCount           Int?
+  invalidOutputCount   Int?          // hallucination / invalid output signals
+  /// Decision
+  evaluatedAt          DateTime?
+  evaluatedById        String?       // null = automatic
+  reason               String?
+  createdAt            DateTime      @default(now())
+
+  deployment           CanaryDeployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@index([deploymentId, windowNumber])
+}
+
+/// Canary Metric Snapshot — periodic metric observation during canary
+model CanaryMetricSnapshot {
+  id                   String        @id @default(cuid())
+  deploymentId         String
+  windowNumber         Int
+  /// Metric data
+  stableMetricsJson    Json          // metrics from stable version traffic
+  candidateMetricsJson Json          // metrics from candidate version traffic
+  /// Individual metrics (for indexing/querying)
+  stableSuccessRate    Float?
+  candidateSuccessRate Float?
+  stableAvgLatencyMs   Int?
+  candidateAvgLatencyMs Int?
+  totalStableExecs     Int           @default(0)
+  totalCandidateExecs  Int           @default(0)
+  capturedAt           DateTime      @default(now())
+
+  deployment           CanaryDeployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@index([deploymentId, windowNumber])
+}
+
+/// Version Promotion — promotion or rollback decision record
+model VersionPromotion {
+  id                   String        @id @default(cuid())
+  tenantId             String
+  packId               String
+  /// Version involved
+  fromVersionId        String
+  toVersionId          String
+  action               PromotionAction
+  /// Decision context
+  reason               String?
+  /// Source of decision: canary deployment, manual, replay result
+  sourceType           String?       // CANARY, MANUAL, REPLAY
+  sourceId             String?       // canaryDeploymentId, replayRunId, etc.
+  /// Evaluation summary at decision time
+  evaluationSummaryJson Json?
+  /// Actor
+  decidedById          String?
+  decidedAt            DateTime      @default(now())
+  /// Rollback metadata
+  rollbackFromVersionId String?
+  isEmergency          Boolean       @default(false)
+  createdAt            DateTime      @default(now())
+
+  @@index([tenantId, packId, createdAt])
+  @@index([action, createdAt])
+}
+
+// ────────────────────────────────────────
+// Phase 4 – FinOps Token Optimizer
+// ────────────────────────────────────────
+
+model FinOpsConfig {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  
+  // Gate 1: Semantic Cache
+  cacheEnabled          Boolean   @default(true)
+  cacheBackend          String    @default("redis")
+  cacheSimilarityThreshold Float  @default(0.93)
+  cacheTtlSeconds       Int       @default(86400)
+  cacheEmbeddingModel   String    @default("text-embedding-3-small")
+  cacheMaxMemoryMb      Int       @default(1024)
+  cacheWarmupEntries    Int       @default(100)
+  cacheExcludePatterns  String[]  @default([])
+  
+  // Gate 2: Model Router
+  routerEnabled         Boolean   @default(true)
+  routerStage1Enabled   Boolean   @default(true)
+  routerStage2Enabled   Boolean   @default(true)
+  routerClassifierModel String    @default("claude-haiku-4.5")
+  routerFallbackTier    Int       @default(2)
+  routerTier1Models     String[]  @default(["claude-haiku-4.5", "gemini-3-flash", "gpt-4o-mini"])
+  routerTier2Models     String[]  @default(["claude-sonnet-4.6", "gpt-4o", "gemini-3.1-pro"])
+  routerTier3Models     String[]  @default(["claude-opus-4.6", "o3", "gpt-5"])
+  
+  // Gate 3: Skill Packer
+  packerEnabled         Boolean   @default(true)
+  packerMaxTokensPerSkill Int     @default(2000)
+  packerOutputFormat    String    @default("JSON")
+  
+  // Monitoring
+  alertCacheHitMinPct   Int       @default(20)
+  alertDailyCostMax     Float     @default(50.0)
+  alertTier3MaxPct      Int       @default(30)
+  alertResponseDelayMs  Int       @default(5000)
+  alertSlackEnabled     Boolean   @default(true)
+  alertSlackChannel     String    @default("#finops-alerts")
+  alertEmailEnabled     Boolean   @default(true)
+  alertEmailAddress     String    @default("")
+  alertPagerDutyEnabled Boolean   @default(false)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId])
+}
+
+model FinOpsAgentConfig {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  agentName             String
+  status                String    @default("운영")
+  cacheEnabled          Boolean   @default(true)
+  routerEnabled         Boolean   @default(true)
+  packerEnabled         Boolean   @default(true)
+  allowedTiers          Int[]     @default([1, 2, 3])
+  namespace             String    @default("default")
+  dailyLimitUsd         Float     @default(10.0)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId, agentName])
+  @@index([tenantId])
+}
+
+model FinOpsSkill {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  skillId               String
+  name                  String
+  defaultTier           Int       @default(1)
+  invocationCount       Int       @default(0)
+  status                String    @default("활성")
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId, skillId])
+  @@index([tenantId])
+}
+
+model FinOpsNamespace {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  namespace             String
+  cacheEntries          Int       @default(0)
+  hitRate               Float     @default(0)
+  ttlPolicy             String    @default("24h")
+  status                String    @default("활성")
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId, namespace])
+  @@index([tenantId])
+}
+
+/// Single source of truth for LLM pricing (USD per 1M tokens). Replaces the
+/// previously hard-coded price tables (finops-pricing.ts / llm-judge.ts /
+/// worker pricing.ts, which remain as built-in FALLBACK defaults). Global —
+/// pricing is provider-universal, not tenant-scoped.
+model ModelPrice {
+  id                 String   @id @default(cuid())
+  /// Canonical model id, e.g. 'claude-sonnet-4-6', 'gpt-4o'
+  modelId            String   @unique
+  provider           String   // anthropic | openai | google | selfhost | ...
+  inputPerMUsd       Float
+  outputPerMUsd      Float
+  /// Provider cached-input price (Anthropic ≈10%, OpenAI ≈50% of input)
+  cachedInputPerMUsd Float?
+  tier               Int      @default(2)
+  active             Boolean  @default(true)
+  source             String   @default("BUILTIN") // BUILTIN | MANUAL | SYNCED
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([provider, active])
+}
+
+model FinOpsTokenLog {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  agentName             String
+  executionSessionId    String?
+  nodeId                String?
+  
+  // Request info
+  promptText            String?
+  // Semantic-cache embedding vector (text-embedding-3-small = 1536 dims).
+  // Empty when external LLM disabled or no API key (cache falls back to exact match).
+  promptEmbedding       Float[]
+  promptTokens          Int       @default(0)
+  completionTokens      Int       @default(0)
+  totalTokens           Int       @default(0)
+  
+  // Gate results
+  cacheHit              Boolean   @default(false)
+  cachedResponseUsed    Boolean   @default(false)
+  routedTier            Int       @default(2)
+  routedModel           String    @default("")
+  originalCostUsd       Float     @default(0)
+  optimizedCostUsd      Float     @default(0)
+  savedUsd              Float     @default(0)
+  
+  // Performance
+  responseTimeMs        Int       @default(0)
+
+  // ── Patent 3: policy-aware FinOps (정책 인식형 최적화 감사 필드) ──
+  /// Active-policy surface hash at request time; mismatch = no cache reuse.
+  policyHash                String?
+  governanceFingerprintHash String?
+  /// PUBLIC | INTERNAL | PII | SECRET | CUSTOMER_CONFIDENTIAL
+  dataClass                 String?
+  riskScore                 Float?
+  /// Governance-aware cache key (tenant+agent+skill+node+policyHash+dataClass+promptHash)
+  cacheKey                  String?
+  /// ALLOW | DENY_POLICY_CHANGED | DENY_SENSITIVE_DATA | DENY_HIGH_RISK | CACHE_DISABLED
+  cachePolicyDecision       String?
+  cacheDecisionReasonJson   Json?
+  promptHash                String?
+  /// Routing rationale: { complexity, risk, budgetPressure, allowedTiers, adjustments }
+  routeReasonJson           Json?
+  evidencePackId            String?
+  workflowId                String?
+  nodeKey                   String?
+  skillId                   String?
+
+  createdAt             DateTime  @default(now())
+  
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, createdAt])
+  @@index([tenantId, agentName])
+  @@index([executionSessionId])
+  @@index([tenantId, cacheKey])
+}
+
+// ═══════════════════════════════════════════════════════════
+// Phase 5: Builder Harness — Eval/Validation/Repair Subsystem
+// ═══════════════════════════════════════════════════════════
+
+enum BuilderRequestStatus {
+  PLANNING
+  VALIDATING
+  EVALUATED
+  SAVED
+  REPAIR_LOOP
+  REJECTED
+}
+
+// Note: HarnessIssueSeverity is stored as JSON (issuesJson), not as a column enum.
+// The ReadinessBand enum below is used as a Prisma column type.
+
+enum ReadinessBand {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  CRITICAL
+}
+
+/// A single Builder invocation lifecycle, from user prompt → plan → validate → eval → save/reject.
+model BuilderRequest {
+  id              String               @id @default(cuid())
+  tenantId        String
+  userId          String
+  status          BuilderRequestStatus @default(PLANNING)
+
+  // Input
+  userPrompt      String
+  detectedIntents Json?                // IntentClassification[]
+  matchedTemplate String?              // template ID chosen
+
+  // Pipeline timestamps
+  planCreatedAt       DateTime?
+  validationDoneAt    DateTime?
+  evalDoneAt          DateTime?
+  savedAt             DateTime?
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  // Relations
+  plan            BuilderPlan?
+  paramSet        BuilderParamSet?
+  connectorGaps   BuilderConnectorGap[]
+  validationResult BuilderValidationResult?
+  evalResult      BuilderEvalResult?
+  repairActions   BuilderRepairAction[]
+
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@index([userId])
+}
+
+/// The workflow plan produced by the planner (template match + node graph).
+model BuilderPlan {
+  id              String        @id @default(cuid())
+  requestId       String        @unique
+  templateId      String?
+  templateName    String?
+  nodesJson       Json          // TemplateNode[] — full node graph
+  connectorsJson  Json?         // string[] — required connector keys
+  policiesJson    Json?         // PolicyCheckpoint[]
+  parametersJson  Json?         // WorkflowParameter[]
+  metadata        Json?         // { category, triggerType, estimatedDuration, ... }
+
+  createdAt       DateTime      @default(now())
+
+  request         BuilderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+/// Extracted/resolved parameters for a builder plan.
+model BuilderParamSet {
+  id              String        @id @default(cuid())
+  requestId       String        @unique
+  parametersJson  Json          // Record<string, { key, label, value, resolved }[]>
+  unresolvedCount Int           @default(0)
+
+  createdAt       DateTime      @default(now())
+
+  request         BuilderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+/// Per-connector gap analysis for a builder request.
+model BuilderConnectorGap {
+  id              String        @id @default(cuid())
+  requestId       String
+  connectorKey    String
+  connectorName   String
+  tier            String        // tier1-must | tier2-reporting | tier3-knowledge
+  status          String        // available | placeholder | missing
+  requiredSecrets Json?         // string[]
+  resolution      String?       // how the gap was resolved (if any)
+
+  createdAt       DateTime      @default(now())
+
+  request         BuilderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+/// Structural validation result (BH-4 output).
+model BuilderValidationResult {
+  id                  String   @id @default(cuid())
+  requestId           String   @unique
+  isValid             Boolean  @default(false)
+  canSaveWithWarnings Boolean  @default(false)
+  blockingErrorCount  Int      @default(0)
+  warningCount        Int      @default(0)
+  issuesJson          Json     // HarnessIssue[]
+  repairActionsJson   Json?    // RepairAction[]
+
+  createdAt           DateTime @default(now())
+
+  request             BuilderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+/// Readiness evaluation result (BH-5 output).
+model BuilderEvalResult {
+  id                    String       @id @default(cuid())
+  requestId             String       @unique
+  overallScore          Int          @default(0)   // 0-100
+  band                  ReadinessBand @default(CRITICAL)
+
+  // 5-axis sub-scores
+  executionReadiness    Int          @default(0)
+  connectorValidity     Int          @default(0)
+  policyCoverage        Int          @default(0)
+  operatorUsability     Int          @default(0)
+  monitoringVisibility  Int          @default(0)
+
+  subScoresJson         Json?        // full ReadinessSubScore[]
+  issuesJson            Json?        // HarnessIssue[]
+  recommendedFixes      Json?        // string[]
+
+  // Simulation (10-50 sample replay)
+  simulationJson        Json?        // { sampleCount, generationSuccessRate, executionFeasibilityRate, connectorMismatchRate, policyViolationRisk, humanEditRate }
+
+  // Save decision
+  canSave               Boolean      @default(false)
+  requiresAcknowledgement Boolean    @default(false)
+
+  createdAt             DateTime     @default(now())
+
+  request               BuilderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+/// Individual repair action applied (or suggested) for a builder request.
+model BuilderRepairAction {
+  id              String   @id @default(cuid())
+  requestId       String
+  repairType      String   // add-node | inject-retry | add-approval | ...
+  label           String
+  description     String
+  targetNodeId    String?
+  applied         Boolean  @default(false)
+  appliedAt       DateTime?
+  resultJson      Json?    // outcome after repair
+
+  createdAt       DateTime @default(now())
+
+  request         BuilderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+// ============================================================
+// Phase 5 (Redesign): Agent Kernel — A2A Collaboration
+// ============================================================
+
+enum MissionStatus {
+  PLANNING         // Drafted, awaiting start
+  RUNNING          // Active, agents collaborating
+  WAITING_HUMAN    // Paused for human intervention
+  SUCCEEDED        // Completed successfully
+  FAILED           // Terminal failure
+  CANCELLED        // User/system cancelled
+  ROLLED_BACK      // Auto-reverted
+}
+
+enum AgentMessageKind {
+  REQUEST
+  RESPONSE
+  EVENT
+  HANDOFF
+  HUMAN_INTERVENTION
+  SYSTEM
+}
+
+enum HandoffStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+/// Multi-agent collaboration mission — a named work session that multiple agents participate in.
+model Mission {
+  id                String          @id @default(cuid())
+  tenantId          String
+  key               String          // Human-friendly slug
+  title             String
+  description       String?
+  status            MissionStatus   @default(PLANNING)
+  kind              String          // 'DEPLOYMENT' | 'INCIDENT' | 'AP_PROCESS' | 'RISK_REVIEW' | 'CUSTOM'
+
+  // Orchestration state
+  participants      Json            // Array of agent identifiers + roles
+  currentStepIndex  Int             @default(0)
+  plannedStepsJson  Json?           // Blueprint of intended flow
+  contextJson       Json?           // Working context shared across agents
+
+  // Audit & trace
+  correlationId     String
+  createdByUserId   String?
+  startedAt         DateTime?
+  endedAt           DateTime?
+
+  // Self-healing
+  autoActionsCount  Int             @default(0)
+  humanInterventionsCount Int       @default(0)
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages          AgentMessage[]
+  handoffs          AgentHandoff[]
+  autoActions       AutoAction[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, status])
+  @@index([correlationId])
+}
+
+/// Individual message between agents (or system) within a mission.
+model AgentMessage {
+  id                String            @id @default(cuid())
+  tenantId          String
+  missionId         String
+  kind              AgentMessageKind
+  fromAgent         String            // Sender agent identifier
+  toAgent           String?           // Recipient (null = broadcast)
+  subject           String?
+  payloadJson       Json              // Structured payload
+  naturalSummary    String?           // Human-readable translation
+  correlationId     String
+
+  createdAt         DateTime          @default(now())
+
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mission           Mission           @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, missionId, createdAt])
+  @@index([correlationId])
+}
+
+/// Handoff of a task from one agent to another within a mission.
+model AgentHandoff {
+  id                String         @id @default(cuid())
+  tenantId          String
+  missionId         String
+  fromAgent         String
+  toAgent           String
+  taskJson          Json           // Task description + input
+  status            HandoffStatus  @default(PENDING)
+  acceptedAt        DateTime?
+  rejectedReason    String?
+  resultJson        Json?
+  correlationId     String
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mission           Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, missionId])
+  @@index([status])
+}
+
+// ============================================================
+// Phase 5: Autonomous Ops — Self-Healing Loop
+// ============================================================
+
+enum AutoActionKind {
+  REMEDIATION
+  ROLLBACK
+  ESCALATION
+  QUARANTINE
+  RATE_ADJUST
+}
+
+enum AutoActionStatus {
+  EXECUTED
+  VERIFIED
+  REVERTED
+  FAILED
+}
+
+/// A self-healing action taken autonomously by the system.
+model AutoAction {
+  id                String             @id @default(cuid())
+  tenantId          String
+  missionId         String?
+  kind              AutoActionKind
+  targetType        String             // 'Connector' | 'Agent' | 'Pack' | 'Execution'
+  targetId          String
+  triggerReason     String             // Natural-language trigger
+  triggerRuleId     String?            // Policy/rule reference
+  actionJson        Json               // { action, parameters, reversible }
+  status            AutoActionStatus   @default(EXECUTED)
+  verificationJson  Json?              // Post-action check result
+  revertedAt        DateTime?
+  revertedByUserId  String?
+  revertWindowSec   Int                @default(600)  // Grace period for undo
+  correlationId     String
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mission           Mission?           @relation(fields: [missionId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, createdAt])
+  @@index([targetType, targetId])
+}
+
+// ============================================================
+// Phase 5: FDS — Fraud Detection
+// ============================================================
+
+enum FDSSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FDSAlertStatus {
+  OPEN
+  INVESTIGATING
+  BLOCKED
+  ESCALATED
+  DISMISSED
+  RESOLVED
+}
+
+/// FDS rule definition.
+model FDSRule {
+  id              String       @id @default(cuid())
+  tenantId        String
+  key             String
+  name            String
+  description     String?
+  enabled         Boolean      @default(true)
+  severity        FDSSeverity  @default(MEDIUM)
+  conditionsJson  Json         // Rule condition spec
+  actionJson      Json?        // Default action when matched
+  weight          Float        @default(1.0)  // For ML-assisted scoring adjustment
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  alerts          FDSAlert[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, enabled])
+}
+
+/// FDS alert raised by a rule match or anomaly detection.
+model FDSAlert {
+  id              String          @id @default(cuid())
+  tenantId        String
+  ruleId          String?
+  severity        FDSSeverity
+  status          FDSAlertStatus  @default(OPEN)
+  subjectType     String          // 'Transaction' | 'User' | 'Account' | 'Connector'
+  subjectId       String
+  score           Float           // 0..1 risk score
+  summary         String
+  detailsJson     Json            // Full evidence payload
+  similarCasesJson Json?          // Pre-retrieved similar past alerts
+  resolvedByUserId String?
+  resolvedAt      DateTime?
+  resolutionJson  Json?           // { decision, comment, feedbackToModel }
+  correlationId   String
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rule            FDSRule?        @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, createdAt])
+  @@index([subjectType, subjectId])
+}
+
+// ============================================================
+// Phase 5: AP Agent — Accounts Payable
+// ============================================================
+
+enum APInvoiceStatus {
+  RECEIVED
+  PARSING
+  MATCHING
+  EXCEPTION
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum APMatchingResult {
+  FULL_MATCH        // All 3 (Invoice, PO, GR) match
+  PARTIAL_MATCH     // Some discrepancies
+  NO_MATCH
+  NOT_APPLICABLE
+}
+
+/// Accounts Payable invoice record.
+model APInvoice {
+  id                String             @id @default(cuid())
+  tenantId          String
+  invoiceNumber     String
+  vendorName        String
+  vendorId          String?
+  amount            Decimal            @db.Decimal(18, 2)
+  currency          String             @default("KRW")
+  invoiceDate       DateTime
+  dueDate           DateTime?
+  status            APInvoiceStatus    @default(RECEIVED)
+
+  // OCR + parsing
+  sourceUri         String?            // Original doc URI
+  parsedJson        Json?              // Extracted lines, tax, etc.
+  ocrConfidence     Float?
+
+  // Matching
+  matchingResult    APMatchingResult?
+  poReference       String?
+  grReference       String?
+  matchingDetailsJson Json?            // Line-by-line comparison
+  aiSuggestionJson  Json?              // Agent's recommendation
+
+  // Approval
+  approvedByUserId  String?
+  approvedAt        DateTime?
+  rejectedReason    String?
+  correlationId     String
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId, status, createdAt])
+  @@index([vendorId])
+}
+
+// ============================================================
+// Phase 6: Integration Harness — Capability Registry
+// ============================================================
+
+enum CapabilityKind {
+  CONNECTOR       // REST / Webhook / MCP Server
+  AGENT           // Autonomous agent (QA, Canary, FinOps, etc.)
+  ADAPTER         // Pluggable adapter (ML scoring, OCR, etc.)
+  TEMPLATE        // Pre-built workflow template
+  SKILL           // Reusable skill/function
+}
+
+enum AgentKernelType {
+  MCP             // MCP server protocol
+  REST            // REST-based agent
+  LOCAL           // In-process NestJS service
+  EXTERNAL        // External webhook
+}
+
+enum AgentStatus {
+  AVAILABLE
+  DEGRADED
+  UNAVAILABLE
+  DRAINING
+}
+
+/// Formal agent definition — first-class entity with capabilities schema.
+model AgentDefinition {
+  id                String          @id @default(cuid())
+  tenantId          String
+  key               String          // 'qa-agent', 'canary-agent', ...
+  name              String
+  description       String?
+  category          String          // 'operations' | 'development' | 'qa' | 'utility' | 'finops' | 'business'
+  version           String          @default("1.0.0")
+  status            AgentStatus     @default(AVAILABLE)
+  kernelType        AgentKernelType @default(LOCAL)
+
+  // Schema contracts
+  inputSchemaJson   Json            // JSON Schema for input
+  outputSchemaJson  Json            // JSON Schema for output
+  capabilitiesJson  Json            // Array of capability tags
+
+  // Runtime binding
+  kernelConfigJson  Json?           // { endpoint, command, args, ... }
+  defaultTimeoutSec Int             @default(60)
+  costPerInvocationUsd Decimal?     @db.Decimal(12, 6)
+
+  // Stats
+  totalInvocations  Int             @default(0)
+  lastInvokedAt     DateTime?
+  lastSuccessRate   Float?
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId, category, status])
+}
+
+/// Immutable per-save snapshot of an AgentDefinition — enables version history
+/// and rollback. Append-only by design (no tenant FK relation, like
+/// GovernanceDecision); scoped via tenantId index. snapshotJson holds the full
+/// restorable definition (name/description/category/version/kernelType/
+/// schemas/kernelConfig/timeout/cost).
+model AgentVersionSnapshot {
+  id               String   @id @default(cuid())
+  tenantId         String
+  agentKey         String
+  /// Semantic version string at snapshot time (AgentDefinition.version)
+  version          String
+  /// Monotonic per-agent revision (1, 2, 3...) — disambiguates same-version saves
+  revision         Int
+  /// Full restorable AgentDefinition payload
+  snapshotJson     Json
+  /// What produced this snapshot: REGISTER | UPDATE | ROLLBACK
+  changeType       String   @default("UPDATE")
+  /// When changeType=ROLLBACK, the snapshot id that was restored
+  rolledBackFromId String?
+  createdById      String?
+  createdAt        DateTime @default(now())
+
+  @@unique([tenantId, agentKey, revision])
+  @@index([tenantId, agentKey, createdAt])
+}
+
+/// ORB (Ops.AI Review Board) Agent registration review.
+/// 5-area scoring: Quality(30), Performance(20), Security(25), DataStandards(15), Scalability(10) = 100pts
+model OrbReview {
+  id                String        @id @default(cuid())
+  tenantId          String
+  agentKey          String        /// AgentDefinition.key being reviewed
+  agentName         String        /// Display name of the agent
+  version           String        @default("1.0.0")
+
+  // Submitter info
+  submittedBy       String        /// Developer who submitted for review
+  submittedTeam     String?       /// Team/department
+  submittedAt       DateTime      @default(now())
+
+  // ── 5-Area Scores (항목 평균 1-5 → 가중 환산) ──
+  qualityScore      Float?        /// Area 1: 기본 품질 (0-30pts)
+  performanceScore  Float?        /// Area 2: 성능 (0-20pts)
+  securityScore     Float?        /// Area 3: 보안 취약성 (0-25pts)
+  dataStdScore      Float?        /// Area 4: 데이터 표준화 (0-15pts)
+  scalabilityScore  Float?        /// Area 5: 확장 가능성 (0-10pts)
+  totalScore        Float?        /// Sum of 5 areas (0-100pts)
+
+  // ── Item-level scores (JSON) ──
+  qualityItems      Json?         /// {accuracy, hallucination, consistency, edgeCase, errorHandling}
+  performanceItems  Json?         /// {p95Latency, throughput, availability, resourceEfficiency}
+  securityItems     Json?         /// {promptInjection, piiProtection, dataLeakage, permissionScope, auditTrail}
+  dataStdItems      Json?         /// {ioFormat, loggingStd, apiSpec, errorCodes}
+  scalabilityItems  Json?         /// {multiSystem, modularity, configDriven, documentation}
+
+  // ── Mandatory checks (M1-M6) ──
+  mandatoryChecks   Json?         /// {M1_promptInjection, M2_piiProtection, M3_ioFormat, M4_loggingStd, M5_p95Sla, M6_hallucination}
+  allMandatoryPassed Boolean      @default(false)
+
+  // ── Verdict ──
+  verdict           String?       /// "approved" | "conditional" | "rejected"
+  verdictReason     String?       /// Main strengths + improvement needs
+  conditionalDeadline DateTime?   /// Deadline for conditional approval (max 30 days)
+
+  // ── Reviewer info ──
+  reviewerName      String?
+  reviewerTeam      String?
+  reviewedAt        DateTime?
+  reviewerComments  String?       @db.Text
+
+  // ── Submitted documents ──
+  submittedDocs     Json?         /// {D1..D9 checklist with submitted status}
+
+  // ── Auto-evaluation scores (from Evaluator engine) ──
+  autoEvalScore     Float?        /// Overall score from Agent Evaluator
+  autoEvalJson      Json?         /// Full auto-evaluation result
+
+  status            String        @default("pending") /// pending | in_review | completed
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, agentKey])
+}
+
+/// Pluggable adapter registration (FDS ML, OCR, etc.).
+model AdapterRegistration {
+  id                String          @id @default(cuid())
+  tenantId          String
+  key               String          // 'ocr-textract', 'fds-ml-openai', ...
+  name              String
+  adapterType       String          // 'ocr' | 'ml-score' | 'embedding' | 'translation'
+  implementation    String          // 'mock' | 'tesseract' | 'textract' | 'openai' | 'heuristic' | 'http-model'
+  version           String          @default("1.0.0")
+  active            Boolean         @default(true)
+
+  inputSchemaJson   Json
+  outputSchemaJson  Json
+  configJson        Json?           // Adapter-specific config (endpoint, apiKey ref, etc.)
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId, adapterType, active])
+}
+
+/// Denormalized capability entry — unified view of everything Builder can use.
+model CapabilityBinding {
+  id                String          @id @default(cuid())
+  tenantId          String
+  kind              CapabilityKind
+  sourceType        String          // 'Connector' | 'AgentDefinition' | 'AdapterRegistration' | 'PackCapability'
+  sourceId          String          // FK to original entity
+  key               String          // e.g. 'connector:slack-webhook' or 'agent:qa-agent'
+  label             String          // Human-friendly name for Builder UI
+  category          String          // 'messaging' | 'deployment' | 'compliance' | ...
+  tags              String[]        // searchable tags
+  inputSchemaJson   Json?
+  outputSchemaJson  Json?
+  docsUrl           String?
+  active            Boolean         @default(true)
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId, kind, active])
+  @@index([sourceType, sourceId])
+}
+
+// ════════════════════════════════════════════════════════════════
+// Phase 6 Step 2 — Workflow Server Persistence  (main agent = Workflow)
+// ════════════════════════════════════════════════════════════════
+
+enum WorkflowStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+model Workflow {
+  id                String            @id @default(cuid())
+  tenantId          String
+  key               String
+  code              String?
+  name              String
+  description       String?
+  status            WorkflowStatus    @default(DRAFT)
+  version           Int               @default(1)
+  activeVersionId   String?
+  tags              String[]
+  // Scenario 2: per-agent effectiveness baseline (manual minutes/run, coverage baseline, value tag, etc.)
+  effectivenessJson Json?
+  // Scenario 3: only listed (ORB-approved) workflows appear in the Ops.AI usable-agent catalog
+  listed            Boolean           @default(true)
+  // Scenario 2/OPS: target system this agent serves (promoted from effectivenessJson.system for indexing/grouping)
+  system            String?
+  createdById       String
+  updatedById       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy         User              @relation("WorkflowCreatedBy", fields: [createdById], references: [id])
+  updatedBy         User?             @relation("WorkflowUpdatedBy", fields: [updatedById], references: [id])
+  nodes             WorkflowNodeDef[]
+  edges             WorkflowEdgeDef[]
+  versions          WorkflowVersion[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, status, updatedAt])
+  @@index([tenantId, createdById])
+  @@index([tenantId, system])
+}
+
+model WorkflowVersion {
+  id               String   @id @default(cuid())
+  workflowId       String
+  versionNumber    Int
+  label            String?
+  nodesSnapshot    Json
+  edgesSnapshot    Json
+  settingsSnapshot Json?
+  createdById      String
+  createdAt        DateTime @default(now())
+
+  workflow         Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  createdBy        User     @relation("WorkflowVersionCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([workflowId, versionNumber])
+  @@index([workflowId, createdAt])
+}
+
+model WorkflowNodeDef {
+  id               String   @id @default(cuid())
+  workflowId       String
+  nodeKey          String
+  uiType           String
+  name             String
+  executionOrder   Int
+  configJson       Json     @default("{}")
+  inputMappingJson Json?
+  dependsOn        String[]
+  positionX        Float?
+  positionY        Float?
+
+  workflow         Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, nodeKey])
+  @@index([workflowId, executionOrder])
+}
+
+model WorkflowEdgeDef {
+  id          String   @id @default(cuid())
+  workflowId  String
+  fromNodeKey String
+  toNodeKey   String
+  edgeType    String   @default("SEQUENCE")
+  condition   String?
+  label       String?
+
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, fromNodeKey, toNodeKey])
+  @@index([workflowId])
+}
+
+// ════════════════════════════════════════════════════════════════
+// Scenario 1 — Error/anomaly knowledge capture (logs → knowledge → feedback)
+// ════════════════════════════════════════════════════════════════
+model ErrorPattern {
+  id             String   @id @default(cuid())
+  tenantId       String
+  workflowKey    String?
+  stepKey        String?
+  signature      String // normalized dedup key
+  category       String   @default("execution") // execution | quality | security | anomaly
+  severity       String   @default("warning") // info | warning | critical
+  occurrences    Int      @default(1)
+  sampleMessage  String?
+  recommendation String?
+  status         String   @default("OPEN") // OPEN | ACKNOWLEDGED | RESOLVED
+  firstSeenAt    DateTime @default(now())
+  lastSeenAt     DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([tenantId, signature])
+  @@index([tenantId, workflowKey, status])
+  @@index([tenantId, category, lastSeenAt])
+}
+
+// ============================================================
+// Effectiveness Signals — measured MTTD / test-coverage source data
+// ============================================================
+
+enum EffectivenessSignalKind {
+  DETECTION
+  COVERAGE
+}
+
+model EffectivenessSignal {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  workflowKey        String
+  stepKey            String?
+  executionSessionId String?
+  kind               EffectivenessSignalKind
+  // DETECTION
+  occurredAt         DateTime?
+  detectedAt         DateTime?
+  detectSeconds      Int?
+  // COVERAGE
+  testsTotal         Int?
+  testsPassed        Int?
+  coveragePct        Float?
+  source             String   @default("agent") // 'agent' | 'api' | 'seed'
+  detailsJson        Json?
+  createdAt          DateTime @default(now())
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, workflowKey, createdAt])
+  @@index([tenantId, kind, createdAt])
+}
+
+model IngestApiKey {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  prefix      String // display, e.g. first 12 chars "mts_live_ab1"
+  hashedKey   String // sha256 hex of full key (no plaintext stored)
+  scopes      String[]  @default(["ingest:write"])
+  env         String    @default("live") // live | test
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  // ── 추적/그룹핑 (표준화: 테넌트·팀·메인Agent·Sub-Agent 단위 귀속) ──
+  teamId            String? // 테넌트 하위 팀 그룹 (선택)
+  agentKey          String? // 메인 Agent(workflow.key) 연결 (선택)
+  subAgentKey       String? // Sub-Agent(nodeKey) 연결 — sub별 키 발급 시
+  agentName         String? // 표시/매칭용 라벨
+  allowedAgentNames String[] @default([]) // 본문 agentName 허용목록(비어있으면 무제한)
+  callCount         Int      @default(0) // 누적 호출수(귀속 캐시)
+  lastRunAt         DateTime? // 마지막 run 귀속 시각
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  team        Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, revokedAt])
+  @@index([hashedKey])
+  @@index([tenantId, teamId])
+  @@index([tenantId, subAgentKey])
+}
+
+// 테넌트 하위 팀/그룹 — Ingest Key·Agent를 팀 단위로 묶어 현황표 그룹핑.
+model Team {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ingestKeys IngestApiKey[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+/// 운영 기준값(기준정보) — 조직(테넌트) 단위. 대시보드의 ROI/공수/health/등급 계산에
+/// 쓰이는 하드코딩 상수를 이 한 곳에서 관리한다. 행이 없으면 코드 기본값을 쓴다.
+model OpsReferenceConfig {
+  id                       String   @id @default(cuid())
+  tenantId                 String   @unique
+  /// 인건비 시급(USD) — ROI/순가치 계산 기본 시급 (Agent별 override 없을 때)
+  hourlyRateUsd            Float    @default(50)
+  /// 월 근무시간 — 절감시간 → MM(맨먼스) 환산 분모
+  workingHoursPerMonth     Int      @default(160)
+  /// Health '비정상(down)' 임계값
+  healthDownScore          Int      @default(50)
+  healthDownFailRate       Float    @default(0.3)
+  healthDownAnomalyRate    Float    @default(0.4)
+  /// Health '주의(degraded)' 임계값
+  healthDegradedScore      Int      @default(75)
+  healthDegradedFailRate   Float    @default(0.1)
+  healthDegradedAnomalyRate Float   @default(0.15)
+  /// 품질 등급 컷오프(이상)
+  gradeA                   Int      @default(90)
+  gradeB                   Int      @default(80)
+  gradeC                   Int      @default(70)
+  gradeD                   Int      @default(60)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ════════════════════════════════════════════════════════════════
+// Governance Core — runtime governance (Patent 1) + registration
+// governance (Patent 2). Append-only audit-grade tables: tenantId is
+// kept as an indexed scalar (no FK) so rows survive tenant archival
+// and writes never cascade-delete evidence.
+// ════════════════════════════════════════════════════════════════
+
+enum GovernanceDecisionType {
+  ALLOW
+  WARN
+  REQUIRE_APPROVAL
+  BLOCK
+  QUARANTINE
+}
+
+enum GovernanceFingerprintStatus {
+  DRAFT
+  APPROVED
+  DRIFTED
+  REVOKED
+}
+
+enum SandboxReplayStatus {
+  RUNNING
+  PASSED
+  FAILED
+}
+
+enum GovernancePatchType {
+  ADD_POLICY_CHECKPOINT
+  ADD_HUMAN_APPROVAL
+  ADD_FALLBACK
+}
+
+enum OrbGovernanceStatus {
+  DRAFT
+  TEMP_REGISTERED
+  NODE_RESOLVED
+  FINGERPRINTED
+  SANDBOX_REPLAYED
+  AUTO_SCORED
+  NEEDS_REPAIR
+  POLICY_INJECTED
+  HUMAN_REVIEW
+  APPROVED
+  PROMOTED
+  ACTIVE
+  REJECTED
+  REVOKED
+  DRIFT_DETECTED
+  REVIEW_EXPIRED
+}
+
+/// Per-node governance profile: executionType / capability / actionType /
+/// riskLevel / dataClass resolved at registration or first execution.
+model NodeGovernanceProfile {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  workflowId         String
+  workflowVersionId  String?
+  nodeKey            String
+  executionType      String
+  capability         String?
+  actionType         String?  // READ | WRITE | EXTERNAL_SEND | DELETE | DEPLOY | APPROVE | PAYMENT | PERMISSION_CHANGE
+  riskLevel          String   @default("LOW") // LOW | MEDIUM | HIGH | CRITICAL
+  dataClass          String?  // PUBLIC | INTERNAL | PII | SECRET | CUSTOMER_CONFIDENTIAL
+  policyCheckpoint   Boolean  @default(false)
+  humanApproval      Boolean  @default(false)
+  connectorScopeHash String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenantId, workflowId, nodeKey])
+  @@index([tenantId, workflowId])
+}
+
+/// Runtime policy decision per execution step (Patent 1).
+model GovernanceDecision {
+  id                 String                 @id @default(cuid())
+  tenantId           String
+  executionSessionId String
+  executionStepId    String?
+  workflowId         String?
+  nodeKey            String?
+  policyVersionHash  String?
+  decision           GovernanceDecisionType
+  severity           String                 @default("LOW") // LOW | MEDIUM | HIGH | CRITICAL
+  reasonJson         Json
+  gateResultsJson    Json
+  autoActionJson     Json?
+  createdAt          DateTime               @default(now())
+
+  @@index([tenantId, executionSessionId])
+  @@index([tenantId, decision, createdAt])
+}
+
+/// Hash-chained, reproducible evidence of a governance decision
+/// (Patent 1/2/3 common asset). previousHash → packHash forms a
+/// per-tenant integrity chain.
+model EvidencePack {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  kind                 String   @default("RUNTIME") // RUNTIME | REGISTRATION | FINOPS
+  executionSessionId   String?
+  workflowId           String?
+  workflowVersionId    String?
+  governanceDecisionId String?
+  orbGovernanceReviewId String?
+  policyVersionHash    String?
+  workflowHash         String?
+  promptHash           String?
+  modelId              String?
+  connectorIdsJson     Json?
+  evaluationJson       Json
+  fdsAlertIdsJson      Json?
+  autoActionJson       Json?
+  previousHash         String?
+  packHash             String   @unique
+  createdAt            DateTime @default(now())
+
+  @@index([tenantId, executionSessionId])
+  @@index([tenantId, kind, createdAt])
+}
+
+/// Canonicalized hash of a workflow's governance-relevant surface
+/// (node graph, connector scope, policy version, model tier, data
+/// class, budget) — Patent 2 core.
+model GovernanceFingerprint {
+  id                 String                      @id @default(cuid())
+  tenantId           String
+  workflowId         String?
+  workflowVersionId  String?
+  agentId            String?
+  nodeGraphHash      String
+  connectorScopeHash String
+  policyVersionHash  String
+  modelTierHash      String
+  dataClassHash      String
+  budgetHash         String
+  actionRiskHash     String
+  fingerprintHash    String                      @unique
+  status             GovernanceFingerprintStatus @default(DRAFT)
+  approvedById       String?
+  approvedAt         DateTime?
+  createdAt          DateTime                    @default(now())
+
+  @@index([tenantId, workflowId])
+  @@index([tenantId, status])
+}
+
+/// Pre-production shadow execution of a workflow against a replay
+/// dataset; produces readiness scores (Patent 2).
+model SandboxReplayRun {
+  id               String              @id @default(cuid())
+  tenantId         String
+  workflowId       String
+  fingerprintHash  String
+  datasetId        String?
+  status           SandboxReplayStatus @default(RUNNING)
+  readinessScore   Float               @default(0)
+  securityScore    Float               @default(0)
+  policyScore      Float               @default(0)
+  costScore        Float               @default(0)
+  reliabilityScore Float               @default(0)
+  humanReviewScore Float               @default(0)
+  replayResultHash String?
+  resultJson       Json
+  createdAt        DateTime            @default(now())
+
+  @@index([tenantId, workflowId])
+  @@index([tenantId, fingerprintHash])
+}
+
+/// Auto-generated governance repair (policy checkpoint / human
+/// approval / fallback insertion) for nodes below readiness
+/// thresholds (Patent 2).
+model GovernancePatch {
+  id         String              @id @default(cuid())
+  tenantId   String
+  workflowId String
+  nodeKey    String
+  patchType  GovernancePatchType
+  beforeJson Json
+  afterJson  Json
+  reasonJson Json
+  applied    Boolean             @default(false)
+  appliedAt  DateTime?
+  createdAt  DateTime            @default(now())
+
+  @@index([tenantId, workflowId, nodeKey])
+}
+
+/// Registration-governance state machine instance: temp registration
+/// → fingerprint → sandbox replay → scoring → repair → human review
+/// → approval → immutable promotion (Patent 2).
+model OrbGovernanceReview {
+  id                String              @id @default(cuid())
+  tenantId          String
+  workflowId        String
+  status            OrbGovernanceStatus @default(DRAFT)
+  fingerprintHash   String?
+  replayRunId       String?
+  readinessScore    Float?
+  reviewerId        String?
+  approvalHash      String?
+  approvedAt        DateTime?
+  promotedVersionId String?
+  rejectionReason   String?
+  historyJson       Json                @default("[]")
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([tenantId, workflowId])
+  @@index([tenantId, status])
+}

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metis FinOps — Agent 비용 관제</title>
+<link rel="stylesheet" href="style.css">
+<!-- 사내망(폐쇄망) 대응: 로컬 번들 우선, 없을 때만 CDN 폴백 -->
+<script src="vendor/chart.umd.min.js"></script>
+<script>window.Chart || document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"><\/script>')</script>
+<script src="vendor/marked.min.js"></script>
+<script>window.marked || document.write('<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"><\/script>')</script>
+</head>
+<body>
+
+<nav id="sidebar">
+  <div id="logo">Metis<span>.FinOps</span></div>
+  <div id="logo-sub">Agent FinOps Platform · ktds OPS.AI</div>
+  <div class="nav-item active" data-view="overview"><span class="ic">📊</span>개요 (관제)</div>
+  <div class="nav-item" data-view="agents"><span class="ic">🤖</span>에이전트 정책</div>
+  <div class="nav-item" data-view="developer"><span class="ic">🧑‍💻</span>개발자</div>
+  <div class="nav-item" data-view="ops"><span class="ic">🛡️</span>운영</div>
+  <div class="nav-item" data-view="finance"><span class="ic">💼</span>재무</div>
+  <div class="nav-item" data-view="governance"><span class="ic">🛡️</span>거버넌스</div>
+  <div class="nav-item" data-view="intel"><span class="ic">🔮</span>예측·이상감지</div>
+  <div class="nav-item" data-view="insights"><span class="ic">💡</span>인사이트</div>
+  <div style="flex:1"></div>
+  <div class="nav-item" data-view="testagent" style="border:1px dashed var(--border)"><span class="ic">🧪</span>테스트 에이전트</div>
+  <div id="side-foot">
+    <div><span id="conn-dot"></span><span id="conn-text">연결 확인 중…</span></div>
+    <div id="uptime"></div>
+    <div style="margin-top:6px">Gateway :8400 · Control Plane :8500</div>
+  </div>
+</nav>
+
+<main id="main">
+
+  <!-- ================= 개요 ================= -->
+  <section class="view active" id="view-overview">
+    <h1 class="page-title">관제 개요</h1>
+    <div class="page-sub">전 테넌트 실시간 지출·절감·통제 현황 (5초 갱신)</div>
+    <div class="grid kpis">
+      <div class="card kpi"><div class="lbl">오늘 지출</div><div class="val" id="k-cost">—</div><div class="delta" id="k-calls"></div></div>
+      <div class="card kpi"><div class="lbl">분당 Burn Rate (10분 평균)</div><div class="val" id="k-burn">—</div></div>
+      <div class="card kpi good"><div class="lbl">오늘 절감액 (FinOps 회계)</div><div class="val" id="k-savings">—</div><div class="delta" id="k-savings-pct"></div></div>
+      <div class="card kpi"><div class="lbl">Cost-of-Pass (성공 1건당)</div><div class="val" id="k-cop">—</div><div class="delta" id="k-pass"></div></div>
+      <div class="card kpi"><div class="lbl">활성 Run</div><div class="val" id="k-active">—</div></div>
+      <div class="card kpi crit"><div class="lbl">서킷브레이커 발동 (오늘)</div><div class="val" id="k-killed">—</div></div>
+      <div class="card kpi warn"><div class="lbl">모델 강등 호출 (오늘)</div><div class="val" id="k-down">—</div></div>
+      <div class="card kpi"><div class="lbl">오늘 토큰</div><div class="val" id="k-tokens">—</div></div>
+    </div>
+    <div class="grid row2">
+      <div class="card">
+        <h3>지출 추이 <span class="sub" id="ov-series-sub"></span>
+          <span style="float:right;display:flex;gap:6px">
+            <select id="ov-mins">
+              <option value="30">최근 30분</option><option value="60" selected>최근 1시간</option>
+              <option value="180">최근 3시간</option><option value="360">최근 6시간</option>
+              <option value="1440">최근 24시간</option><option value="10080">최근 7일</option>
+            </select>
+            <select id="ov-group">
+              <option value="tenant">테넌트별</option><option value="agent">에이전트별</option>
+              <option value="model">모델별</option><option value="provider">프로바이더별</option>
+            </select>
+          </span></h3>
+        <div class="chart-box tall"><canvas id="ch-spend"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>모델별 지출 비중
+          <select id="ov-model-mins" style="float:right">
+            <option value="60" selected>최근 1시간</option><option value="360">최근 6시간</option>
+            <option value="1440">최근 24시간</option><option value="10080">최근 7일</option>
+          </select></h3>
+        <div class="chart-box tall"><canvas id="ch-model-donut"></canvas></div>
+      </div>
+    </div>
+    <div class="grid row21 mt">
+      <div class="card">
+        <h3>실시간 알림 피드</h3>
+        <div class="feed" id="ov-alerts"></div>
+      </div>
+      <div class="card">
+        <h3>절감 구성 <span class="sub">무엇이 비용을 아꼈나</span>
+          <select id="ov-sav-hours" style="float:right">
+            <option value="1">최근 1시간</option><option value="6">최근 6시간</option>
+            <option value="24" selected>최근 24시간</option><option value="168">최근 7일</option>
+          </select></h3>
+        <div class="chart-box short"><canvas id="ch-ov-savings"></canvas></div>
+        <table id="ov-savings-table" style="margin-top:10px">
+          <thead><tr><th>절감 메커니즘</th><th class="num">절감액</th><th class="num">비중</th><th class="num">건수</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 에이전트 정책 ================= -->
+  <section class="view" id="view-agents">
+    <h1 class="page-title">에이전트 정책 레지스트리</h1>
+    <div class="page-sub">에이전트별 시맨틱 캐시 · 강등 품질 게이트 · 복잡도 라우팅 · 스킬패커 기준값 — 클릭으로 정책 토글</div>
+    <div class="card">
+      <table id="agents-table">
+        <thead><tr>
+          <th>에이전트</th><th>설명</th><th>시맨틱 캐시</th><th>주력 모델 → 강등 대상</th>
+          <th>품질 게이트</th><th>강등</th><th>복잡도 라우팅</th><th class="num">툴 레지스트리</th>
+          <th class="num">run 한도</th><th class="num">24h Run</th><th class="num">24h 품질</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card mt">
+      <h3>품질 게이트 동작 방식</h3>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.9">
+        강등(다운시프트) 후보가 발생하면 대상 모델의 <b style="color:var(--text)">최근 7일 품질 실적</b>을 검사합니다.<br>
+        <span class="badge b-green">승인</span> 샘플 충분 + 평균 품질 ≥ 기준 → 강등 적용 ·
+        <span class="badge b-blue">카나리</span> 샘플 부족 → 설정 비율만 강등하며 품질 데이터 수집 ·
+        <span class="badge b-red">보류</span> 품질 기준 미달 → 강등하지 않고 원 모델 유지 + 알림<br>
+        <b style="color:var(--text)">복잡도 라우팅</b>: 단순 프롬프트(복잡도 ≤0.3)가 상위 모델을 요청하면 경제 모델로 자동 강등 후보화 —
+        품질 게이트·거버넌스 방어를 통과해야 적용됩니다. 강등 run 품질이 10% 이상 떨어지면 <b style="color:var(--text)">가드레일이 자동 원복</b>합니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 개발자 ================= -->
+  <section class="view" id="view-developer">
+    <h1 class="page-title">개발자 뷰</h1>
+    <div class="page-sub">내 에이전트의 run 단위 비용 구조 — 어느 스텝·모델·토큰이 비쌌는지</div>
+    <div class="toolbar">
+      <label style="color:var(--muted);font-size:12.5px">에이전트</label>
+      <select id="dev-agent"><option value="">전체</option></select>
+    </div>
+    <div class="grid row21">
+      <div class="card">
+        <h3>최근 Run <span class="sub">클릭하면 비용 워터폴이 열립니다</span></h3>
+        <div class="scroll-y"><table id="dev-runs">
+          <thead><tr><th>Run</th><th>에이전트</th><th>상태</th><th class="num">스텝</th><th class="num">토큰</th><th class="num">비용</th><th class="num">품질</th></tr></thead>
+          <tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <h3>토큰 구성 <span class="sub">선택 run · 5종 분리</span></h3>
+        <div class="chart-box"><canvas id="ch-tokens"></canvas></div>
+        <div id="dev-run-meta" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="card mt">
+      <h3>Run 비용 워터폴 <span class="sub" id="wf-title">run 을 선택하세요</span></h3>
+      <div id="waterfall"><div class="empty">왼쪽 표에서 run 을 클릭하세요</div></div>
+    </div>
+  </section>
+
+  <!-- ================= 운영 ================= -->
+  <section class="view" id="view-ops">
+    <h1 class="page-title">운영 뷰</h1>
+    <div class="page-sub">예산 게이지 · run 비용 분포(p50/p95/p99) · 서킷브레이커 · GPU 풀</div>
+    <div class="grid row11">
+      <div class="card" id="budget-card">
+        <h3>일 예산 현황 <span class="sub">소프트캡 → 강등 → 하드컷 3단계</span>
+          <select id="budget-group" style="float:right">
+            <option value="tenant" selected>테넌트별</option>
+            <option value="agent">에이전트별</option>
+            <option value="all">전체</option>
+          </select></h3>
+        <div id="budget-list"></div>
+      </div>
+      <div class="card">
+        <h3>에이전트별 Run 비용 분포 <span class="sub">최근 24시간 · 롱테일 감시 (p50/p95/p99)</span></h3>
+        <div class="chart-box tall"><canvas id="ch-pct"></canvas></div>
+      </div>
+    </div>
+    <div class="grid row11 mt">
+      <div class="card">
+        <h3>통제 이벤트 로그 <span class="sub">서킷브레이커 · 강등 · 예산</span></h3>
+        <div class="feed" id="ops-alerts"></div>
+      </div>
+      <div class="card">
+        <h3>셀프호스트 GPU 풀 (H100×4) <span class="sub">유휴비용 <b id="gpu-idle" style="color:var(--yellow)">—</b>/시간</span></h3>
+        <div id="gpu-nodes"></div>
+        <div class="chart-box short mt"><canvas id="ch-gpu"></canvas></div>
+      </div>
+    </div>
+    <div class="card mt">
+      <h3>차단·실패 Run <span class="sub">최근</span></h3>
+      <table id="ops-killed">
+        <thead><tr><th>Run</th><th>에이전트</th><th>테넌트</th><th>사유</th><th class="num">스텝</th><th class="num">소진 비용</th></tr></thead>
+        <tbody></tbody></table>
+    </div>
+  </section>
+
+  <!-- ================= 재무 ================= -->
+  <section class="view" id="view-finance">
+    <h1 class="page-title">재무 뷰</h1>
+    <div class="page-sub">테넌트 쇼백 · 절감 회계(counterfactual) · 단위경제 · 모델 단가 · FOCUS export</div>
+    <div class="toolbar">
+      <button class="btn primary" id="btn-focus">⬇ FOCUS 1.4 CSV 내보내기 (24h)</button>
+      <span style="color:var(--muted);font-size:12px">FinOps Foundation FOCUS 1.4 호환 + x_ 토큰 확장 컬럼 — 회계/차지백 시스템 연동용</span>
+    </div>
+    <div class="grid row11">
+      <div class="card">
+        <h3>테넌트 쇼백 <span class="sub">최근 24시간</span></h3>
+        <table id="fin-showback">
+          <thead><tr><th>테넌트</th><th class="num">비용</th><th class="num">절감</th><th class="num">토큰</th><th class="num">호출</th><th class="num">점유율</th></tr></thead>
+          <tbody></tbody></table>
+      </div>
+      <div class="card">
+        <h3>절감 회계 분해 <span class="sub">미적용 가정(counterfactual) 대비</span></h3>
+        <div class="chart-box"><canvas id="ch-savings"></canvas></div>
+        <div id="fin-cache-rate" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="grid row11 mt">
+      <div class="card">
+        <h3>단위경제: Cost-of-Pass <span class="sub">성공 1건당 실질 비용 = 비용 ÷ 품질게이트 통과 run</span></h3>
+        <table id="fin-cop">
+          <thead><tr><th>에이전트</th><th class="num">Run</th><th class="num">성공률</th><th class="num">평균 품질</th><th class="num">p50 비용</th><th class="num">Cost-of-Pass</th></tr></thead>
+          <tbody></tbody></table>
+      </div>
+      <div class="card">
+        <h3>품질-비용 폐루프 <span class="sub">구성 변경 이벤트 오버레이 (세로선)</span></h3>
+        <div class="toolbar"><select id="qc-agent"><option value="">전체 에이전트</option></select></div>
+        <div class="chart-box"><canvas id="ch-qc"></canvas></div>
+      </div>
+    </div>
+    <div class="card mt">
+      <h3>모델 단가 마스터 <span class="sub">런타임 수정 — 저장 즉시 과금에 반영 (metis-ai ModelPrice 이식)</span></h3>
+      <div class="scroll-y" style="max-height:320px"><table id="fin-prices">
+        <thead><tr><th>모델</th><th>티어</th><th class="num">Input $/M</th><th class="num">Output $/M</th>
+          <th class="num">CacheRead $/M</th><th class="num">CacheWrite $/M</th><th>강등 대상</th><th></th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+    <div class="card mt">
+      <h3>비용 vs 절감 추이 <span class="sub">5분 버킷 · 24시간</span></h3>
+      <div class="chart-box"><canvas id="ch-cost-savings"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ================= 거버넌스 (Patent 3 차별화) ================= -->
+  <section class="view" id="view-governance">
+    <h1 class="page-title">거버넌스 융합 <span style="font-weight:400;font-size:12px;color:var(--accent)">— 비용 최적화가 보안·정책을 침해하지 않도록 (Patent 3)</span></h1>
+    <div class="page-sub">캐시 재사용·모델 라우팅을 데이터 등급·리스크 점수·정책 해시로 통제합니다. 비용·품질·거버넌스를 동시에 만족시키는 폐루프.</div>
+    <div class="grid kpis">
+      <div class="card kpi good"><div class="lbl">정책 준수율 (민감 캐시 누출 0 기준)</div><div class="val" id="gv-compliance">—</div><div class="delta" id="gv-leaks"></div></div>
+      <div class="card kpi"><div class="lbl">캐시 정책 차단 (민감/고위험)</div><div class="val" id="gv-denied">—</div></div>
+      <div class="card kpi warn"><div class="lbl">리스크 강등 방어 (escalation)</div><div class="val" id="gv-escal">—</div></div>
+      <div class="card kpi"><div class="lbl">거버넌스 적용 호출</div><div class="val" id="gv-total">—</div></div>
+    </div>
+    <div class="grid row11">
+      <div class="card">
+        <h3>캐시 정책 판정 분해 <span class="sub">왜 캐시를 막았나 · 24시간</span></h3>
+        <table id="gv-cache-table">
+          <thead><tr><th>판정</th><th>의미</th><th class="num">건수</th></tr></thead>
+          <tbody></tbody></table>
+      </div>
+      <div class="card">
+        <h3>데이터 등급별 호출·비용 <span class="sub">24시간</span></h3>
+        <div class="chart-box"><canvas id="gv-class-chart"></canvas></div>
+      </div>
+    </div>
+    <div class="grid row11 mt">
+      <div class="card">
+        <h3>거버넌스 정책 <span class="sub">실시간 적용</span></h3>
+        <div id="gv-policy" style="font-size:12.5px;line-height:2.1"></div>
+        <div class="toolbar" style="margin-top:8px">
+          <label style="color:var(--muted);font-size:12px">안전 최소 티어</label>
+          <select id="gv-safe-tier">
+            <option value="economy">economy</option>
+            <option value="standard">standard</option>
+            <option value="premium">premium</option>
+          </select>
+          <button class="btn" id="gv-toggle">거버넌스 ON/OFF</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>거버넌스 이벤트 로그 <span class="sub">캐시 차단 · 리스크 상향</span></h3>
+        <div class="feed" id="gv-events"></div>
+      </div>
+    </div>
+    <div class="card mt" style="border-left:3px solid var(--accent)">
+      <h3>💡 이 화면이 솔루션 차별화 포인트입니다</h3>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.8">
+        타 FinOps 도구(CloudZero·Vantage 등)와 오픈소스 게이트웨이는 <b style="color:var(--text)">비용만</b> 봅니다.
+        Metis FinOps는 캐시 재사용·모델 강등을 결정할 때 <b style="color:var(--text)">데이터 등급(PII/기밀)·리스크·정책 해시</b>를 결합해,
+        "비용을 아끼다 민감정보가 캐시로 새거나, 예산 압박으로 고위험 작업이 약한 모델로 떨어지는" 사고를 원천 차단합니다.
+        이 거버넌스 융합은 단순 비용 라우터가 흉내 낼 수 없는 해자(moat)이며 특허 청구 대상입니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 예측·이상감지 (metis-ai 지능 계층 이식) ================= -->
+  <section class="view" id="view-intel">
+    <h1 class="page-title">예측·이상감지 <span style="font-weight:400;font-size:12px;color:var(--accent)">— metis-ai 지능 계층 이식 (예측 · What-if · 권고 · 이상감지 · 가드레일)</span></h1>
+    <div class="page-sub">월말 비용 예측(선형 외삽) · What-if 시뮬레이션(실데이터 counterfactual) · 자동 권고 · 이상감지 5종 · 품질 회귀 가드레일</div>
+    <div class="grid kpis">
+      <div class="card kpi"><div class="lbl">이번 달 실적</div><div class="val" id="fc-actual">—</div><div class="delta" id="fc-days"></div></div>
+      <div class="card kpi warn"><div class="lbl">월말 전망 (선형 외삽)</div><div class="val" id="fc-proj">—</div><div class="delta" id="fc-mom"></div></div>
+      <div class="card kpi good"><div class="lbl">이번 달 절감 실적</div><div class="val" id="fc-savings">—</div></div>
+      <div class="card kpi"><div class="lbl">예측 신뢰도</div><div class="val" id="fc-conf">—</div><div class="delta">데이터가 쌓일수록 상승</div></div>
+    </div>
+    <div class="grid row11">
+      <div class="card">
+        <h3>What-if 시뮬레이션 <span class="sub">정책을 바꾸면 월 비용이 얼마나 달라질까 (원장 실데이터 기반)</span></h3>
+        <div style="font-size:12.5px;line-height:2.4">
+          캐시 TTL 배수
+          <select id="wf-ttl"><option value="1">유지</option><option value="2" selected>×2</option><option value="4">×4</option></select>
+          &nbsp;· <label><input type="checkbox" id="wf-down" checked> 강등 가능 호출 전면 강등</label>
+          &nbsp;· 툴 스키마 추가 압축
+          <select id="wf-trim"><option value="0">없음</option><option value="0.3">30%</option><option value="0.5" selected>50%</option></select>
+          &nbsp;<button class="btn primary" id="wf-run">시뮬레이션 실행</button>
+        </div>
+        <div id="wf-result" style="margin-top:12px;font-size:13px;line-height:2"></div>
+      </div>
+      <div class="card">
+        <h3>자동 권고 <span class="sub">원장에서 생성 — 적용 버튼은 즉시 정책 반영 + 감사 기록</span></h3>
+        <div class="feed" id="rec-list" style="max-height:300px"></div>
+      </div>
+    </div>
+    <div class="grid row11 mt">
+      <div class="card">
+        <h3>이상감지 <span class="sub">z-score 드리프트 · IQR 스파이크 · 지연 추세 · 에러 서지 · 거버넌스 패턴</span></h3>
+        <table id="anomaly-table">
+          <thead><tr><th>유형</th><th>에이전트</th><th>내용</th></tr></thead>
+          <tbody></tbody></table>
+      </div>
+      <div class="card">
+        <h3>품질 회귀 가드레일 <span class="sub">강등 run 품질이 10%↑ 떨어지면 자동 원복</span></h3>
+        <table id="guard-table">
+          <thead><tr><th>에이전트</th><th class="num">비강등 품질</th><th class="num">강등 품질</th><th class="num">하락률</th><th>조치</th></tr></thead>
+          <tbody></tbody></table>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:8px" id="guard-meta"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 인사이트 ================= -->
+  <section class="view" id="view-insights">
+    <h1 class="page-title">인사이트</h1>
+    <div class="page-sub">원장 데이터에서 자동 생성된 권고 — 지출 집중, 롱테일, cost-of-pass, 예측, 이상감지, GPU, 구성변경 영향</div>
+    <div id="insight-list"></div>
+  </section>
+
+  <!-- ================= 테스트 에이전트 (네이티브 통합) ================= -->
+  <section class="view" id="view-testagent">
+    <h1 class="page-title">테스트 에이전트</h1>
+    <div class="page-sub">Python · Java · C 소스를 올리면 정적분석 + 컴파일/격리실행 + LLM 리뷰 후 보고서를 생성합니다.
+      실행 결과(비용·절감·품질)는 개요/재무/개발자 뷰에 즉시 반영됩니다.</div>
+    <div class="card">
+      <h3>1. 소스 코드 입력 <span class="badge b-blue" id="qa-lang">언어 자동감지</span></h3>
+      <textarea id="qa-code" spellcheck="false" placeholder="# Python / Java / C 코드를 붙여넣거나 파일을 선택하세요"></textarea>
+      <div class="toolbar" style="margin-top:12px">
+        <label class="btn" style="cursor:pointer">📁 파일 선택<input type="file" id="qa-file" accept=".py,.java,.c,.h,.txt" style="display:none"></label>
+        <button class="btn" id="qa-sample-py">Python 샘플</button>
+        <button class="btn" id="qa-sample-java">Java 샘플</button>
+        <button class="btn" id="qa-sample-c">C 샘플</button>
+        <button class="btn primary" id="qa-run">▶ 기능 테스트 실행</button>
+        <span style="font-size:11.5px;color:var(--muted)" id="qa-fname"></span>
+      </div>
+      <div style="font-size:11.5px;color:var(--yellow);margin-top:8px">⚠ 동적 테스트 단계에서 코드가 로컬(격리 프로세스, 시간 제한)에서 컴파일·실행됩니다. 신뢰할 수 있는 코드만 사용하세요.</div>
+      <div id="qa-status" style="font-size:13px;margin-top:10px;color:var(--accent);min-height:18px"></div>
+    </div>
+    <div class="card" id="qa-report-area" style="display:none">
+      <h3>2. 테스트 결과 보고서</h3>
+      <div id="qa-meta" style="display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-bottom:12px"></div>
+      <div class="toolbar" style="margin:0 0 12px">
+        <button class="btn primary" id="qa-docx">⬇ Word 보고서 (.docx, 차트·표 포함)</button>
+        <button class="btn" id="qa-md">⬇ Markdown (.md)</button>
+        <button class="btn" id="qa-goto-run">📊 개발자 뷰에서 이 run 비용 보기</button>
+      </div>
+      <div id="qa-report" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:24px;line-height:1.7"></div>
+    </div>
+  </section>
+
+</main>
+<script src="app.js"></script>
+</body>
+</html>

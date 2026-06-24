@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metis FinOps — 사용자 매뉴얼</title>
+<style>
+:root{
+  --bg:#0d1117; --bg2:#161b22; --bg3:#1c2230; --border:#2d3646;
+  --text:#e6edf3; --muted:#8b96a8; --accent:#4f8ff7; --accent2:#9d6ef7;
+  --green:#3fb97a; --yellow:#e3b341; --red:#f85149;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:"Pretendard","Malgun Gothic","Segoe UI",sans-serif;line-height:1.75;font-size:15px}
+#wrap{display:flex;max-width:1400px;margin:0 auto}
+/* 사이드바 */
+nav{position:sticky;top:0;align-self:flex-start;height:100vh;overflow-y:auto;
+  width:280px;flex:0 0 280px;background:var(--bg2);border-right:1px solid var(--border);padding:22px 16px}
+nav .logo{font-size:19px;font-weight:800;letter-spacing:-.3px}
+nav .logo span{color:var(--accent)}
+nav .sub{font-size:11.5px;color:var(--muted);margin:4px 0 18px}
+nav a{display:block;color:var(--muted);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:7px;margin:1px 0}
+nav a:hover{background:var(--bg3);color:var(--text)}
+nav a.h2{padding-left:22px;font-size:12.5px}
+nav .grp{font-size:11px;color:var(--accent);font-weight:700;margin:16px 0 4px;padding-left:10px;letter-spacing:.4px;text-transform:uppercase}
+/* 본문 */
+main{flex:1;padding:38px 48px;min-width:0}
+h1{font-size:26px;border-bottom:2px solid var(--border);padding-bottom:14px;margin-top:0}
+h2{font-size:20px;color:var(--accent);margin-top:46px;border-left:3px solid var(--accent);padding-left:12px}
+h3{font-size:16px;color:var(--text);margin-top:28px}
+h4{font-size:14px;color:var(--accent2);margin:18px 0 6px}
+p{margin:10px 0}
+code{background:var(--bg3);padding:1.5px 6px;border-radius:5px;font-size:13px;color:#ffd9a0;
+  font-family:"Cascadia Code",Consolas,monospace}
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin:14px 0}
+th,td{border:1px solid var(--border);padding:9px 11px;text-align:left;vertical-align:top}
+th{background:var(--bg2);color:var(--muted);font-weight:600;white-space:nowrap}
+td b{color:var(--text)}
+.lead{font-size:15.5px;color:var(--muted);margin:6px 0 18px}
+.box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin:16px 0}
+.box.tip{border-left:3px solid var(--green)}
+.box.warn{border-left:3px solid var(--yellow)}
+.box.key{border-left:3px solid var(--accent2)}
+.box h4{margin-top:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:11px;font-size:11.5px;font-weight:600;margin:0 2px}
+.b-green{background:rgba(63,185,122,.16);color:var(--green)}
+.b-blue{background:rgba(79,143,247,.16);color:var(--accent)}
+.b-red{background:rgba(248,81,73,.16);color:var(--red)}
+.b-yellow{background:rgba(227,179,65,.16);color:var(--yellow)}
+.b-purple{background:rgba(157,110,247,.16);color:var(--accent2)}
+.muted{color:var(--muted)}
+ul,ol{margin:8px 0;padding-left:22px}
+li{margin:5px 0}
+.toc-top{font-size:12px;color:var(--muted)}
+hr{border:none;border-top:1px solid var(--border);margin:40px 0}
+.kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 7px;font-size:12px}
+/* 화면 캡처 슬롯 */
+figure.shot{margin:18px 0 8px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg2)}
+figure.shot img{display:block;width:100%;height:auto}
+figure.shot figcaption{font-size:12.5px;color:var(--muted);padding:8px 14px;border-top:1px solid var(--border);background:var(--bg2)}
+figure.shot .ph{display:flex;align-items:center;justify-content:center;min-height:220px;color:var(--muted);
+  font-size:13px;text-align:center;padding:30px;background:repeating-linear-gradient(135deg,var(--bg2),var(--bg2) 12px,var(--bg3) 12px,var(--bg3) 24px)}
+figure.shot .ph b{color:var(--accent)}
+/* 시나리오 다이어그램 */
+.diagram{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;margin:18px 0;overflow-x:auto}
+.steps{counter-reset:s;list-style:none;padding:0;margin:14px 0}
+.steps>li{counter-increment:s;position:relative;padding:12px 12px 12px 52px;margin:10px 0;
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px}
+.steps>li:before{content:counter(s);position:absolute;left:14px;top:12px;width:26px;height:26px;border-radius:50%;
+  background:var(--grad,var(--accent));color:#0d1117;font-weight:800;text-align:center;line-height:26px;font-size:14px}
+.steps>li b{color:var(--text)}
+pre{background:#0a0e15;border:1px solid var(--border);border-radius:9px;padding:14px 16px;overflow-x:auto;
+  font-size:12.5px;line-height:1.6;font-family:"Cascadia Code",Consolas,monospace;color:#cfe3ff}
+pre .c{color:#5f6b80}
+@media(max-width:900px){nav{display:none}main{padding:24px 18px}}
+</style>
+</head>
+<body>
+<div id="wrap">
+<nav>
+  <div class="logo">Metis<span>.FinOps</span></div>
+  <div class="sub">Agent FinOps 플랫폼 · 사용자 매뉴얼</div>
+  <a href="#intro">0. 소개 · 동작 원리</a>
+  <a href="#scenario">0.5 도입 · 연동 시나리오</a>
+  <div class="grp">대시보드 화면</div>
+  <a href="#overview">1. 개요 (관제)</a>
+  <a href="#agents">2. 에이전트 정책</a>
+  <a href="#developer">3. 개발자</a>
+  <a href="#ops">4. 운영</a>
+  <a href="#finance">5. 재무</a>
+  <a href="#governance">6. 거버넌스 융합</a>
+  <a href="#intel">7. 예측 · 이상감지</a>
+  <a href="#insights">8. 인사이트</a>
+  <a href="#testagent">9. 테스트 에이전트</a>
+  <div class="grp">참조</div>
+  <a href="#headers">A. 연동 헤더 (X-Metis-*)</a>
+  <a href="#concepts">B. 핵심 개념 사전</a>
+  <a href="#faq">C. 자주 묻는 질문</a>
+</nav>
+<main>
+<h1>Metis FinOps — 사용자 매뉴얼</h1>
+<p class="lead">ktds OPS.AI / Metis.AI(AgentOps) 플랫폼용 <b>Agent FinOps</b> 솔루션의 전 화면 사용 안내서입니다.
+각 화면의 목적, 모든 지표·그래프·표 컬럼의 의미와 읽는 법을 상세히 설명합니다.</p>
+
+<!-- ============================ 0 ============================ -->
+<h2 id="intro">0. 솔루션 소개와 동작 원리</h2>
+<p>Metis FinOps는 모든 LLM 에이전트 호출이 거쳐 가는 <b>OpenAI 호환 게이트웨이</b>와, 비용을 기록·통제·최적화하는
+<b>컨트롤 플레인</b>으로 구성된 벤더 중립 FinOps 플랫폼입니다. 에이전트는 코드 수정 없이 OpenAI 베이스 URL만
+게이트웨이로 바꾸면 연동됩니다.</p>
+<div class="box key">
+<h4>5계층 아키텍처</h4>
+<table>
+<tr><th>계층</th><th>역할</th></tr>
+<tr><td><b>L1 수집</b></td><td>게이트웨이가 모든 호출을 가로채 토큰 5종(input/output/cache_read/cache_write/reasoning)을 분리 계측</td></tr>
+<tr><td><b>L2 원장</b></td><td>tenant→project→agent→run→step 귀속 차원의 비용 원장(SQLite), 모델별 단가 마스터</td></tr>
+<tr><td><b>L3 통제</b></td><td>예산 3단계, run 서킷브레이커, 루프 감지, 품질 게이트, 거버넌스 융합</td></tr>
+<tr><td><b>L4 최적화</b></td><td>counterfactual 절감 회계(캐시·라우팅·스킬패커), 예측·What-if·권고</td></tr>
+<tr><td><b>L5 경험</b></td><td>페르소나별 대시보드 8종 + 통합 테스트 에이전트</td></tr>
+</table>
+</div>
+<div class="box tip">
+<h4>화면 공통 사용법</h4>
+<ul>
+<li>왼쪽 사이드바에서 화면(페르소나)을 전환합니다. 데이터는 <b>5초마다 자동 갱신</b>됩니다.</li>
+<li>화면 좌하단의 연결 점(<span class="muted">●</span>)이 초록이면 컨트롤 플레인 정상 연결, 회색이면 끊김(재시도 중)입니다.</li>
+<li>대부분의 차트 우측 상단에 <b>기간/그룹 선택 드롭다운</b>이 있어 보고 싶은 범위로 바꿀 수 있습니다.</li>
+<li>금액은 USD 기준이며, 토큰은 K/M 단위로 축약 표시됩니다.</li>
+</ul>
+</div>
+
+<!-- ============================ 1 개요 ============================ -->
+<h2 id="overview">1. 개요 (관제)</h2>
+<p class="lead">전 테넌트의 실시간 지출·절감·통제 현황을 한눈에 보는 관제 화면입니다. 운영자가 가장 먼저 보는 메인 대시보드입니다.</p>
+
+<h3>상단 KPI 카드 8종</h3>
+<table>
+<tr><th>지표</th><th>의미와 읽는 법</th></tr>
+<tr><td><b>오늘 지출</b></td><td>자정(로컬) 이후 누적 실제 비용(USD). 하단에 오늘 호출 건수가 함께 표시됩니다.</td></tr>
+<tr><td><b>분당 Burn Rate</b></td><td>최근 10분 지출을 분당으로 환산한 소진 속도. 급증 시 폭주·트래픽 스파이크를 의심합니다.</td></tr>
+<tr><td><b>오늘 절감액</b></td><td>FinOps 기능(캐시·라우팅·스킬패커)으로 회피한 비용. "미적용 가정 대비 N% 절감"은 <code>절감/(절감+실비용)</code>입니다.</td></tr>
+<tr><td><b>Cost-of-Pass</b></td><td><b>성공 1건당 실질 비용</b> = 완료 run 비용 합 ÷ 품질 게이트 통과 run 수. 시도당 단가가 싸도 실패 재시도가 많으면 이 값이 커집니다 — 단위경제의 핵심 지표.</td></tr>
+<tr><td><b>활성 Run</b></td><td>최근 30분 내 시작되어 아직 실행 중(running)인 run 수.</td></tr>
+<tr><td><b>서킷브레이커 발동</b></td><td>오늘 강제 중단(killed)된 run 수. 루프·비용한도·스텝한도 초과로 차단된 건입니다.</td></tr>
+<tr><td><b>모델 강등 호출</b></td><td>오늘 저가 모델로 다운시프트된 호출 수.</td></tr>
+<tr><td><b>오늘 토큰</b></td><td>토큰 5종 합계.</td></tr>
+</table>
+
+<h3>지출 추이 (좌측 누적 막대)</h3>
+<p>시간 버킷별 지출을 누적 막대로 보여줍니다. 우측 상단에서 <b>기간</b>(30분~7일)과 <b>그룹 기준</b>(테넌트별/에이전트별/모델별/프로바이더별)을 선택합니다.
+버킷 크기는 기간에 따라 자동 조정됩니다(예: 1시간→1분, 24시간→15분).</p>
+
+<h3>모델별 지출 비중 (우측 도넛)</h3>
+<p>선택 기간 동안 어떤 모델이 비용을 많이 썼는지 비율로 표시합니다. 조각 위 % 라벨과 마우스 오버 시 정확한 금액·비율을 봅니다.</p>
+
+<h3>실시간 알림 피드</h3>
+<p>서킷브레이커·예산·거버넌스·이상감지 등 모든 통제 이벤트가 시간순으로 흐릅니다. 좌측 색 점은 심각도(<span class="pill b-red">critical</span> <span class="pill b-yellow">warning</span> <span class="pill b-blue">info</span>)입니다.</p>
+
+<h3>절감 구성 패널 (도넛 + 표)</h3>
+<p>절감액이 <b>어떤 메커니즘</b>에서 나왔는지 분해합니다. 표에는 메커니즘별 절감액·비중·건수와, 하단 합계에 <b>캐시 히트율</b>이 표시됩니다.</p>
+<table>
+<tr><th>메커니즘</th><th>의미</th></tr>
+<tr><td><b>시맨틱 캐시</b></td><td>동일/유사 질문의 응답을 재사용해 LLM 호출 자체를 회피(실비용 ~0). 회피된 원 비용 전액이 절감.</td></tr>
+<tr><td><b>프롬프트(prefix) 캐시</b></td><td>벤더 프롬프트 캐싱으로 cache_read 토큰이 일반 input 단가보다 싸게 과금된 차액.</td></tr>
+<tr><td><b>3티어 라우팅 강등</b></td><td>상위 모델 요청을 저가 모델로 처리했을 때, 원 모델로 처리했을 경우 대비 차액.</td></tr>
+<tr><td><b>스킬패커</b></td><td>툴 스키마를 전부 보내지 않고 필요한 것만 동적 로딩해 절약한 input 토큰의 비용.</td></tr>
+</table>
+
+<!-- ============================ 2 에이전트 정책 ============================ -->
+<h2 id="agents">2. 에이전트 정책 (레지스트리)</h2>
+<p class="lead">에이전트별 최적화 정책을 중앙에서 관리하는 화면입니다. 표의 배지를 <b>클릭하면 즉시 토글</b>됩니다(별도 저장 불필요).</p>
+<table>
+<tr><th>컬럼</th><th>의미</th></tr>
+<tr><td><b>에이전트 / 설명</b></td><td>레지스트리에 등록된 에이전트 이름과 용도. 미등록 에이전트는 첫 호출 시 자동 등록되며 기본값은 캐시 OFF(안전 기본값).</td></tr>
+<tr><td><b>시맨틱 캐시</b></td><td>이 에이전트의 응답 캐시 사용 여부. <span class="pill b-green">✓ 적용 (TTL)</span> 또는 <span class="pill b-blue">미적용</span>. 클릭으로 전환. 캐시 적합 워크로드(반복 FAQ)만 켭니다.</td></tr>
+<tr><td><b>주력 모델 → 강등 대상</b></td><td>최근 가장 많이 쓴 모델과, 강등 시 내려갈 대상 모델.</td></tr>
+<tr><td><b>품질 게이트</b></td><td>강등 대상 모델의 최근 7일 품질 실적 판정: <span class="pill b-green">승인</span>(샘플 충분+품질 기준 이상→강등 적용) · <span class="pill b-blue">카나리</span>(샘플 부족→설정 비율만 강등하며 데이터 수집) · <span class="pill b-red">보류</span>(품질 미달→원 모델 유지). 배지에 평균 품질과 샘플 수가 표시됩니다.</td></tr>
+<tr><td><b>강등</b></td><td>라우팅 강등 활성/비활성. 비활성이면 예산 압박이 와도 강등하지 않습니다.</td></tr>
+<tr><td><b>복잡도 라우팅</b></td><td><span class="pill b-purple">활성 (≤0.3 강등)</span> 시, 단순한 프롬프트(복잡도 점수 0.3 이하)가 상위 모델을 요청하면 경제 모델로 자동 강등 후보화. 품질 게이트·거버넌스 방어를 통과해야 실제 적용됩니다.</td></tr>
+<tr><td><b>툴 레지스트리</b></td><td>이 에이전트의 전체 툴 스키마 토큰 수(스킬패커 절감 계산의 기준값).</td></tr>
+<tr><td><b>run 한도</b></td><td>run당 최대 비용과 최대 스텝 수(서킷브레이커 기준).</td></tr>
+<tr><td><b>24h Run / 품질</b></td><td>최근 24시간 run 수와 평균 품질 점수.</td></tr>
+</table>
+<div class="box tip"><h4>품질 게이트가 중요한 이유</h4>
+"싸니까 무조건 강등"이 아니라, <b>대상 모델이 실제로 품질을 유지하는지 검증한 뒤에만</b> 강등합니다. 데이터가 부족하면 소수 카나리로만 시도해 안전하게 실측 데이터를 모읍니다.</div>
+
+<!-- ============================ 3 개발자 ============================ -->
+<h2 id="developer">3. 개발자 뷰</h2>
+<p class="lead">내 에이전트의 run 단위 비용 구조를 분석합니다. 어느 스텝·모델·토큰이 비쌌는지 추적합니다.</p>
+<h3>최근 Run 표</h3>
+<p>상단 드롭다운으로 에이전트를 필터링합니다. 각 행: Run ID, 에이전트, 상태(<span class="pill b-green">성공</span>/<span class="pill b-red">차단</span>/<span class="pill b-yellow">실패</span>/<span class="pill b-blue">실행중</span>), 스텝 수, 토큰, 비용, 품질. <b>행을 클릭</b>하면 아래 워터폴이 열립니다.</p>
+<h3>토큰 구성 (가로 막대)</h3>
+<p>선택한 run의 토큰을 5종(input/output/cache_read/cache_write/reasoning)으로 분해합니다. reasoning(사고) 토큰은 output 단가로 과금됩니다.</p>
+<h3>Run 비용 워터폴</h3>
+<p>run의 각 스텝을 비용 막대로 나열합니다. 막대 색·배지로 특이사항을 표시: <span class="pill b-green">캐시</span>(캐시 히트로 비용 0) · <span class="pill b-yellow">강등</span>(모델 다운시프트, 원모델→대상모델 표기) · <span class="pill b-purple">reasoning</span>(사고 토큰 발생). 어느 스텝이 run 비용을 끌어올렸는지 한눈에 보입니다.</p>
+<div class="box tip"><h4>Tip</h4>테스트 에이전트 화면에서 "개발자 뷰에서 이 run 비용 보기" 버튼을 누르면 해당 run의 워터폴로 바로 이동합니다.</div>
+
+<!-- ============================ 4 운영 ============================ -->
+<h2 id="ops">4. 운영 뷰</h2>
+<p class="lead">예산·롱테일 비용·서킷브레이커·GPU 풀을 감시하는 운영자 화면입니다.</p>
+
+<h3>일 예산 현황 (3단계 게이지)</h3>
+<p>상단 드롭다운(<b>테넌트별</b>/에이전트별/전체)으로 그룹을 선택합니다. 각 게이지의 막대 위 눈금이 3단계 임계입니다.</p>
+<table>
+<tr><th>단계</th><th>동작</th></tr>
+<tr><td><b>소프트캡</b></td><td>도달 시 <b>알림</b>만 발생(차단·강등 없음). 경고 신호.</td></tr>
+<tr><td><b>강등</b></td><td>이 임계 초과 시 해당 스코프의 호출을 저가 모델로 <b>다운시프트</b>(품질 게이트 통과 시).</td></tr>
+<tr><td><b>하드컷</b></td><td>도달 시 추가 요청을 <b>차단(HTTP 429)</b>. 예산 초과 방어선.</td></tr>
+</table>
+<p>막대 색: 정상(초록)/소프트 도달(노랑)/강등 도달(빨강). 행 우측에 현재 지출 / 하드 한도와 세 임계값이 표기됩니다.</p>
+
+<h3>에이전트별 Run 비용 분포 (p50/p95/p99)</h3>
+<p>에이전트별 run 비용의 백분위수를 막대로 비교합니다. <b>p99가 p50보다 현저히 높으면</b>(롱테일) 폭주 루프·과도한 툴 호출을 의심합니다. 정렬은 p99 내림차순.</p>
+<div class="box key"><h4>백분위수(percentile) 읽는 법</h4>
+p50=중앙값(절반의 run이 이보다 쌈), p95=상위 5% 경계, p99=상위 1% 경계. p99만 튀면 "대부분 싸지만 가끔 매우 비싼 run"이 있다는 뜻입니다.</div>
+
+<h3>통제 이벤트 로그</h3>
+<p>서킷브레이커·예산·구성변경·이상감지·가드레일 이벤트만 모아 봅니다.</p>
+
+<h3>셀프호스트 GPU 풀 (H100×4)</h3>
+<p>노드별 <b>GPU 사용률·MEM·KV캐시 사용률·큐 깊이·시간당 비용</b>을 표시합니다. 상단의 <b>유휴비용/시간</b>은 노드별 <code>시간당비용 × (1−GPU사용률)</code> 합으로, 놀고 있는 GPU에 새는 돈입니다. 하단 라인 차트는 노드별 사용률 추이(30분).</p>
+
+<h3>차단·실패 Run 표</h3>
+<p>최근 killed run의 사유·스텝·소진 비용. 어떤 통제가 왜 발동했는지 사후 분석합니다.</p>
+
+<!-- ============================ 5 재무 ============================ -->
+<h2 id="finance">5. 재무 뷰</h2>
+<p class="lead">테넌트 쇼백·절감 회계·단위경제·모델 단가·FOCUS export를 다루는 재무/회계 화면입니다.</p>
+
+<h3>FOCUS 1.4 CSV 내보내기</h3>
+<p>버튼 클릭 시 FinOps Foundation <b>FOCUS 1.4 호환</b> CSV를 받습니다. 표준 컬럼(ListCost=미적용가정, ContractedCost/BilledCost/EffectiveCost=실비용) 외에 <code>x_</code> 접두 확장 컬럼으로 토큰 5종·절감액·데이터등급·리스크·캐시판정을 함께 제공해 회계/차지백 시스템에 연동합니다.</p>
+
+<h3>테넌트 쇼백 표</h3>
+<p>테넌트별 비용·절감·토큰·호출 수·<b>점유율</b>(전체 비용 중 비중). 어느 조직이 비용을 많이 쓰는지, 차지백 배분의 근거가 됩니다.</p>
+
+<h3>절감 회계 분해 (도넛)</h3>
+<p>개요의 절감 구성과 동일한 4종 분해 + 캐시 히트율·절감 합계. <b>counterfactual(반사실)</b> 회계 — "그 기능이 없었다면 들었을 비용" 대비 실제 비용의 차이를 절감으로 잡습니다.</p>
+
+<h3>단위경제: Cost-of-Pass 표</h3>
+<table>
+<tr><th>컬럼</th><th>의미</th></tr>
+<tr><td><b>Run</b></td><td>집계 대상 run 수.</td></tr>
+<tr><td><b>성공률</b></td><td>품질 게이트 통과(pass) 비율. 80% 미만이면 빨강 경고.</td></tr>
+<tr><td><b>평균 품질</b></td><td>품질 점수 평균(0~1).</td></tr>
+<tr><td><b>p50 비용</b></td><td>run 비용 중앙값.</td></tr>
+<tr><td><b>Cost-of-Pass</b></td><td>성공 1건당 실질 비용. 낮을수록 비용 효율적.</td></tr>
+</table>
+
+<h3>품질-비용 폐루프 (이중축 라인)</h3>
+<p>시간에 따른 <b>평균 품질(좌축)</b>과 <b>run당 평균 비용(우축)</b>을 겹쳐 봅니다. 빨간 세로 점선은 <b>구성 변경 이벤트</b>(예: 라우팅 전환) 시점입니다. 변경 후 비용이 떨어지면서 품질도 함께 떨어졌는지 즉시 확인 — "비용을 아꼈더니 품질이 망가졌다"를 잡는 화면입니다.</p>
+
+<h3>모델 단가 마스터</h3>
+<p>모델별 단가(Input/Output/CacheRead/CacheWrite, $/1M 토큰)·티어·강등 대상을 표로 보여주며, <b>값을 직접 수정하고 저장하면 즉시 과금 계산에 반영</b>됩니다(코드 수정 불필요). 단가 인상/계약가 변경 시 여기서 관리합니다.</p>
+
+<h3>비용 vs 절감 추이 (누적 막대)</h3>
+<p>5분 버킷으로 실비용과 절감액(회피 비용)을 누적해, 시간대별 효율을 봅니다.</p>
+
+<!-- ============================ 6 거버넌스 ============================ -->
+<h2 id="governance">6. 거버넌스 융합 <span class="muted" style="font-size:13px">(Patent 3 — 차별화 핵심)</span></h2>
+<p class="lead">비용 최적화가 <b>보안·정책을 침해하지 않도록</b> 캐시 재사용과 모델 라우팅을 데이터 등급·리스크 점수·정책 해시로 통제합니다.</p>
+
+<h3>상단 KPI</h3>
+<table>
+<tr><th>지표</th><th>의미</th></tr>
+<tr><td><b>정책 준수율</b></td><td>민감 데이터의 캐시 누출이 0이면 100%. 누출이 생기면 하락 — <b>반드시 100% 유지</b>가 목표.</td></tr>
+<tr><td><b>캐시 정책 차단</b></td><td>민감(PII/기밀) 또는 고위험 요청이라 캐시 재사용을 막은 건수.</td></tr>
+<tr><td><b>리스크 강등 방어</b></td><td>예산 압박에도 고위험 작업을 약한 모델로 떨어뜨리지 않고 안전 티어로 상향/유지한 건수(escalation).</td></tr>
+<tr><td><b>거버넌스 적용 호출</b></td><td>거버넌스 판정을 거친 전체 호출 수.</td></tr>
+</table>
+
+<h3>캐시 정책 판정 분해</h3>
+<table>
+<tr><th>판정</th><th>의미</th></tr>
+<tr><td><b>ALLOW</b></td><td>캐시 재사용 허용(일반·저위험).</td></tr>
+<tr><td><b>DENY_SENSITIVE_DATA</b></td><td>데이터 등급이 PII/SECRET/CUSTOMER_CONFIDENTIAL → 재사용 금지.</td></tr>
+<tr><td><b>DENY_HIGH_RISK</b></td><td>리스크 점수가 임계(기본 0.7) 이상 → 재사용 금지.</td></tr>
+<tr><td><b>CACHE_DISABLED</b></td><td>에이전트 정책상 캐시 OFF.</td></tr>
+</table>
+
+<h3>데이터 등급별 호출·비용 / 거버넌스 정책 / 이벤트 로그</h3>
+<p>데이터 등급별 호출 수·비용 분포를 막대로 보고, 현재 거버넌스 정책(민감 등급 목록, 고위험 차단 임계, 강등 방어 임계, 안전 최소 티어)을 확인·변경합니다. 우측 로그는 캐시 차단·리스크 상향 이벤트.</p>
+<div class="box key"><h4>왜 차별화인가</h4>
+일반 FinOps 도구는 <b>비용만</b> 봅니다. Metis는 캐시·강등 결정에 데이터 등급·리스크·정책 해시를 결합해, "비용 아끼다 민감정보가 캐시로 새거나 고위험 작업이 약한 모델로 떨어지는" 사고를 원천 차단합니다. 정책 해시가 바뀌면 기존 캐시는 자동 무효화되고, 캐시 키는 테넌트 스코프로 격리됩니다.</div>
+
+<!-- ============================ 7 예측·이상감지 ============================ -->
+<h2 id="intel">7. 예측 · 이상감지 <span class="muted" style="font-size:13px">(지능 계층)</span></h2>
+<p class="lead">월말 비용 예측, What-if 시뮬레이션, 자동 권고, 이상감지 5종, 품질 회귀 가드레일을 제공합니다.</p>
+
+<h3>상단 KPI (월말 예측)</h3>
+<table>
+<tr><th>지표</th><th>의미</th></tr>
+<tr><td><b>이번 달 실적</b></td><td>월초부터 누적 실제 비용. 경과 일수·일평균이 함께 표시.</td></tr>
+<tr><td><b>월말 전망</b></td><td><b>선형 외삽</b>(일평균 × 그달 총일수)으로 추정한 월말 총비용. 전월 대비 증감률 표시.</td></tr>
+<tr><td><b>이번 달 절감 실적</b></td><td>월초부터 누적 절감액.</td></tr>
+<tr><td><b>예측 신뢰도</b></td><td>경과 일수가 많을수록 상승(데이터가 쌓일수록 정확).</td></tr>
+</table>
+
+<h3>What-if 시뮬레이션</h3>
+<p>정책을 바꾸면 월 비용이 얼마나 달라지는지 <b>원장 실데이터 기반</b>으로 추정합니다. 3개 레버를 조절하고 실행:</p>
+<ul>
+<li><b>캐시 TTL 배수</b> — 캐시 유지 시간을 늘렸을 때의 추가 절감(수확 체감 반영).</li>
+<li><b>강등 가능 호출 전면 강등</b> — 강등 가능한 모든 호출을 한 단계 내렸을 때의 절감 상한.</li>
+<li><b>툴 스키마 추가 압축</b> — 스킬패커 압축률을 더 높였을 때의 절감.</li>
+</ul>
+<p>결과는 월 환산 기준선 → 시나리오 비용과 메커니즘별 절감 분해로 표시됩니다. <span class="muted">상한 추정이며 품질 게이트 통과를 가정합니다.</span></p>
+
+<h3>자동 권고</h3>
+<p>원장 분석으로 생성된 절감/안정화 제안 목록입니다. 각 권고에 예상 절감액이 붙고, <b>[적용]</b> 버튼으로 즉시 정책에 반영(+감사 로그 기록), <b>[무시]</b>로 닫습니다. 예: "강등 활성화", "복잡도 라우팅 제안", "캐시 후보", "run 한도 하향", "예산 검토".</p>
+
+<h3>이상감지 (5종)</h3>
+<table>
+<tr><th>유형</th><th>탐지 내용</th></tr>
+<tr><td><b>📉 품질 드리프트</b></td><td>z-score 기반 — 기준 구간 대비 최근 품질이 통계적으로 유의하게 하락.</td></tr>
+<tr><td><b>💥 토큰 스파이크</b></td><td>IQR 기반 — 토큰 사용량이 정상 범위 상한을 크게 초과.</td></tr>
+<tr><td><b>🐢 지연 추세</b></td><td>선형회귀 — 호출 지연(latency)이 지속 상승 추세.</td></tr>
+<tr><td><b>🚨 에러 서지</b></td><td>에러율이 기준 대비 급증(20%p↑).</td></tr>
+<tr><td><b>🛡️ 거버넌스 패턴</b></td><td>캐시 차단(DENY) 비율 급증 — 민감/고위험 트래픽 유입 신호.</td></tr>
+</table>
+
+<h3>품질 회귀 가드레일</h3>
+<p>강등된 run의 품질이 비강등 대비 일정 비율(기본 10%) 이상 떨어지면 자동 감지합니다. <b>자동 원복(METIS_AUTO_REVERT)</b>이 켜져 있으면 해당 에이전트의 강등을 즉시 비활성화하고 알림을 남깁니다. 표에서 비강등 품질·강등 품질·하락률·조치(<span class="pill b-red">자동 원복됨</span> 또는 <b>수동 원복</b> 버튼)를 확인합니다.</p>
+
+<!-- ============================ 8 인사이트 ============================ -->
+<h2 id="insights">8. 인사이트</h2>
+<p class="lead">원장 데이터에서 자동 생성된 권고 카드 모음입니다. 별도 조작 없이 읽기만 하면 됩니다.</p>
+<p>각 카드는 아이콘·제목·본문과 심각도 색(critical/warning/info)으로 구성됩니다. 다루는 주제:</p>
+<ul>
+<li><b>지출 집중</b> — 특정 테넌트가 지출의 40% 이상을 차지할 때.</li>
+<li><b>롱테일 비용</b> — p99가 p50의 8배 이상인 에이전트.</li>
+<li><b>cost-of-pass 악화</b> — 성공률 80% 미만으로 성공당 비용이 비싼 구성.</li>
+<li><b>절감 회계</b> — 최근 24시간 절감 성과 요약.</li>
+<li><b>🔮 월말 비용 전망</b> — 예측 요약(상세는 7번 화면).</li>
+<li><b>이상감지</b> — 상위 이상 징후.</li>
+<li><b>GPU 유휴/증설 검토</b> — 사용률 기준 권고.</li>
+<li><b>구성변경 영향</b> — 품질-비용 폐루프 분석.</li>
+<li><b>🛡️ 거버넌스 융합</b> — 차단·방어·누출 준수 현황.</li>
+</ul>
+
+<!-- ============================ 9 테스트 에이전트 ============================ -->
+<h2 id="testagent">9. 테스트 에이전트 (통합 데모)</h2>
+<p class="lead">실제 동작하는 데모 에이전트입니다. 코드를 올리면 분석·테스트·LLM 리뷰를 수행하고, 그 비용/절감/품질이 즉시 다른 화면에 반영됩니다.</p>
+<h4>사용 순서</h4>
+<ol>
+<li>Python/Java/C 소스를 붙여넣거나 파일 선택(또는 샘플 버튼). 언어는 자동 감지됩니다.</li>
+<li><b>기능 테스트 실행</b> 클릭 → ① 정적 분석 ② 컴파일/격리 실행 ③ LLM 코드 리뷰 3스텝(요약→리스크→권고, 게이트웨이 경유).</li>
+<li>결과 보고서를 화면에서 확인하고 <b>Word(.docx, 차트·표 포함)</b> 또는 <b>Markdown</b>으로 내려받습니다.</li>
+<li>상단 메타(Run ID·언어·소요·LLM 비용·모드)와 "개발자 뷰에서 이 run 비용 보기"로 비용 추적.</li>
+</ol>
+<div class="box warn"><h4>주의</h4>동적 테스트 단계에서 코드가 로컬(격리 프로세스, 시간 제한)에서 컴파일·실행됩니다. <b>신뢰할 수 있는 코드만</b> 사용하세요. JDK/gcc 미설치 환경에서는 정적 분석만 수행됩니다(우아한 저하).</div>
+
+<hr>
+<!-- ============================ A 헤더 ============================ -->
+<h2 id="headers">A. 연동 헤더 (X-Metis-*)</h2>
+<p class="lead">에이전트가 게이트웨이(<code>/v1/chat/completions</code>) 호출 시 보내는 귀속·정책 헤더입니다. 한글 값은 percent-encoding 필요.</p>
+<table>
+<tr><th>헤더</th><th>의미</th></tr>
+<tr><td><code>X-Metis-Tenant</code></td><td>비용 귀속 테넌트(한글이면 인코딩)</td></tr>
+<tr><td><code>X-Metis-Project</code> / <code>-Agent</code> / <code>-Agent-Version</code></td><td>프로젝트 / 에이전트(레지스트리 키) / 버전</td></tr>
+<tr><td><code>X-Metis-Env</code></td><td>dev / stg / prd</td></tr>
+<tr><td><code>X-Metis-Run-Id</code> / <code>-Step</code></td><td>실행(run) ID와 스텝 번호 — run 귀속·서킷브레이커 기준</td></tr>
+<tr><td><code>X-Metis-Task-Type</code></td><td>작업 유형(분류·집계용)</td></tr>
+<tr><td><code>X-Metis-Step-Signature</code></td><td>툴 호출 시그니처 — 동일 반복 시 루프 감지</td></tr>
+<tr><td><code>X-Metis-Data-Class</code></td><td>PUBLIC / INTERNAL / PII / SECRET / CUSTOMER_CONFIDENTIAL — 거버넌스 캐시 차단</td></tr>
+<tr><td><code>X-Metis-Risk-Score</code></td><td>0~1. ≥0.7 캐시 차단, ≥0.8 강등 방어(상향)</td></tr>
+<tr><td><code>X-Metis-Policy-Hash</code></td><td>정책 버전 해시 — 변경 시 캐시 자동 무효화</td></tr>
+<tr><td><code>X-Metis-Cacheable</code></td><td>"0"이면 캐시 opt-out(적용 여부는 중앙 레지스트리가 결정, 임의 opt-in 불가)</td></tr>
+<tr><td><code>X-Metis-Force-Mock</code></td><td>"1" 테스트용 mock 응답(비용 없이 호출)</td></tr>
+</table>
+<p>응답의 <code>.metis</code> 필드에는 routing_action(none/downgrade/escalate)·cache_hit·cache_kind(exact/semantic_embedding)·complexity·cost_usd·provider가 담겨 옵니다.</p>
+
+<!-- ============================ B 개념 ============================ -->
+<h2 id="concepts">B. 핵심 개념 사전</h2>
+<table>
+<tr><th>용어</th><th>뜻</th></tr>
+<tr><td><b>토큰 5종</b></td><td>input / output / cache_read / cache_write / reasoning. 단가가 각각 달라 분리 계측합니다.</td></tr>
+<tr><td><b>모델 티어</b></td><td>premium > standard > economy > self-host 순. 강등은 같은 계열에서 한 단계씩 내립니다.</td></tr>
+<tr><td><b>counterfactual(반사실) 절감</b></td><td>"그 최적화가 없었다면 들었을 비용"과 실제 비용의 차이를 절감으로 정의.</td></tr>
+<tr><td><b>서킷브레이커</b></td><td>run의 비용/스텝 한도 초과 또는 루프 감지 시 강제 중단(killed).</td></tr>
+<tr><td><b>품질 게이트</b></td><td>강등을 적용하기 전, 대상 모델의 품질 실적을 검사하는 3상태(승인/카나리/보류) 관문.</td></tr>
+<tr><td><b>시맨틱 캐시</b></td><td>완전 동일(exact) 또는 임베딩 유사도 기반(semantic_embedding)으로 과거 응답을 재사용.</td></tr>
+<tr><td><b>FOCUS</b></td><td>FinOps Foundation의 클라우드 비용 표준 스키마. 본 솔루션은 1.4 + 토큰 확장 컬럼 지원.</td></tr>
+</table>
+
+<!-- ============================ C FAQ ============================ -->
+<h2 id="faq">C. 자주 묻는 질문</h2>
+<h4>Q. 데이터가 안 보이거나 "연결 끊김"이 떠요.</h4>
+<p>좌하단 연결 점이 회색이면 컨트롤 플레인(:8500)이 응답하지 않는 상태입니다. 서비스 기동 여부를 확인하세요. 화면을 바꿔도 자동 재시도합니다.</p>
+<h4>Q. 정책을 바꿨는데 반영이 안 돼요.</h4>
+<p>에이전트 정책·거버넌스·단가는 즉시 반영됩니다. 서버 로직/스키마를 변경한 경우에는 서비스를 재시작해야 메모리의 옛 코드가 교체됩니다.</p>
+<h4>Q. 강등됐는데 품질이 떨어지면요?</h4>
+<p>품질 회귀 가드레일(7번 화면)이 자동 감지하고, 자동 원복이 켜져 있으면 강등을 즉시 비활성화합니다.</p>
+<h4>Q. 캐시가 동작하지 않는 에이전트가 있어요.</h4>
+<p>시맨틱 캐시는 중앙 레지스트리에서 에이전트별로 켜야 합니다(안전 기본값 OFF). 또한 민감 데이터·고위험 요청은 거버넌스가 캐시를 의도적으로 차단합니다.</p>
+
+<hr>
+<p class="muted" style="font-size:12.5px">© Metis FinOps — ktds OPS.AI. 본 매뉴얼은 대시보드 화면 기준으로 작성되었습니다.</p>
+</main>
+</div>
+</body>
+</html>

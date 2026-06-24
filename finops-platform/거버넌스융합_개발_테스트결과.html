@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metis FinOps — 거버넌스 융합 개발·테스트 결과</title>
+<style>
+:root { --accent:#2f6fe0; --navy:#1f3a93; --bg:#f7f9fc; --card:#fff; --text:#1c2330; --muted:#5b6678;
+        --border:#dde4ee; --green:#2e8b57; --red:#c0352b; --amber:#b8860b; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:"Pretendard","Malgun Gothic","Segoe UI",sans-serif;
+       font-size:14.5px; line-height:1.75; padding:40px 20px; }
+.wrap { max-width:920px; margin:0 auto; }
+header { text-align:center; margin-bottom:32px; }
+header h1 { font-size:25px; } header h1 span { color:var(--accent); }
+header .sub { color:var(--muted); margin-top:6px; font-size:13px; }
+h2 { font-size:18px; color:var(--accent); margin:34px 0 12px; padding-bottom:6px; border-bottom:2px solid var(--border); }
+h3 { font-size:15px; margin:18px 0 8px; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:22px 26px; margin-bottom:18px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+table { border-collapse:collapse; width:100%; font-size:13px; margin:10px 0; }
+th,td { border:1px solid var(--border); padding:8px 11px; text-align:left; }
+th { background:#eef3fb; }
+.pass { color:var(--green); font-weight:700; }
+.kpi-row { display:flex; gap:16px; flex-wrap:wrap; margin:6px 0 4px; }
+.kpi { flex:1; min-width:150px; background:#f0f6ff; border:1px solid var(--border); border-radius:10px; padding:14px 16px; text-align:center; }
+.kpi .v { font-size:26px; font-weight:800; color:var(--navy); }
+.kpi .l { font-size:12px; color:var(--muted); margin-top:4px; }
+code { background:#e8edf6; padding:1px 6px; border-radius:5px; font-size:12.5px; font-family:Consolas,monospace; }
+.tag { display:inline-block; background:var(--accent); color:#fff; border-radius:20px; padding:1px 11px; font-size:11.5px; font-weight:700; margin-right:6px; }
+.flow { background:#0d1117; color:#e6edf3; border-radius:10px; padding:16px 18px; font-family:Consolas,monospace; font-size:12.5px; line-height:1.7; overflow-x:auto; }
+.note { border-left:4px solid var(--amber); background:#fffaf0; padding:12px 16px; border-radius:0 8px 8px 0; margin:12px 0; font-size:13px; }
+.ok { border-left:4px solid var(--green); background:#f0f9f4; padding:12px 16px; border-radius:0 8px 8px 0; margin:12px 0; font-size:13px; }
+footer { text-align:center; color:var(--muted); font-size:12px; margin-top:36px; }
+@media print { body{padding:0;} .card{box-shadow:none;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Metis <span>FinOps</span> — 거버넌스 융합 개발·테스트 결과</h1>
+  <div class="sub">독립 게이트웨이(제품 표면) + Metis 거버넌스 융합(Patent 3) 결합 · ktds OPS.AI · 2026-06-12</div>
+</header>
+
+<div class="card">
+  <h2 style="margin-top:0">1. 무엇을 개발했나</h2>
+  <p>비교 리포트의 권고 — <b>"신규 플랫폼의 독립 게이트웨이를 제품 표면으로, Metis 거버넌스 융합(Patent 3)을 차별화 엔진으로 결합"</b> — 을 실제 코드로 구현했습니다. 기존 FinOps 화면은 유지하고 <b>거버넌스</b> 기능·뷰를 추가했습니다.</p>
+  <div class="kpi-row">
+    <div class="kpi"><div class="v">26</div><div class="l">테스트 통과 (단위 16 + 통합 10)</div></div>
+    <div class="kpi"><div class="v">0</div><div class="l">실패</div></div>
+    <div class="kpi"><div class="v">1</div><div class="l">발견·수정한 버그</div></div>
+    <div class="kpi"><div class="v">+1</div><div class="l">신규 대시보드 뷰(거버넌스)</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">2. 핵심: "거버넌스·품질·비용 동시 만족 폐루프"</h2>
+  <p>기존의 <b>품질게이트 강등</b>(승인/카나리/보류) 위에 Metis의 거버넌스 3요소를 결합했습니다.</p>
+  <div class="flow">에이전트 호출 (X-Metis-Data-Class / Risk-Score / Policy-Hash)
+   │
+   ▼  ① 캐시 정책 판정 (Patent 3)
+   ├─ PII·기밀 등급      → 캐시 재사용 차단 (DENY_SENSITIVE_DATA)
+   ├─ 고위험(≥0.7)       → 캐시 재사용 차단 (DENY_HIGH_RISK)
+   └─ 정책해시 스코프 캐시키 → 정책 변경 시 자동 무효화
+   │
+   ▼  ② 라우팅 결정
+   ├─ 고위험(≥0.8)       → 예산 강등 '방어' + 안전 최소 티어로 상향(escalate)
+   ├─ 그 외 + 예산 압박  → 품질게이트 통과 후에만 강등(downgrade)
+   └─ 비용·품질·거버넌스를 한 번에 만족시켜 라우팅 사전 결정
+   │
+   ▼  ③ 원장 기록 (cache_decision / gov_action / data_class / risk_score)
+   ▼  ④ 거버넌스 뷰: 차단 건수 · 강등 방어 · 민감 캐시 누출 0 · 준수율</div>
+  <div class="ok">이 결합은 단순 비용 라우터(CloudZero·Vantage·오픈소스 게이트웨이)가 흉내 낼 수 없는 해자이며, 특허 청구 대상입니다. "비용을 아끼다 민감정보가 캐시로 새거나, 예산 압박에 고위험 작업이 약한 모델로 떨어지는" 사고를 원천 차단합니다.</div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">3. 테스트 결과</h2>
+  <h3><span class="tag">통합</span>거버넌스 흐름 — 실제 게이트웨이 코드 (10/10)</h3>
+  <table>
+    <tr><th>시나리오</th><th>검증 내용</th><th>결과</th></tr>
+    <tr><td>G1 민감데이터 캐시 차단</td><td>PII 동일 질문 2회 → 두 번째도 캐시 재사용 안 됨</td><td class="pass">PASS</td></tr>
+    <tr><td>G2 대조군(일반)</td><td>INTERNAL 동일 질문 → 정상 캐시 히트</td><td class="pass">PASS</td></tr>
+    <tr><td>G3 정책해시 동일</td><td>같은 policy_hash → 캐시 히트</td><td class="pass">PASS</td></tr>
+    <tr><td>G3 정책해시 변경</td><td>policy_hash 변경 → 캐시 자동 무효화(미스)</td><td class="pass">PASS</td></tr>
+    <tr><td>G4 고위험 강등 방어</td><td>risk 0.9 → routing_action=escalate</td><td class="pass">PASS</td></tr>
+    <tr><td>G4 상향 모델</td><td>haiku(economy) → sonnet(standard) 보장</td><td class="pass">PASS</td></tr>
+    <tr><td>G5 차단 집계</td><td>거버넌스 API: 캐시 차단 건수 &gt; 0</td><td class="pass">PASS</td></tr>
+    <tr><td>G5 상향 집계</td><td>거버넌스 API: 리스크 상향 건수 &gt; 0</td><td class="pass">PASS</td></tr>
+    <tr><td>G5 누출 0</td><td>민감 데이터 캐시 누출 0건</td><td class="pass">PASS</td></tr>
+    <tr><td>G5 준수율</td><td>정책 준수율 100%</td><td class="pass">PASS</td></tr>
+  </table>
+  <h3><span class="tag">단위</span>순수 로직 — <code>tests/governance_unit.py</code> (16/16)</h3>
+  <p>티어 상향(escalate_to_tier) 6종, 캐시 정책 판정 5종, 거버넌스 캐시키 격리 4종, GPT-5 현행화 1종 — 모두 통과.</p>
+  <div class="note"><b>발견·수정한 실제 버그:</b> 레거시 <code>gpt-4o-mini</code> 강등 항목이 상향(UPGRADE) 역매핑을 오염시켜 <code>gpt-5-nano</code> 상향이 잘못된 모델로 가던 결함을 단위테스트가 잡아냈고, 현행 GPT-5/Claude 계열만으로 상향 경로를 구성하도록 수정했습니다(<code>nano→mini→gpt-5</code> 정상 확인).</p></div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">4. 함께 처리한 운영 점검 4건</h2>
+  <table>
+    <tr><th>지적사항</th><th>조치</th></tr>
+    <tr><td>.env 실키 평문 + push 스크립트 동거</td><td><code>.gitignore</code> 강화(.env/*.key/~$ 임시파일) + push 스크립트에 <b>API 키 패턴 사전 스캔</b> → 발견 시 푸시 중단. (.env는 이미 미커밋 확인). <b>키 회전 권고</b>를 SECURITY.md에 명시</td></tr>
+    <tr><td>게이트웨이 캐시 인메모리(멀티 레플리카 미공유)</td><td><code>REDIS_URL</code> 설정 시 <b>Redis 공유 캐시</b>, 미설정/실패 시 인메모리 폴백. <code>/health</code>에 backend 노출. AKS 매니페스트 반영</td></tr>
+    <tr><td>컨트롤플레인 불통 시 fail-open</td><td><code>METIS_FAIL_CLOSED</code> 설정 가능화(운영 매니페스트 기본=1, 불통 시 503 거부). <b>캐시는 항상 fail-closed</b>(미검증 응답 미제공)</td></tr>
+    <tr><td>보고서·임시파일 누적</td><td>Test Agent 보고서 <b>최근 50건 자동 보존</b>(초과분 삭제), gitignore에 <code>~$*.docx</code> 등 추가</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">5. 솔루션 패키징</h2>
+  <p><code>EDITIONS.md</code>에 Community / Pro / Enterprise 3-에디션과 배포 3형태(온프레미스·BYOC·SaaS), 과금 모델을 정의했습니다. <b>거버넌스 융합·Redis 캐시·품질게이트는 Pro 이상</b>, 임베딩 캐시·예측·SSO/RBAC·온프레미스 SLA는 Enterprise로 게이팅합니다.</p>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">6. 직접 확인 방법</h2>
+  <p><code>stop.bat</code> → <code>run.bat</code> 재실행 후 대시보드(:8500) 왼쪽 <b>🛡️ 거버넌스</b> 메뉴. 시뮬레이터가 CRM사업팀 상담봇의 30% PII 문의·코드리뷰 35% 고위험을 발생시켜, 캐시 차단·리스크 상향·준수율 100%가 실시간으로 채워집니다. 단위테스트는 <code>python tests\governance_unit.py</code>로 즉시 실행 가능합니다.</p>
+  <div class="note"><b>테스트 환경 안내:</b> 본 개발 환경의 샌드박스 파일 동기화 일시 오류로 전체 <code>tests/e2e.py</code>(25 시나리오)는 샌드박스에서 직접 구동하지 못해, 거버넌스 핵심을 단위(16)+통합(10) 테스트로 분리 검증했습니다(총 26/26 통과). 사장님 PC의 실제 소스는 정상이며, <code>run.bat</code>+<code>tests/e2e.py</code>로 전체 통합 테스트를 로컬에서 확인하실 수 있습니다.</div>
+</div>
+
+<footer>Metis FinOps — Agent FinOps Platform · ktds OPS.AI</footer>
+</div>
+</body>
+</html>

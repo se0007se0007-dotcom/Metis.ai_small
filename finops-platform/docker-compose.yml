@@ -1,0 +1,75 @@
+services:
+  control-plane:
+    build:
+      context: .
+      dockerfile: services/control_plane/Dockerfile
+    ports:
+      - "8500:8500"
+    environment:
+      - METIS_DB=/data/metis.db
+      - TEST_AGENT_URL=http://test-agent:8600
+    volumes:
+      - metis-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8500/api/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    ports:
+      - "8400:8400"
+    environment:
+      - LEDGER_URL=http://control-plane:8500
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    depends_on:
+      control-plane:
+        condition: service_healthy
+
+  test-agent:
+    build:
+      context: .
+      dockerfile: services/test_agent/Dockerfile
+    ports:
+      - "8600:8600"
+    environment:
+      - GATEWAY_URL=http://gateway:8400
+      - LEDGER_URL=http://control-plane:8500
+      - TEST_AGENT_MODEL=${TEST_AGENT_MODEL:-gpt-4o}
+      # metis 대시보드/이력 보고(Ingest). .env 에 값을 넣으면 활성화, 비우면 스킵.
+      #   METIS_INGEST_URL=http://host.docker.internal:4000/v1  (컨테이너→호스트 metis API)
+      #   METIS_INGEST_KEY=mts_...  (metis 「Ingest 키 현황」에서 발급)
+      - METIS_INGEST_URL=${METIS_INGEST_URL:-}
+      - METIS_INGEST_KEY=${METIS_INGEST_KEY:-}
+      - METIS_AGENT_NAME=${METIS_AGENT_NAME:-test-report-agent}
+      - METIS_WORKFLOW_KEY=${METIS_WORKFLOW_KEY:-ops-test-automation}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+      gateway:
+        condition: service_started
+
+  simulator:
+    build:
+      context: .
+      dockerfile: services/simulator/Dockerfile
+    environment:
+      - GATEWAY_URL=http://gateway:8400
+      - LEDGER_URL=http://control-plane:8500
+      - SIM_RPS=${SIM_RPS:-0.8}
+      - SIM_USE_REAL_API=${SIM_USE_REAL_API:-0}
+    depends_on:
+      control-plane:
+        condition: service_healthy
+      gateway:
+        condition: service_started
+
+volumes:
+  metis-data:

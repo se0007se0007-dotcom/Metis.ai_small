@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metis.AI — 기술·논리·SW 아키텍처 (테크리뷰)</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#11182e; --panel2:#0e1426; --ink:#e8edf7; --mut:#9fb0cc;
+    --line:#243353; --brand:#6f8cff; --brand2:#46d4b3; --warn:#f0b35e; --bad:#e07b7b;
+    --good:#6faf9a; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI",system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+    line-height:1.65;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px 80px}
+  header.cover{padding:54px 22px 34px;background:
+    radial-gradient(1200px 400px at 20% -10%,rgba(111,140,255,.25),transparent),
+    radial-gradient(900px 360px at 95% 0%,rgba(70,212,179,.18),transparent);
+    border-bottom:1px solid var(--line)}
+  .cover .klikes{max-width:1080px;margin:0 auto}
+  .badge{display:inline-block;font-size:12px;letter-spacing:.12em;color:var(--brand2);
+    border:1px solid var(--line);padding:4px 10px;border-radius:999px;background:var(--panel)}
+  h1{font-size:34px;margin:14px 0 6px;letter-spacing:-.5px}
+  .sub{color:var(--mut);font-size:15px;max-width:760px}
+  .meta{margin-top:16px;color:var(--mut);font-size:13px}
+  nav.toc{position:sticky;top:0;z-index:5;background:rgba(11,16,32,.92);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:26px}
+  nav.toc .inner{max-width:1080px;margin:0 auto;padding:0 22px;display:flex;flex-wrap:wrap;gap:6px}
+  nav.toc a{font-size:12.5px;color:var(--mut);text-decoration:none;border:1px solid var(--line);
+    padding:5px 9px;border-radius:8px;background:var(--panel)}
+  nav.toc a:hover{color:var(--ink);border-color:var(--brand)}
+  section{margin:38px 0;scroll-margin-top:64px}
+  h2{font-size:22px;margin:0 0 4px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h2 .n{color:var(--brand);font-weight:800;margin-right:8px}
+  h3{font-size:16.5px;margin:22px 0 8px;color:#cdd9f2}
+  p{margin:9px 0;color:#d6deee}
+  .lead{color:var(--mut)}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:820px){.g2,.g3{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);
+    border-radius:14px;padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:14.5px;color:#eaf0ff}
+  .card p{margin:4px 0;font-size:13.5px;color:var(--mut)}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#152038;color:#bcd;font-weight:600;font-size:12.5px;letter-spacing:.02em}
+  tr:last-child td{border-bottom:0}
+  code,.mono{font-family:"JetBrains Mono",Consolas,monospace;font-size:12.5px;
+    background:#0c142b;border:1px solid var(--line);padding:1px 6px;border-radius:6px;color:#cfe3ff}
+  .tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);
+    margin:2px 4px 2px 0;color:var(--mut);background:var(--panel)}
+  .tag.b{color:var(--brand);border-color:#2c3b66}
+  .tag.g{color:var(--brand2);border-color:#1f4f47}
+  .tag.v{color:var(--violet);border-color:#3a2f63}
+  .note{border-left:3px solid var(--brand);background:#0f1830;padding:10px 14px;border-radius:0 10px 10px 0;color:#cdd9f2;font-size:13.5px;margin:12px 0}
+  .note.warn{border-color:var(--warn);background:#241c10}
+  .note.good{border-color:var(--good);background:#10231d}
+  figure{margin:16px 0;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px}
+  figcaption{color:var(--mut);font-size:12.5px;margin-top:8px;text-align:center}
+  svg{display:block;margin:0 auto;max-width:100%;height:auto}
+  ul.clean{margin:8px 0;padding-left:18px}
+  ul.clean li{margin:5px 0;color:#d6deee;font-size:13.8px}
+  .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+  .kpi .b{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .kpi .b b{display:block;font-size:22px;color:#eaf0ff}
+  .kpi .b span{font-size:12px;color:var(--mut)}
+  footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:var(--mut);font-size:12.5px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:12px;color:var(--mut);margin-top:6px}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:middle}
+</style>
+</head>
+<body>
+<header class="cover">
+  <div class="klikes">
+    <span class="badge">TECH REVIEW · ARCHITECTURE</span>
+    <h1>Metis.AI — 기술 · 논리 · SW 아키텍처</h1>
+    <p class="sub">AI 에이전트를 <b>등록 → 실행 → 4‑게이트(품질·비용·보안·이상) 평가 → 거버넌스 → 대시보드</b>로 한 곳에서 운영·관리하는 멀티테넌트 SaaS 플랫폼. 본 문서는 실제 소스코드(모노레포)를 근거로 작성되었습니다.</p>
+    <div class="meta">대상: 기술 검토(아키텍처/엔지니어링) · 기준: 현재 소스 스냅샷 · 구성: Turborepo + pnpm 모노레포</div>
+  </div>
+</header>
+
+<nav class="toc"><div class="inner">
+  <a href="#overview">1. 개요</a>
+  <a href="#stack">2. 기술 스택</a>
+  <a href="#system">3. 시스템 아키텍처</a>
+  <a href="#logical">4. 논리 아키텍처</a>
+  <a href="#sw">5. SW 아키텍처</a>
+  <a href="#data">6. 데이터 모델</a>
+  <a href="#flows">7. 핵심 흐름</a>
+  <a href="#feature">8. 기능 구성도</a>
+  <a href="#sec">9. 보안·거버넌스</a>
+  <a href="#ops">10. 배포·운영</a>
+</div></nav>
+
+<div class="wrap">
+
+<section id="overview">
+  <h2><span class="n">1</span>플랫폼 개요</h2>
+  <p class="lead">Metis.AI는 조직이 보유한 다양한 AI 에이전트(사내 워크플로우형 + 외부 전용화면형)를 <b>하나의 통제면(control plane)</b>에서 등록·실행·평가·감사하도록 만드는 플랫폼입니다. 모든 실행은 4‑게이트 평가와 감사 로그를 거쳐 대시보드에 집계됩니다.</p>
+  <div class="kpi">
+    <div class="b"><b>2</b><span>주요 에이전트 형태 (사내 파이프라인 / 외부 전용화면)</span></div>
+    <div class="b"><b>4</b><span>게이트: 품질 · 비용 · 보안 · 이상</span></div>
+    <div class="b"><b>6</b><span>RBAC 역할</span></div>
+    <div class="b"><b>80+</b><span>도메인 데이터 모델(Prisma)</span></div>
+  </div>
+  <div class="grid g3" style="margin-top:8px">
+    <div class="card"><h4>운영 통제면</h4><p>실행 이력·비용·품질·보안·이상을 테넌트 단위로 집계하고, 운영 기준값으로 등급/헬스/ROI를 산출.</p></div>
+    <div class="card"><h4>거버넌스</h4><p>정책(Policy)·ORB 심사·FDS 이상탐지·자동조치(AutoAction)·감사로그(AuditLog)로 에이전트 행위를 통제.</p></div>
+    <div class="card"><h4>기준정보(Master Data)</h4><p>Agent·모델단가·사용자·테넌트/팀·운영기준값을 관리자 화면에서 직접 편집, 모든 화면이 이를 참조.</p></div>
+  </div>
+</section>
+
+<section id="stack">
+  <h2><span class="n">2</span>기술 스택</h2>
+  <p class="lead">모노레포(Turborepo + pnpm 11.7.0, TypeScript 5.9.3). 백엔드/프론트/워커/공유패키지로 분리.</p>
+  <table>
+    <tr><th style="width:130px">영역</th><th style="width:230px">핵심 기술</th><th>버전 · 비고</th></tr>
+    <tr><td>모노레포</td><td>Turborepo, pnpm</td><td>pnpm <code>11.7.0</code> (packageManager 고정), TypeScript <code>5.9.3</code></td></tr>
+    <tr><td>백엔드 API</td><td>NestJS</td><td><code>10.4.15</code> · Express 플랫폼 · 글로벌 <code>ValidationPipe</code>(whitelist·forbidNonWhitelisted·transform) · Swagger · Helmet</td></tr>
+    <tr><td>인증</td><td>JWT + Passport</td><td><code>@nestjs/jwt</code> 10.2.0, <code>passport-jwt</code> 4.0.1, <code>bcryptjs</code> · RBAC 6역할</td></tr>
+    <tr><td>비동기 작업</td><td>BullMQ + Redis</td><td>BullMQ <code>5.73</code> + ioredis · 워커 큐: pack‑import / execution / replay / shadow / autonomous‑ops</td></tr>
+    <tr><td>ORM · DB</td><td>Prisma · PostgreSQL</td><td>Prisma <code>6.19.3</code>, PostgreSQL <code>16</code>, Redis <code>7</code></td></tr>
+    <tr><td>프론트엔드</td><td>Next.js (App Router) · React</td><td>Next <code>15.5.9</code>, React <code>19.2.4</code>, TanStack Query <code>5.96</code>, Zustand <code>5.0</code>, Tailwind <code>3.4</code>, lucide‑react</td></tr>
+    <tr><td>FinOps 플랫폼</td><td>Python · FastAPI (Docker)</td><td>control‑plane(원장 8500) · gateway(LLM 8400) · simulator · <b>test‑agent(8600)</b> · LiteLLM</td></tr>
+    <tr><td>관측</td><td>Prometheus · Grafana</td><td>infra compose 동봉 (metrics 모듈)</td></tr>
+  </table>
+  <div class="note">스택 선택 원칙: <b>타입 일관성</b>(TS 전구간) · <b>도메인 분리</b>(NestJS 모듈) · <b>멀티테넌시 우선</b>(모든 쿼리 tenant 스코프) · <b>비용 가시성</b>(FinOps 원장 + 모델단가 기준정보).</div>
+</section>
+
+<section id="system">
+  <h2><span class="n">3</span>시스템 아키텍처</h2>
+  <p class="lead">브라우저 → Next.js(웹) → NestJS(API) → PostgreSQL/Redis. 외부 전용화면 에이전트는 iframe으로 임베드되어 실행 결과를 API로 보고하고, FinOps 플랫폼이 LLM 호출·원장(비용)을 담당합니다.</p>
+  <figure>
+  <svg viewBox="0 0 980 540" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, sans-serif">
+    <defs>
+      <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#6f8cff"/></marker>
+      <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#46d4b3"/></marker>
+    </defs>
+    <style>
+      .b{fill:#11182e;stroke:#243353;rx:12}
+      .t{fill:#e8edf7;font-size:13px;font-weight:600}
+      .s{fill:#9fb0cc;font-size:11px}
+      .ln{stroke:#6f8cff;stroke-width:1.6;fill:none;marker-end:url(#ar)}
+      .ln2{stroke:#46d4b3;stroke-width:1.6;fill:none;marker-end:url(#ar2);stroke-dasharray:5 4}
+      .zone{fill:#0e1426;stroke:#243353;stroke-dasharray:4 4;rx:14}
+      .zt{fill:#6f8cff;font-size:11px;font-weight:700;letter-spacing:.08em}
+    </style>
+    <!-- client -->
+    <rect class="b" x="30" y="40" width="170" height="70"/>
+    <text class="t" x="48" y="70">브라우저 (사용자)</text>
+    <text class="s" x="48" y="90">Next.js UI · iframe</text>
+
+    <!-- web -->
+    <rect class="b" x="30" y="200" width="170" height="78"/>
+    <text class="t" x="48" y="232">Web · Next.js 15</text>
+    <text class="s" x="48" y="250">App Router / React 19</text>
+    <text class="s" x="48" y="266">TanStack Query · Zustand</text>
+
+    <!-- api zone -->
+    <rect class="zone" x="250" y="24" width="430" height="300"/>
+    <text class="zt" x="266" y="44">METIS CORE (NestJS API · :4000 /v1)</text>
+    <rect class="b" x="270" y="60" width="180" height="56"/>
+    <text class="t" x="286" y="84">Auth · RBAC</text><text class="s" x="286" y="102">JWT · 6 roles · Guard</text>
+    <rect class="b" x="270" y="128" width="180" height="56"/>
+    <text class="t" x="286" y="152">Workflow · Execution</text><text class="s" x="286" y="170">PipelineEngine · Ingest</text>
+    <rect class="b" x="270" y="196" width="180" height="56"/>
+    <text class="t" x="286" y="220">Evaluator (4‑Gate)</text><text class="s" x="286" y="238">품질·비용·보안·이상</text>
+    <rect class="b" x="270" y="264" width="180" height="50"/>
+    <text class="t" x="286" y="292">Governance · Audit</text>
+    <rect class="b" x="470" y="60" width="190" height="56"/>
+    <text class="t" x="486" y="84">Dashboard · 집계</text><text class="s" x="486" y="102">OpsReference 기준값</text>
+    <rect class="b" x="470" y="128" width="190" height="56"/>
+    <text class="t" x="486" y="152">Master Data</text><text class="s" x="486" y="170">Agent·모델·사용자·테넌트</text>
+    <rect class="b" x="470" y="196" width="190" height="56"/>
+    <text class="t" x="486" y="220">FinOps · FDS · ORB</text><text class="s" x="486" y="238">비용·이상·심사</text>
+    <rect class="b" x="470" y="264" width="190" height="50"/>
+    <text class="t" x="486" y="292">Knowledge · Builder</text>
+
+    <!-- data -->
+    <rect class="b" x="740" y="60" width="200" height="60"/>
+    <text class="t" x="758" y="86">PostgreSQL 16</text><text class="s" x="758" y="104">Prisma 6 · 멀티테넌트</text>
+    <rect class="b" x="740" y="140" width="200" height="56"/>
+    <text class="t" x="758" y="164">Redis 7</text><text class="s" x="758" y="182">BullMQ 큐</text>
+    <rect class="b" x="740" y="214" width="200" height="58"/>
+    <text class="t" x="758" y="240">Worker (BullMQ)</text><text class="s" x="758" y="258">execution·replay·shadow</text>
+
+    <!-- finops zone -->
+    <rect class="zone" x="250" y="356" width="430" height="150"/>
+    <text class="zt" x="266" y="376">FINOPS PLATFORM (Python/FastAPI · Docker)</text>
+    <rect class="b" x="270" y="390" width="130" height="50"/><text class="t" x="284" y="412">test‑agent</text><text class="s" x="284" y="428">:8600 전용화면</text>
+    <rect class="b" x="410" y="390" width="120" height="50"/><text class="t" x="424" y="412">gateway</text><text class="s" x="424" y="428">:8400 LLM</text>
+    <rect class="b" x="540" y="390" width="120" height="50"/><text class="t" x="554" y="412">control‑plane</text><text class="s" x="554" y="428">:8500 원장</text>
+    <rect class="b" x="340" y="456" width="250" height="38"/><text class="s" x="356" y="480">LiteLLM · simulator · Prometheus/Grafana</text>
+
+    <!-- arrows -->
+    <path class="ln" d="M115,110 L115,200"/>
+    <path class="ln" d="M200,239 L268,150"/>
+    <path class="ln" d="M660,90 L740,90"/>
+    <path class="ln" d="M660,156 L740,166"/>
+    <path class="ln" d="M560,316 L560,388"/>
+    <text class="s" x="120" y="160">HTTPS</text>
+    <!-- iframe + report -->
+    <path class="ln2" d="M150,76 C 300,-6 760,330 400,392"/>
+    <text class="s" fill="#46d4b3" x="300" y="22">iframe 임베드(전용화면) ↘ postMessage 결과 → /workflows/external-record</text>
+    <path class="ln2" d="M340,415 C 240,360 240,250 268,224"/>
+  </svg>
+  <figcaption>그림 3‑1. 시스템 컨텍스트 — 실선: 동기 HTTP, 점선(녹색): 외부 전용화면 임베드/결과 보고 경로</figcaption>
+  </figure>
+  <div class="grid g3">
+    <div class="card"><h4>웹 ↔ API</h4><p>Next.js가 <code>/v1</code> REST를 호출(TanStack Query 캐시). 인증은 JWT 쿠키/베어러.</p></div>
+    <div class="card"><h4>외부 전용화면</h4><p>에이전트 고유 화면을 iframe으로 임베드 → 실행 후 <code>postMessage</code> → <code>external-record</code>가 ingest+감사 기록.</p></div>
+    <div class="card"><h4>FinOps</h4><p>LLM 호출은 gateway 경유, 토큰·비용은 control‑plane 원장에 적재. test‑agent는 예시 외부 에이전트.</p></div>
+  </div>
+</section>
+
+<section id="logical">
+  <h2><span class="n">4</span>논리 아키텍처 (도메인)</h2>
+  <p class="lead">핵심 도메인은 6개 묶음으로 나뉩니다. 모든 도메인은 <b>Tenant</b>를 루트로 격리됩니다.</p>
+  <figure>
+  <svg viewBox="0 0 980 360" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, sans-serif">
+    <style>
+      .d{rx:12;stroke-width:1.5}
+      .dt{fill:#eaf0ff;font-size:13px;font-weight:700}
+      .ds{fill:#9fb0cc;font-size:10.5px}
+    </style>
+    <rect class="d" x="360" y="20" width="260" height="46" fill="#10231d" stroke="#1f4f47"/>
+    <text class="dt" x="392" y="48" fill="#9be7cf">멀티테넌시 · IAM (Tenant / User / Membership / Team)</text>
+    <rect class="d" x="30" y="100" width="220" height="92" fill="#11182e" stroke="#2c3b66"/>
+    <text class="dt" x="50" y="126">에이전트 모델</text>
+    <text class="ds" x="50" y="146">Workflow(메인) · NodeDef(서브)</text>
+    <text class="ds" x="50" y="162">EdgeDef · effectivenessJson</text>
+    <text class="ds" x="50" y="178">launchUrl · listed · system</text>
+    <rect class="d" x="270" y="100" width="220" height="92" fill="#11182e" stroke="#2c3b66"/>
+    <text class="dt" x="290" y="126">실행 · 평가</text>
+    <text class="ds" x="290" y="146">ExecutionSession/Step/Trace</text>
+    <text class="ds" x="290" y="162">AgentEvaluation(4‑Gate)</text>
+    <text class="ds" x="290" y="178">EffectivenessSignal</text>
+    <rect class="d" x="510" y="100" width="220" height="92" fill="#11182e" stroke="#3a2f63"/>
+    <text class="dt" x="530" y="126">거버넌스</text>
+    <text class="ds" x="530" y="146">Policy · ORB · AuditLog</text>
+    <text class="ds" x="530" y="162">FDSRule/Alert · AutoAction</text>
+    <text class="ds" x="530" y="178">GovernanceDecision · Evidence</text>
+    <rect class="d" x="750" y="100" width="200" height="92" fill="#11182e" stroke="#2c3b66"/>
+    <text class="dt" x="770" y="126">기준정보</text>
+    <text class="ds" x="770" y="146">ModelPrice · OpsReference</text>
+    <text class="ds" x="770" y="162">Team · IngestApiKey</text>
+    <text class="ds" x="770" y="178">사용자/테넌트</text>
+    <rect class="d" x="150" y="220" width="300" height="80" fill="#11182e" stroke="#2c3b66"/>
+    <text class="dt" x="170" y="246">FinOps</text>
+    <text class="ds" x="170" y="266">FinOpsConfig/AgentConfig/Skill</text>
+    <text class="ds" x="170" y="282">Namespace · TokenLog · ModelPrice</text>
+    <rect class="d" x="500" y="220" width="300" height="80" fill="#11182e" stroke="#2c3b66"/>
+    <text class="dt" x="520" y="246">지식 · 릴리즈</text>
+    <text class="ds" x="520" y="266">KnowledgeArtifact · ErrorPattern</text>
+    <text class="ds" x="520" y="282">Replay · Shadow · Canary · Promotion</text>
+  </svg>
+  <figcaption>그림 4‑1. 도메인 맵 — 최상위 IAM 아래 6개 도메인이 테넌트 스코프로 동작</figcaption>
+  </figure>
+  <h3>핵심 개념: "에이전트"의 표현</h3>
+  <p>본 플랫폼에는 별도의 Agent 엔티티가 없습니다. <b>메인 에이전트 = <code>Workflow</code></b>, <b>서브 에이전트 = <code>WorkflowNodeDef</code></b>로 표현하며, 에이전트별 설정(전용 실행화면 <code>launchUrl</code>, 대상 시스템 <code>system</code>, 수작업 분 <code>manualMinutesPerRun</code>, 시급 <code>hourlyRateUsd</code>)은 <code>Workflow.effectivenessJson</code>에 저장합니다. 게시 여부는 <code>listed</code>(ORB 승인 시 카탈로그 노출)로 통제합니다.</p>
+</section>
+
+<section id="sw">
+  <h2><span class="n">5</span>SW 아키텍처 (레이어드)</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h4>프론트엔드 (apps/web)</h4>
+      <p>Next.js App Router. <code>(authenticated)</code> 그룹 아래 기능별 라우트. 데이터는 TanStack Query(서버상태) + Zustand(클라이언트상태). 공통 컴포넌트 <code>AgentCategoryView</code>가 카테고리별 에이전트 목록·실행·이력·상세를 담당.</p>
+      <p style="margin-top:6px">
+        <span class="tag b">home</span><span class="tag b">agent/*</span><span class="tag b">admin/master/*</span>
+        <span class="tag b">governance/*</span><span class="tag b">insights/*</span><span class="tag b">knowledge/*</span>
+        <span class="tag b">orchestration/*</span><span class="tag b">workspaces/*</span>
+      </p>
+    </div>
+    <div class="card">
+      <h4>백엔드 (apps/api · NestJS 모듈)</h4>
+      <p>도메인별 모듈로 분리. 횡단 관심사는 글로벌로 적용.</p>
+      <p style="margin-top:6px">
+        <span class="tag g">auth</span><span class="tag g">workflow</span><span class="tag g">workflow‑nodes</span>
+        <span class="tag g">execution</span><span class="tag g">evaluator</span><span class="tag g">ingest</span>
+        <span class="tag g">dashboard</span><span class="tag g">tenant</span><span class="tag g">governance</span>
+        <span class="tag g">orb</span><span class="tag g">fds</span><span class="tag g">finops</span>
+        <span class="tag g">knowledge</span><span class="tag g">builder</span><span class="tag g">connector</span>
+        <span class="tag g">pack</span><span class="tag g">release</span><span class="tag g">autonomous‑ops</span>
+      </p>
+    </div>
+  </div>
+  <h3>횡단 관심사 (Cross‑cutting)</h3>
+  <table>
+    <tr><th style="width:170px">관심사</th><th>구현</th></tr>
+    <tr><td>인증/인가</td><td>JWT 검증 Guard + <code>@Roles()</code> 데코레이터(RBAC 6역할). 메뉴/라우트별 권한 분리.</td></tr>
+    <tr><td>입력 검증</td><td>글로벌 <code>ValidationPipe</code> (whitelist · forbidNonWhitelisted · transform). DTO 클래스는 class‑validator.</td></tr>
+    <tr><td>감사</td><td><code>@Audit(action,target)</code> 데코레이터 → <code>AuditInterceptor</code> → <code>AuditLog</code> 기록(누가·언제·무엇을·결과).</td></tr>
+    <tr><td>상관관계</td><td><code>CorrelationInterceptor</code>로 correlationId 부여(추적/트레이스 연결).</td></tr>
+    <tr><td>멀티테넌시</td><td><code>withTenantIsolation()</code>로 모든 쿼리에 tenantId 강제. 키 기반 ingest는 키 scope로 agentName 제한.</td></tr>
+    <tr><td>비동기</td><td>장시간 작업(pack import, replay, shadow, autonomous‑ops)은 BullMQ 워커로 위임.</td></tr>
+  </table>
+  <h3>공유 패키지</h3>
+  <p><span class="tag v">packages/database</span> Prisma 스키마·클라이언트·시드 · <span class="tag v">packages/types</span> 공유 타입 · <span class="tag v">packages/config</span> 설정 · <span class="tag v">packages/ui</span> UI 공통.</p>
+</section>
+
+<section id="data">
+  <h2><span class="n">6</span>데이터 모델 (핵심 ERD)</h2>
+  <p class="lead">전체 80여 개 모델 중 실행·평가·에이전트·기준정보의 핵심 관계입니다.</p>
+  <figure>
+  <svg viewBox="0 0 980 430" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, sans-serif">
+    <defs><marker id="er" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#9fb0cc"/></marker></defs>
+    <style>
+      .e{fill:#11182e;stroke:#2c3b66;rx:10}.eh{fill:#152038}
+      .en{fill:#eaf0ff;font-size:12.5px;font-weight:700}
+      .ef{fill:#9fb0cc;font-size:10.5px}
+      .rel{stroke:#9fb0cc;stroke-width:1.3;fill:none;marker-end:url(#er)}
+      .rl{fill:#7e8db0;font-size:10px}
+    </style>
+    <!-- Tenant -->
+    <rect class="e" x="30" y="30" width="160" height="64"/><rect class="eh" x="30" y="30" width="160" height="22" rx="10"/>
+    <text class="en" x="42" y="46">Tenant</text><text class="ef" x="42" y="68">id · slug · name</text><text class="ef" x="42" y="84">(루트 격리)</text>
+    <!-- Workflow -->
+    <rect class="e" x="30" y="150" width="180" height="92"/><rect class="eh" x="30" y="150" width="180" height="22" rx="10"/>
+    <text class="en" x="42" y="166">Workflow (메인)</text>
+    <text class="ef" x="42" y="188">key · code · name · listed</text>
+    <text class="ef" x="42" y="204">effectivenessJson(launchUrl…)</text>
+    <text class="ef" x="42" y="220">status · system · version</text>
+    <!-- NodeDef -->
+    <rect class="e" x="30" y="300" width="180" height="74"/><rect class="eh" x="30" y="300" width="180" height="22" rx="10"/>
+    <text class="en" x="42" y="316">WorkflowNodeDef (서브)</text>
+    <text class="ef" x="42" y="338">nodeKey · uiType · name</text>
+    <text class="ef" x="42" y="354">executionOrder · dependsOn</text>
+    <!-- ExecutionSession -->
+    <rect class="e" x="400" y="150" width="200" height="100"/><rect class="eh" x="400" y="150" width="200" height="22" rx="10"/>
+    <text class="en" x="412" y="166">ExecutionSession</text>
+    <text class="ef" x="412" y="188">workflowKey · status</text>
+    <text class="ef" x="412" y="204">costUsd · latencyMs · source</text>
+    <text class="ef" x="412" y="220">startedAt/endedAt</text>
+    <text class="ef" x="412" y="236">agentMetaJson · inputJson</text>
+    <!-- Step -->
+    <rect class="e" x="660" y="60" width="200" height="78"/><rect class="eh" x="660" y="60" width="200" height="22" rx="10"/>
+    <text class="en" x="672" y="76">ExecutionStep (구간)</text>
+    <text class="ef" x="672" y="98">stepKey · stepType</text>
+    <text class="ef" x="672" y="114">latencyMs · status</text>
+    <text class="ef" x="672" y="130">startedAt/endedAt</text>
+    <!-- Eval -->
+    <rect class="e" x="660" y="170" width="200" height="120"/><rect class="eh" x="660" y="170" width="200" height="22" rx="10"/>
+    <text class="en" x="672" y="186">AgentEvaluation (4‑Gate)</text>
+    <text class="ef" x="672" y="208">overallScore · qualityGrade</text>
+    <text class="ef" x="672" y="224">securityScore · riskLevel</text>
+    <text class="ef" x="672" y="240">estimatedCostUsd · tokens</text>
+    <text class="ef" x="672" y="256">anomalyDetected · events</text>
+    <text class="ef" x="672" y="272">stepKey(노드별)</text>
+    <!-- Trace/Audit -->
+    <rect class="e" x="400" y="300" width="200" height="62"/><rect class="eh" x="400" y="300" width="200" height="22" rx="10"/>
+    <text class="en" x="412" y="316">AuditLog</text>
+    <text class="ef" x="412" y="338">actor · action · target</text>
+    <text class="ef" x="412" y="354">correlationId · metadataJson</text>
+    <!-- Master -->
+    <rect class="e" x="660" y="320" width="200" height="64"/><rect class="eh" x="660" y="320" width="200" height="22" rx="10"/>
+    <text class="en" x="672" y="336">기준정보</text>
+    <text class="ef" x="672" y="358">ModelPrice · OpsReferenceConfig</text>
+    <text class="ef" x="672" y="374">Team · IngestApiKey</text>
+    <!-- relations -->
+    <path class="rel" d="M110,94 L110,150"/><text class="rl" x="116" y="124">1:N</text>
+    <path class="rel" d="M120,242 L120,300"/><text class="rl" x="126" y="274">1:N nodes</text>
+    <path class="rel" d="M210,196 L400,196"/><text class="rl" x="280" y="188">실행 by key</text>
+    <path class="rel" d="M600,180 L660,110"/><text class="rl" x="606" y="150">1:N steps</text>
+    <path class="rel" d="M600,210 L660,220"/><text class="rl" x="606" y="206">1:N evals</text>
+    <path class="rel" d="M500,250 L500,300"/><text class="rl" x="506" y="280">감사</text>
+    <path class="rel" d="M190,62 C 320,62 470,90 500,148"/><text class="rl" x="300" y="58">Tenant 1:N (모든 엔티티)</text>
+  </svg>
+  <figcaption>그림 6‑1. 핵심 ERD — 실행 1건(Session)이 구간(Step) N개와 4‑게이트 평가(Evaluation) N개를 가짐</figcaption>
+  </figure>
+  <table>
+    <tr><th style="width:200px">모델</th><th>역할</th></tr>
+    <tr><td><code>Workflow</code> / <code>WorkflowNodeDef</code> / <code>WorkflowEdgeDef</code></td><td>메인/서브 에이전트와 노드 연결. 에이전트 메타는 effectivenessJson.</td></tr>
+    <tr><td><code>ExecutionSession</code></td><td>실행 1건. source(internal/sdk/hermes), 상태, 비용, 지연. 외부 실행은 ingest로 생성.</td></tr>
+    <tr><td><code>ExecutionStep</code></td><td>실행 내 <b>구간(segment)</b>. 구간별 소요(latencyMs)로 병목 분석.</td></tr>
+    <tr><td><code>AgentEvaluation</code></td><td><b>4‑게이트</b> 결과(노드별): 품질·보안·비용·이상 점수/등급.</td></tr>
+    <tr><td><code>AuditLog</code></td><td>모든 상태변경/실행 감사. AI 활동 로그 화면의 원천.</td></tr>
+    <tr><td><code>ModelPrice</code> / <code>OpsReferenceConfig</code> / <code>Team</code> / <code>IngestApiKey</code></td><td>기준정보 — 모델단가, 운영기준값(헬스/등급/시급/가동시간), 팀, 적재 키.</td></tr>
+    <tr><td><code>Policy</code> · <code>OrbReview</code> · <code>FDSAlert</code> · <code>AutoAction</code> · <code>GovernanceDecision</code></td><td>거버넌스 — 정책·심사·이상탐지·자동조치·런타임 의사결정.</td></tr>
+  </table>
+</section>
+
+<section id="flows">
+  <h2><span class="n">7</span>핵심 실행 흐름</h2>
+
+  <h3>7‑1. 사내 워크플로우 에이전트 — 4‑게이트 평가</h3>
+  <p>저장된 에이전트를 key로 즉시 실행하면 <code>PipelineEngine.execute()</code>가 노드 실행기(NodeExecutorRegistry)로 각 노드를 수행하고, 노드마다 <code>EvaluatorService.evaluate()</code>가 4‑게이트를 평가해 <code>AgentEvaluation</code>으로 적재합니다.</p>
+  <figure>
+  <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, sans-serif">
+    <defs><marker id="fa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#6f8cff"/></marker></defs>
+    <style>.fb{fill:#11182e;stroke:#243353;rx:10}.ft{fill:#e8edf7;font-size:12px;font-weight:600}.fs{fill:#9fb0cc;font-size:10.5px}.fl{stroke:#6f8cff;stroke-width:1.6;fill:none;marker-end:url(#fa)}
+      .gate{fill:#10231d;stroke:#1f4f47;rx:10}</style>
+    <rect class="fb" x="20" y="90" width="120" height="58"/><text class="ft" x="34" y="114">실행 요청</text><text class="fs" x="34" y="132">run‑by‑key</text>
+    <rect class="fb" x="180" y="90" width="140" height="58"/><text class="ft" x="194" y="114">PipelineEngine</text><text class="fs" x="194" y="132">노드 순차 실행</text>
+    <rect class="fb" x="360" y="40" width="150" height="48"/><text class="ft" x="374" y="68">NodeExecutor</text>
+    <rect class="gate" x="360" y="110" width="150" height="92"/><text class="ft" x="374" y="132" fill="#9be7cf">Evaluator (4‑Gate)</text>
+    <text class="fs" x="374" y="152">품질 · 비용</text><text class="fs" x="374" y="168">보안 · 이상</text><text class="fs" x="374" y="186">노드별 점수/등급</text>
+    <rect class="fb" x="560" y="60" width="160" height="58"/><text class="ft" x="574" y="84">ExecutionSession</text><text class="fs" x="574" y="102">+ Step(구간)</text>
+    <rect class="fb" x="560" y="140" width="160" height="56"/><text class="ft" x="574" y="164">AgentEvaluation</text><text class="fs" x="574" y="182">4‑게이트 결과</text>
+    <rect class="fb" x="770" y="100" width="170" height="58"/><text class="ft" x="784" y="124">Dashboard 집계</text><text class="fs" x="784" y="142">OpsReference 기준</text>
+    <path class="fl" d="M140,119 L178,119"/>
+    <path class="fl" d="M320,110 L358,72"/>
+    <path class="fl" d="M320,128 L358,150"/>
+    <path class="fl" d="M510,150 L558,168"/>
+    <path class="fl" d="M510,150 L558,100"/>
+    <path class="fl" d="M720,130 L768,130"/>
+  </svg>
+  <figcaption>그림 7‑1. 노드별 4‑게이트 평가 → 세션/구간/평가 적재 → 대시보드 집계</figcaption>
+  </figure>
+
+  <h3>7‑2. 외부 전용화면 에이전트 — 임베드 + 결과 보고</h3>
+  <p>전용 실행화면 <code>launchUrl</code>이 설정된 에이전트는 metis 안에 iframe으로 임베드됩니다. 사용자가 그 화면에서 실행하면 화면이 <code>postMessage</code>로 결과(출력·비용·지연·<b>구간 타이밍</b>)를 부모(metis)로 넘기고, metis는 <code>/workflows/external-record</code> → <code>IngestService</code>로 <b>ExecutionSession + 4‑게이트 + 구간(Step) + 감사로그</b>를 적재합니다.</p>
+  <figure>
+  <svg viewBox="0 0 980 210" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, sans-serif">
+    <defs><marker id="xa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#46d4b3"/></marker></defs>
+    <style>.xb{fill:#11182e;stroke:#243353;rx:10}.xt{fill:#e8edf7;font-size:12px;font-weight:600}.xs{fill:#9fb0cc;font-size:10.5px}.xl{stroke:#46d4b3;stroke-width:1.6;fill:none;marker-end:url(#xa)}</style>
+    <rect class="xb" x="20" y="70" width="150" height="64"/><text class="xt" x="34" y="96">iframe 전용화면</text><text class="xs" x="34" y="114">test‑agent :8600</text>
+    <rect class="xb" x="210" y="70" width="150" height="64"/><text class="xt" x="224" y="96">postMessage</text><text class="xs" x="224" y="114">출력·비용·timings</text>
+    <rect class="xb" x="400" y="70" width="170" height="64"/><text class="xt" x="414" y="96">external‑record</text><text class="xs" x="414" y="114">웹 리스너 → API</text>
+    <rect class="xb" x="610" y="30" width="160" height="56"/><text class="xt" x="624" y="54">IngestService</text><text class="xs" x="624" y="72">4‑게이트 평가</text>
+    <rect class="xb" x="610" y="110" width="160" height="56"/><text class="xt" x="624" y="134">writeExternalSteps</text><text class="xs" x="624" y="152">구간 → Step</text>
+    <rect class="xb" x="810" y="70" width="150" height="64"/><text class="xt" x="824" y="96">대시보드·이력</text><text class="xs" x="824" y="114">+ AI 활동로그</text>
+    <path class="xl" d="M170,102 L208,102"/>
+    <path class="xl" d="M360,102 L398,102"/>
+    <path class="xl" d="M570,96 L608,64"/>
+    <path class="xl" d="M570,108 L608,134"/>
+    <path class="xl" d="M770,100 L808,100"/>
+  </svg>
+  <figcaption>그림 7‑2. 외부 전용화면 실행 → 구간 타이밍 포함 보고 → metis 적재(이력·4게이트·구간·감사)</figcaption>
+  </figure>
+
+  <h3>7‑3. SDK Ingest (서버‑투‑서버)</h3>
+  <p>외부 시스템은 <code>Authorization: Bearer mts_…</code> (또는 <code>x-metis-key</code>)로 <code>/v1/ingest</code>에 실행 결과를 보고할 수 있습니다. 동일 <code>EvaluatorService</code>를 거쳐 사내 실행과 같은 4‑게이트 평가·적재가 이뤄집니다. 키 scope로 agentName을 제한해 스푸핑을 방지합니다.</p>
+
+  <div class="note good"><b>일관성 포인트:</b> 사내 파이프라인 · 외부 전용화면 · SDK 적재 — 세 경로 모두 <b>동일한 EvaluatorService</b>를 통과합니다. 즉 어디서 실행되든 같은 4‑게이트 기준으로 평가·기록됩니다.</div>
+</section>
+
+<section id="feature">
+  <h2><span class="n">8</span>기능 구성도 (사용자 관점)</h2>
+  <p class="lead">사용자가 실제로 마주하는 메뉴·기능을 업무 흐름 순서로 배치한 구성도입니다.</p>
+  <figure>
+  <svg viewBox="0 0 980 470" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, sans-serif">
+    <style>
+      .grp{fill:#0e1426;stroke:#243353;stroke-dasharray:4 4;rx:14}
+      .gtt{font-size:12px;font-weight:800;letter-spacing:.06em}
+      .it{fill:#11182e;stroke:#2c3b66;rx:9}
+      .itx{fill:#eaf0ff;font-size:11.5px;font-weight:600}
+      .ity{fill:#9fb0cc;font-size:9.5px}
+    </style>
+    <!-- 1 대시보드 -->
+    <rect class="grp" x="20" y="20" width="300" height="120"/>
+    <text class="gtt" x="36" y="40" fill="#6f8cff">① 보기 · 모니터링</text>
+    <rect class="it" x="36" y="52" width="128" height="36"/><text class="itx" x="48" y="68">홈 대시보드</text><text class="ity" x="48" y="82">KPI·헬스·ROI</text>
+    <rect class="it" x="176" y="52" width="128" height="36"/><text class="itx" x="188" y="68">실행 이력</text><text class="ity" x="188" y="82">전체/성공/실패</text>
+    <rect class="it" x="36" y="96" width="128" height="36"/><text class="itx" x="48" y="112">실행 상세</text><text class="ity" x="48" y="126">4게이트·구간</text>
+    <rect class="it" x="176" y="96" width="128" height="36"/><text class="itx" x="188" y="112">AI 활동 로그</text><text class="ity" x="188" y="126">감사 이력</text>
+    <!-- 2 에이전트 -->
+    <rect class="grp" x="340" y="20" width="300" height="120"/>
+    <text class="gtt" x="356" y="40" fill="#46d4b3">② 에이전트 실행</text>
+    <rect class="it" x="356" y="52" width="128" height="36"/><text class="itx" x="368" y="68">운영 에이전트</text><text class="ity" x="368" y="82">operations</text>
+    <rect class="it" x="496" y="52" width="128" height="36"/><text class="itx" x="508" y="68">개발 에이전트</text><text class="ity" x="508" y="82">development</text>
+    <rect class="it" x="356" y="96" width="128" height="36"/><text class="itx" x="368" y="112">전용화면 실행</text><text class="ity" x="368" y="126">iframe 임베드</text>
+    <rect class="it" x="496" y="96" width="128" height="36"/><text class="itx" x="508" y="112">개요</text><text class="ity" x="508" y="126">overview</text>
+    <!-- 3 기준정보 -->
+    <rect class="grp" x="660" y="20" width="300" height="120"/>
+    <text class="gtt" x="676" y="40" fill="#a78bfa">③ 기준정보 (관리자)</text>
+    <rect class="it" x="676" y="52" width="128" height="36"/><text class="itx" x="688" y="68">Agent 기준정보</text><text class="ity" x="688" y="82">이름·launchUrl</text>
+    <rect class="it" x="816" y="52" width="128" height="36"/><text class="itx" x="828" y="68">모델 단가</text><text class="ity" x="828" y="82">ModelPrice</text>
+    <rect class="it" x="676" y="96" width="128" height="36"/><text class="itx" x="688" y="112">사용자·테넌트·팀</text><text class="ity" x="688" y="126">조직</text>
+    <rect class="it" x="816" y="96" width="128" height="36"/><text class="itx" x="828" y="112">운영기준값</text><text class="ity" x="828" y="126">헬스·등급·시급</text>
+    <!-- 4 거버넌스 -->
+    <rect class="grp" x="20" y="170" width="455" height="120"/>
+    <text class="gtt" x="36" y="190" fill="#f0b35e">④ 거버넌스 · 인사이트</text>
+    <rect class="it" x="36" y="202" width="132" height="36"/><text class="itx" x="48" y="218">정책(Policy)</text><text class="ity" x="48" y="232">실행 통제</text>
+    <rect class="it" x="180" y="202" width="132" height="36"/><text class="itx" x="192" y="218">ORB 심사</text><text class="ity" x="192" y="232">게시 승인</text>
+    <rect class="it" x="324" y="202" width="135" height="36"/><text class="itx" x="336" y="218">효과성·KPI</text><text class="ity" x="336" y="232">ROI·절감</text>
+    <rect class="it" x="36" y="246" width="132" height="36"/><text class="itx" x="48" y="262">이상탐지(FDS)</text><text class="ity" x="48" y="276">Alert·자동조치</text>
+    <rect class="it" x="180" y="246" width="132" height="36"/><text class="itx" x="192" y="262">런타임 거버넌스</text><text class="ity" x="192" y="276">차단·승인</text>
+    <rect class="it" x="324" y="246" width="135" height="36"/><text class="itx" x="336" y="262">평가기 인사이트</text><text class="ity" x="336" y="276">품질·이상</text>
+    <!-- 5 제작/지식 -->
+    <rect class="grp" x="495" y="170" width="465" height="120"/>
+    <text class="gtt" x="511" y="190" fill="#6f8cff">⑤ 제작 · 지식 · 적재</text>
+    <rect class="it" x="511" y="202" width="135" height="36"/><text class="itx" x="523" y="218">빌더(Builder)</text><text class="ity" x="523" y="232">워크플로우 설계</text>
+    <rect class="it" x="658" y="202" width="135" height="36"/><text class="itx" x="670" y="218">커넥터·마켓</text><text class="ity" x="670" y="232">연결·배포</text>
+    <rect class="it" x="805" y="202" width="139" height="36"/><text class="itx" x="817" y="218">지식 아티팩트</text><text class="ity" x="817" y="232">패턴·레지스트리</text>
+    <rect class="it" x="511" y="246" width="135" height="36"/><text class="itx" x="523" y="262">Ingest 키</text><text class="ity" x="523" y="276">SDK 적재 키</text>
+    <rect class="it" x="658" y="246" width="135" height="36"/><text class="itx" x="670" y="262">워크스페이스</text><text class="ity" x="670" y="276">ap·ops·dev·risk</text>
+    <rect class="it" x="805" y="246" width="139" height="36"/><text class="itx" x="817" y="262">FinOps</text><text class="ity" x="817" y="276">비용·토큰 원장</text>
+    <!-- flow strip -->
+    <rect class="grp" x="20" y="320" width="940" height="120" style="stroke:#2c3b66;stroke-dasharray:0"/>
+    <text class="gtt" x="36" y="342" fill="#9be7cf">사용자 업무 흐름</text>
+    <text class="ity" x="40" y="372" style="font-size:12px;fill:#cdd9f2">① 관리자가 <tspan font-weight="700" fill="#a78bfa">기준정보</tspan>에서 Agent 등록·전용화면 URL·모델단가·운영기준값 설정</text>
+    <text class="ity" x="40" y="394" style="font-size:12px;fill:#cdd9f2">② 운영자가 <tspan font-weight="700" fill="#46d4b3">에이전트 화면</tspan>에서 실행 → 4게이트 통과 결과·구간 확인</text>
+    <text class="ity" x="40" y="416" style="font-size:12px;fill:#cdd9f2">③ <tspan font-weight="700" fill="#6f8cff">대시보드·실행이력·AI활동로그</tspan>에서 비용·품질·보안·이상 모니터링 → <tspan font-weight="700" fill="#f0b35e">거버넌스</tspan>로 통제</text>
+  </svg>
+  <figcaption>그림 8‑1. 사용자 관점 기능 구성도 — 보기 → 실행 → 기준정보 → 거버넌스/제작의 5개 묶음과 업무 흐름</figcaption>
+  </figure>
+</section>
+
+<section id="sec">
+  <h2><span class="n">9</span>보안 · 거버넌스</h2>
+  <div class="grid g2">
+    <div class="card"><h4>인증·인가</h4><p>JWT + Passport, bcrypt 자격증명. RBAC 6역할로 메뉴/엔드포인트 권한 분리(예: 기준정보 편집은 <code>TENANT_ADMIN/PLATFORM_ADMIN</code>).</p></div>
+    <div class="card"><h4>멀티테넌시 격리</h4><p>모든 도메인 쿼리에 tenantId 강제(<code>withTenantIsolation</code>). SDK 적재 키는 scope로 agentName 허용목록 제한.</p></div>
+    <div class="card"><h4>감사·추적</h4><p><code>@Audit</code> 인터셉터가 모든 변경/실행을 <code>AuditLog</code>로 기록. correlationId로 실행‑평가‑감사 연결.</p></div>
+    <div class="card"><h4>입력 안전</h4><p>글로벌 ValidationPipe(화이트리스트), ingest 단계에서 비밀정보 redaction, 출력 유출 카운트(보안 게이트).</p></div>
+    <div class="card"><h4>거버넌스 통제</h4><p>Policy(비용·인증·감사 규칙) · ORB 심사(게시 승인) · FDS 이상탐지 → AutoAction(차단·격리·승인요구) · GovernanceDecision.</p></div>
+    <div class="card"><h4>비용 가버넌스</h4><p>모델단가 기준정보 + FinOps 원장(토큰/비용)으로 실행별 비용을 산출·집계, 운영기준값으로 등급화.</p></div>
+  </div>
+  <div class="note warn"><b>운영 주의:</b> <code>.env</code>에는 실제 LLM 키가 포함되며 절대 커밋·노출 금지(gitignore). 시뮬레이터는 <code>SIM_USE_REAL_API=0</code>으로 모킹 유지 가능.</div>
+</section>
+
+<section id="ops">
+  <h2><span class="n">10</span>배포 · 운영</h2>
+  <h3>구성 요소 · 포트</h3>
+  <table>
+    <tr><th>구성</th><th>포트</th><th>비고</th></tr>
+    <tr><td>Web (Next.js)</td><td><code>3000</code></td><td>UI</td></tr>
+    <tr><td>API (NestJS)</td><td><code>4000</code> <code>/v1</code></td><td>REST</td></tr>
+    <tr><td>PostgreSQL / Redis</td><td><code>5432</code> / <code>6379</code></td><td>infra compose · 영속 볼륨 <code>pgdata</code></td></tr>
+    <tr><td>FinOps test‑agent</td><td><code>8600</code></td><td>외부 전용화면(예시)</td></tr>
+    <tr><td>FinOps gateway / control‑plane</td><td><code>8400</code> / <code>8500</code></td><td>LLM 게이트웨이 / 원장</td></tr>
+  </table>
+  <h3>기동 (start-metis.bat, 7단계)</h3>
+  <ul class="clean">
+    <li>전제확인 → 환경변수 → FinOps 컨테이너 → PostgreSQL/Redis → DB 셋업(generate·push) → 공유패키지 빌드 → 앱 기동(turbo)</li>
+    <li><b>시드는 최초 1회만</b> 실행됩니다(<code>.metis_seeded</code> 마커). 이후 재시작은 시드를 건너뛰어 <b>사용자 편집(launchUrl)·실행 이력이 보존</b>됩니다.</li>
+    <li>데모 데이터를 새로 깔려면 <code>.metis_seeded</code>를 삭제 후 재기동.</li>
+  </ul>
+  <div class="note">시드(<code>seed-dashboard.ts</code>)는 사용자 데이터를 덮어쓰지 않도록 보강되었습니다: 워크플로우 effectivenessJson은 사용자 값 우선 병합, 실행 이력은 시드가 만든 데모(<code>inputJson.seeded=true</code>)만 정리하고 실제 실행은 보존.</div>
+  <h3>관측·확장</h3>
+  <p>Prometheus/Grafana로 메트릭 수집, BullMQ 워커로 장시간 작업 수평 확장. 릴리즈 엔지니어링(Replay/Shadow/Canary/Promotion)으로 버전 승격을 통제.</p>
+</section>
+
+<footer>
+  본 문서는 Metis.AI 모노레포 소스 스냅샷을 근거로 작성된 기술 검토용 아키텍처 문서입니다. 다이어그램은 인라인 SVG로 포함되어 별도 자원 없이 단독 열람 가능합니다.
+</footer>
+</div>
+</body>
+</html>

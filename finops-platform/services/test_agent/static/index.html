@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metis Test-Report Agent</title>
+<script src="vendor/marked.min.js"></script>
+<script>window.marked || document.write('<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"><\/script>')</script>
+<style>
+:root { --bg:#0d1117; --bg2:#161b22; --bg3:#1c2330; --border:#2d3646; --text:#e6edf3;
+        --muted:#8b96a8; --accent:#4f8ff7; --green:#3fb97a; --yellow:#e3b341; --red:#f85149; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:"Pretendard","Malgun Gothic","Segoe UI",sans-serif;
+       font-size:14px; padding:24px; max-width:1200px; margin:0 auto; }
+h1 { font-size:20px; margin-bottom:4px; } h1 span { color:var(--accent); }
+.sub { color:var(--muted); font-size:12.5px; margin-bottom:18px; line-height:1.7; }
+.card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:16px; }
+.card h3 { font-size:13.5px; margin-bottom:10px; }
+textarea { width:100%; height:260px; background:var(--bg3); color:var(--text); border:1px solid var(--border);
+           border-radius:8px; padding:12px; font-family:Consolas,monospace; font-size:12.5px; resize:vertical; }
+.toolbar { display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+button, .filebtn { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px 16px;
+         font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+button.gray, .filebtn { background:var(--bg3); border:1px solid var(--border); color:var(--text); font-weight:600; }
+button:disabled { opacity:.5; cursor:wait; }
+input[type=file] { display:none; }
+.note { font-size:11.5px; color:var(--muted); }
+.warn-note { font-size:11.5px; color:var(--yellow); }
+.lang-badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700;
+              background:rgba(79,143,247,.15); color:var(--accent); }
+#status { font-size:13px; margin-top:10px; color:var(--accent); min-height:18px; }
+#report-area { display:none; }
+#report-meta { display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); margin-bottom:12px; }
+#report-meta b { color:var(--text); }
+#report { background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:24px; line-height:1.7; }
+#report h1 { font-size:18px; margin:0 0 12px; } #report h2 { font-size:15px; margin:20px 0 8px; color:var(--accent); }
+#report h3 { font-size:13.5px; margin:14px 0 6px; }
+#report table { border-collapse:collapse; width:100%; font-size:12.5px; margin:8px 0; }
+#report th,#report td { border:1px solid var(--border); padding:6px 9px; text-align:left; }
+#report th { color:var(--muted); } #report code { background:#0d1117; padding:1px 5px; border-radius:4px; font-size:12px; }
+#report li { margin-left:18px; }
+a.link { color:var(--accent); }
+.spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--accent); border-top-color:transparent;
+           border-radius:50%; animation:spin .8s linear infinite; vertical-align:-2px; margin-right:6px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<h1>Metis <span>Test-Report Agent</span></h1>
+<div class="sub"><b>Python · Java · C</b> 소스를 올리면 정적분석 + 실제 컴파일/실행 테스트 + LLM 리뷰를 수행하고 상세 보고서를 생성합니다.
+모든 LLM 호출은 FinOps Gateway 를 경유하므로 FinOps 대시보드 개발자 뷰에서 이 run 의 비용 워터폴을 그대로 볼 수 있습니다.</div>
+
+<div class="card">
+  <h3>1. 소스 코드 입력 <span class="lang-badge" id="lang-badge">언어 자동감지</span></h3>
+  <textarea id="code" spellcheck="false" placeholder="# Python / Java / C 코드를 붙여넣거나, 아래 버튼으로 파일을 선택하세요"></textarea>
+  <div class="toolbar">
+    <label class="filebtn">📁 파일 선택 (.py .java .c)<input type="file" id="file" accept=".py,.java,.c,.h,.txt"></label>
+    <button class="gray" id="btn-sample-py">Python 샘플</button>
+    <button class="gray" id="btn-sample-java">Java 샘플</button>
+    <button class="gray" id="btn-sample-c">C 샘플</button>
+    <button id="btn-run">▶ 기능 테스트 실행</button>
+    <span class="note" id="fname"></span>
+  </div>
+  <div class="warn-note" style="margin-top:8px">⚠ 동적 테스트 단계에서 업로드한 코드가 로컬(격리 프로세스, 시간 제한)에서 컴파일·실행됩니다. 신뢰할 수 있는 코드만 사용하세요. Java/C는 JDK/gcc 미설치 시 정적 분석만 수행됩니다.</div>
+  <div id="status"></div>
+</div>
+
+<div class="card" id="report-area">
+  <h3>2. 테스트 결과 보고서</h3>
+  <div id="report-meta"></div>
+  <div class="toolbar" style="margin:0 0 12px">
+    <button id="btn-docx">⬇ Word 보고서 (.docx, 차트·표 포함)</button>
+    <button class="gray" id="btn-md">⬇ Markdown (.md)</button>
+    <a class="link" id="dash-link" href="http://localhost:8500" target="_blank">↗ FinOps 대시보드에서 이 run 보기</a>
+  </div>
+  <div id="report"></div>
+</div>
+
+<script>
+const SAMPLES = {
+  py: { name: "sample_order.py", code: `"""주문 금액 계산 모듈 (데모용 — 의도적 버그 포함)."""
+
+def add(a=2, b=3):
+    """두 수를 더한다.
+
+    >>> add(1, 2)
+    3
+    """
+    return a + b
+
+def calc_discount(price=10000, grade="VIP"):
+    """등급별 할인가 계산."""
+    rates = {"VIP": 0.2, "GOLD": 0.1}
+    return price * (1 - rates[grade])
+
+def risky_parse(expr="1+1"):
+    # 보안 위험: eval 사용
+    return eval(expr)
+
+def buggy_average(nums=[]):   # 가변 기본 인자
+    return sum(nums) / len(nums)
+
+def collect(item, bag=[]):    # 가변 기본 인자 (전형적 버그)
+    bag.append(item)
+    return bag
+` },
+  java: { name: "OrderService.java", code: `/** 주문 처리 서비스 (데모용 — 의도적 이슈 포함). */
+public class OrderService {
+
+    /** 두 금액을 더한다. */
+    public static int add(int a, int b) {
+        return a + b;
+    }
+
+    public static boolean isVip(String grade) {
+        // 버그: 문자열 == 비교
+        return grade == "VIP";
+    }
+
+    public static void process(String order) {
+        try {
+            System.out.println("processing: " + order);
+        } catch (Exception e) {
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println("sum=" + add(1, 2));
+        process("order-1");
+        System.out.println("vip=" + isVip(new String("VIP")));
+    }
+}
+` },
+  c: { name: "payment.c", code: `/* 결제 금액 계산 (데모용 — 의도적 취약점 포함) */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* 두 금액을 더한다 */
+int add(int a, int b) {
+    return a + b;
+}
+
+void copy_name(char *dst, const char *src) {
+    strcpy(dst, src);   /* 경계 검사 없음 */
+}
+
+int main(void) {
+    char name[16];
+    int *buf = malloc(64);   /* free 없음 - 누수 */
+    copy_name(name, "customer-001");
+    printf("sum=%d name=%s\\n", add(1, 2), name);
+    return 0;
+}
+` }
+};
+let reportId = null;
+
+function setSample(k) {
+  document.getElementById("code").value = SAMPLES[k].code;
+  document.getElementById("fname").textContent = SAMPLES[k].name;
+  document.getElementById("lang-badge").textContent = { py: "Python", java: "Java", c: "C" }[k];
+}
+document.getElementById("btn-sample-py").onclick = () => setSample("py");
+document.getElementById("btn-sample-java").onclick = () => setSample("java");
+document.getElementById("btn-sample-c").onclick = () => setSample("c");
+
+document.getElementById("file").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  document.getElementById("fname").textContent = f.name;
+  const ext = f.name.split(".").pop().toLowerCase();
+  document.getElementById("lang-badge").textContent =
+    { py: "Python", java: "Java", c: "C", h: "C" }[ext] || "언어 자동감지";
+  const r = new FileReader();
+  r.onload = () => document.getElementById("code").value = r.result;
+  r.readAsText(f);
+});
+
+document.getElementById("btn-run").onclick = async () => {
+  const code = document.getElementById("code").value.trim();
+  if (!code) { alert("코드를 입력하세요"); return; }
+  const btn = document.getElementById("btn-run");
+  btn.disabled = true;
+  document.getElementById("status").innerHTML =
+    '<span class="spinner"></span>분석 중… (정적분석 → 컴파일/격리실행 → LLM 리뷰 3스텝 → 보고서 생성, 실 LLM 사용 시 30초 내외)';
+  try {
+    const r = await fetch("/api/test", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: document.getElementById("fname").textContent || "uploaded.py", code })
+    });
+    const d = await r.json();
+    reportId = d.report_id;
+    document.getElementById("status").textContent = "";
+    document.getElementById("report-area").style.display = "block";
+    document.getElementById("lang-badge").textContent = { python: "Python", java: "Java", c: "C" }[d.language] || d.language;
+    document.getElementById("report-meta").innerHTML =
+      `<span>Run ID <b>${d.run_id}</b></span><span>언어 <b>${d.language}</b></span><span>소요 <b>${d.elapsed_s}s</b></span>` +
+      `<span>LLM 비용 <b>${d.cost_usd != null ? "$" + d.cost_usd.toFixed(6) : "—"}</b></span>` +
+      `<span>모드 <b>${d.mode}</b></span>`;
+    document.getElementById("report").innerHTML = marked.parse(d.markdown);
+    window.scrollTo({ top: document.getElementById("report-area").offsetTop - 10, behavior: "smooth" });
+    // metis 안에 임베드(iframe)된 경우: 실행 결과를 부모(metis)로 전달 → 대시보드/이력/4게이트에 기록.
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          source: "metis-test-agent",
+          payload: {
+            filename: document.getElementById("fname").textContent || "uploaded.py",
+            code: code,
+            run_id: d.run_id, language: d.language, markdown: d.markdown,
+            cost: d.cost_usd, mode: d.mode, elapsed_s: d.elapsed_s,
+            timings: d.timings || null
+          }
+        }, "*");
+      }
+    } catch (_e) { /* noop */ }
+  } catch (e) {
+    document.getElementById("status").textContent = "오류: " + e;
+  } finally {
+    btn.disabled = false;
+  }
+};
+document.getElementById("btn-docx").onclick = () => {
+  if (reportId) window.open(`/api/report/${reportId}/download?fmt=docx`, "_blank");
+};
+document.getElementById("btn-md").onclick = () => {
+  if (reportId) window.open(`/api/report/${reportId}/download?fmt=md`, "_blank");
+};
+</script>
+</body>
+</html>

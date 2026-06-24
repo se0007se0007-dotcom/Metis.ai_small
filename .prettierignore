@@ -1,0 +1,18 @@
+# Build output & generated artifacts
+**/dist/**
+**/.next/**
+**/.turbo/**
+**/coverage/**
+node_modules/**
+
+# Prisma generated client
+packages/database/generated/**
+**/node_modules/.prisma/**
+
+# Lockfiles & data
+pnpm-lock.yaml
+*.lock
+*.log
+
+# Non-source
+**/*.min.js

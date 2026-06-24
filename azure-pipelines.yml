@@ -1,0 +1,145 @@
+# ════════════════════════════════════════════════════════════════
+# Metis.AI — 사내망(KT Azure 랜딩존) CI/CD 파이프라인 (Azure DevOps)
+#
+# 전제 (deploy/CICD-GUIDE.md 참고):
+#   - 랜딩존 VM(리눅스)에 Azure DevOps self-hosted agent 설치, 풀 이름: metis-pool
+#     (해당 VM에 docker / kubectl / helm / az CLI 설치)
+#   - Variable Group "metis-cicd" 에 아래 변수 등록:
+#       ACR_LOGIN_SERVER   예: ktacr.azurecr.io  (또는 Nexus docker-hosted 주소)
+#       NEXUS_NPM_REGISTRY 예: https://nexus.corp.local/repository/npm-proxy/
+#       NEXUS_DOCKER_PROXY 예: nexus.corp.local:8443/dockerhub-proxy
+#       PRISMA_MIRROR      예: https://nexus.corp.local/repository/prisma-raw-proxy
+#       AKS_RG / AKS_NAME / AKS_NAMESPACE(기본 metis)
+#   - Service Connection: "metis-acr"(Docker Registry), "metis-azure"(ARM, AKS 권한)
+#
+# 흐름:  CI(검증) → 이미지 빌드/푸시 → [승인] → AKS Helm 배포
+# ════════════════════════════════════════════════════════════════
+
+trigger:
+  branches:
+    include: [main, metis-improvements]
+  paths:
+    exclude: [docs/*, '*.md']
+
+variables:
+  - group: metis-cicd
+  - name: TAG
+    value: '$(Build.BuildNumber)'
+
+pool:
+  name: metis-pool   # 랜딩존 self-hosted agent
+
+stages:
+  # ──────────────────────────────────────────────────────────────
+  # Stage 1. CI — 의존성 설치(넥서스) + 타입체크/빌드 + 시크릿 검사
+  # ──────────────────────────────────────────────────────────────
+  - stage: CI
+    displayName: 'CI (build & verify)'
+    jobs:
+      - job: build_verify
+        displayName: 'pnpm build + secret check'
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - script: |
+              export COREPACK_NPM_REGISTRY="$(NEXUS_NPM_REGISTRY)"
+              corepack enable
+              npm config set registry "$(NEXUS_NPM_REGISTRY)"
+              pnpm config set registry "$(NEXUS_NPM_REGISTRY)"
+              pnpm install --frozen-lockfile
+            displayName: 'Install deps (Nexus npm proxy)'
+
+          - script: |
+              export PRISMA_ENGINES_MIRROR="$(PRISMA_MIRROR)"
+              pnpm db:generate
+            displayName: 'Prisma generate (mirror)'
+
+          - script: pnpm build
+            displayName: 'Turbo build (api/web/worker/packages)'
+            env:
+              NEXT_TELEMETRY_DISABLED: '1'
+
+          - script: node scripts/check-secrets.mjs
+            displayName: 'Secret scan (tracked .env / staged keys)'
+
+          - script: pnpm format:check || echo "##vso[task.logissue type=warning]prettier diff 존재(경고만)"
+            displayName: 'Format check (warn-only)'
+
+  # ──────────────────────────────────────────────────────────────
+  # Stage 2. Image — 4개 타깃 빌드 후 레지스트리 푸시
+  # ──────────────────────────────────────────────────────────────
+  - stage: Image
+    displayName: 'Docker build & push'
+    dependsOn: CI
+    jobs:
+      - job: docker
+        displayName: 'build api/web/worker/migrate'
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: Docker@2
+            displayName: 'ACR login'
+            inputs:
+              command: login
+              containerRegistry: metis-acr
+
+          - script: |
+              set -euo pipefail
+              for T in api web worker migrate; do
+                docker build -f deploy/docker/Dockerfile --target "$T" \
+                  --build-arg BASE_IMAGE="$(NEXUS_DOCKER_PROXY)/library/node:20-bookworm-slim" \
+                  --build-arg NPM_REGISTRY="$(NEXUS_NPM_REGISTRY)" \
+                  --build-arg PRISMA_ENGINES_MIRROR="$(PRISMA_MIRROR)" \
+                  -t "$(ACR_LOGIN_SERVER)/metis-$T:$(TAG)" \
+                  -t "$(ACR_LOGIN_SERVER)/metis-$T:latest" .
+                docker push "$(ACR_LOGIN_SERVER)/metis-$T:$(TAG)"
+                docker push "$(ACR_LOGIN_SERVER)/metis-$T:latest"
+              done
+            displayName: 'Build & push (Nexus base/npm/prisma mirror)'
+
+  # ──────────────────────────────────────────────────────────────
+  # Stage 3. Deploy — 승인 후 AKS Helm 배포 (pre-upgrade hook이 DB 마이그레이션)
+  #   Environments > metis-prod 에 Approval check를 걸어두면 수동 승인 게이트가 됨.
+  # ──────────────────────────────────────────────────────────────
+  - stage: Deploy
+    displayName: 'Deploy to AKS (helm)'
+    dependsOn: Image
+    condition: and(succeeded(), in(variables['Build.SourceBranchName'], 'main', 'metis-improvements'))
+    jobs:
+      - deployment: helm_deploy
+        displayName: 'helm upgrade --install'
+        environment: metis-prod   # ← Environment에 승인자 설정
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                  fetchDepth: 1
+
+                - task: AzureCLI@2
+                  displayName: 'AKS credentials + helm upgrade'
+                  inputs:
+                    azureSubscription: metis-azure
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
+                      az aks get-credentials -g "$(AKS_RG)" -n "$(AKS_NAME)" --overwrite-existing
+                      NS="${AKS_NAMESPACE:-metis}"
+                      kubectl get ns "$NS" >/dev/null 2>&1 || kubectl create ns "$NS"
+                      helm upgrade --install metis deploy/helm/metis \
+                        --namespace "$NS" \
+                        --set image.registry="$(ACR_LOGIN_SERVER)" \
+                        --set image.tag="$(TAG)" \
+                        -f deploy/helm/metis/values.yaml \
+                        --wait --timeout 10m
+                      echo "── 배포 상태 ──"
+                      kubectl -n "$NS" get pods -o wide
+
+                - script: |
+                    echo "롤백이 필요하면 agent VM에서:"
+                    echo "  helm -n metis history metis"
+                    echo "  helm -n metis rollback metis <REVISION>"
+                  displayName: 'Rollback hint'

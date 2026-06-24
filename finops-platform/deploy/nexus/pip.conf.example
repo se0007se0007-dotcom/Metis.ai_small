@@ -1,0 +1,6 @@
+# 사내망 개발 PC / CI 에이전트용 pip 설정
+# Windows: %APPDATA%\pip\pip.ini  /  Linux: ~/.pip/pip.conf 또는 /etc/pip.conf
+[global]
+index-url = https://nexus.company.com/repository/pypi-proxy/simple
+trusted-host = nexus.company.com
+timeout = 120

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Metis.AI 사내망 빌드·배포 가이드 (pnpm 11.7.0 / 버전 고정 반영)</title>
+<style>
+  :root {
+    --bg: #f4f6f9; --card: #ffffff; --ink: #1f2933; --muted: #5a6a7e;
+    --line: #e2e8f0; --accent: #2b6cb0; --accent-dark: #234e7d;
+    --ok: #2f855a; --okbg: #e6f4ec; --warn: #b7791f; --warnbg: #fdf6e3;
+    --danger: #c53030; --dangerbg: #fdecea; --code: #0b1220; --codeink: #e6edf3;
+    --chip: #edf2f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Malgun Gothic","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    line-height: 1.65; font-size: 15px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 22px 80px; }
+  header.cover {
+    background: linear-gradient(135deg,#234e7d,#2b6cb0); color: #fff;
+    border-radius: 14px; padding: 30px 32px; box-shadow: 0 6px 24px rgba(35,78,125,.25);
+  }
+  header.cover .tag { display:inline-block; font-size:12px; letter-spacing:.5px;
+    background: rgba(255,255,255,.18); padding: 4px 10px; border-radius: 999px; margin-bottom: 12px; }
+  header.cover h1 { margin: 0 0 8px; font-size: 26px; line-height: 1.3; }
+  header.cover p { margin: 4px 0 0; opacity: .92; font-size: 14px; }
+  .meta { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; opacity: .95; }
+  .meta b { font-weight: 700; }
+
+  section.card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 24px 26px; margin-top: 22px; box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  h2 { font-size: 19px; margin: 0 0 14px; color: var(--accent-dark);
+    border-bottom: 2px solid var(--line); padding-bottom: 8px; }
+  h3 { font-size: 16px; margin: 22px 0 8px; color: var(--ink); }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0 8px; padding-left: 22px; }
+  li { margin: 4px 0; }
+  code.inline { background: var(--chip); padding: 1px 6px; border-radius: 5px;
+    font-family: Consolas,"D2Coding",Menlo,monospace; font-size: 13px; color: #b83280; }
+  pre {
+    background: var(--code); color: var(--codeink); border-radius: 9px;
+    padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.55;
+    font-family: Consolas,"D2Coding",Menlo,monospace; margin: 10px 0;
+  }
+  pre .c { color: #7d8aa0; } /* comment */
+  pre .k { color: #7ee0c0; } /* keyword/cmd */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13.5px; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #eef3f8; color: var(--accent-dark); font-weight: 700; }
+  tbody tr:nth-child(even) { background: #fafcfe; }
+
+  .badge { display:inline-block; font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px; }
+  .b-todo { background: var(--dangerbg); color: var(--danger); }
+  .b-done { background: var(--okbg); color: var(--ok); }
+  .b-wait { background: var(--warnbg); color: var(--warn); }
+
+  .callout { border-left: 4px solid; border-radius: 8px; padding: 12px 16px; margin: 14px 0; font-size: 14px; }
+  .callout.warn { background: var(--warnbg); border-color: var(--warn); }
+  .callout.danger { background: var(--dangerbg); border-color: var(--danger); }
+  .callout.ok { background: var(--okbg); border-color: var(--ok); }
+  .callout b { font-weight: 700; }
+
+  .step { display: flex; gap: 14px; margin: 18px 0; align-items: flex-start; }
+  .step .num {
+    flex: 0 0 34px; height: 34px; width: 34px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 15px;
+  }
+  .step .body { flex: 1; min-width: 0; }
+  .step .body h3 { margin-top: 0; }
+  .lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+
+  .check { list-style: none; padding-left: 0; }
+  .check li { padding-left: 28px; position: relative; margin: 8px 0; }
+  .check li:before { content: "☐"; position: absolute; left: 0; top: -1px; font-size: 17px; color: var(--accent); }
+
+  footer { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 30px; }
+  .small { font-size: 12.5px; color: var(--muted); }
+  @media print {
+    body { background: #fff; } .wrap { padding: 0; }
+    section.card, header.cover { box-shadow: none; }
+    pre { white-space: pre-wrap; word-break: break-all; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="cover">
+    <span class="tag">사내망(폐쇄망) 이관 · CDCD 빌드 가이드</span>
+    <h1>Metis.AI — 사내망 빌드·배포 잔여 작업 안내</h1>
+    <p>pnpm 11.7.0 업그레이드 + 라이브러리 버전 고정(metis.ai 빌드 성공本과 동일) 반영 후, 담당자가 사내망에서 수행해야 할 단계별 절차서</p>
+    <div class="meta">
+      <span><b>대상</b> CRM사업팀 빌드/배포 담당</span>
+      <span><b>리포지토리</b> metis-ai (Turborepo · pnpm 모노레포)</span>
+      <span><b>작성일</b> 2026-06-22</span>
+      <span><b>버전</b> v1.0</span>
+    </div>
+  </header>
+
+  <!-- 0. 한눈에 보기 -->
+  <section class="card">
+    <h2>0. 한눈에 보기 — 잔여 단계 체크리스트</h2>
+    <p>이번 변경으로 <b>코드/패키지 버전은 모두 반영 완료</b>되었습니다. 사내망에서는 아래 순서대로만 진행하면 됩니다. <b>1번(락파일 재생성)이 가장 중요</b>하며, 이전 “pnpm build 이슈”의 직접 원인입니다.</p>
+    <ul class="check">
+      <li><b>STEP 1.</b> 사내 Nexus 허용 목록(allow-list)에 <b>pnpm@11.7.0 + 신규 고정 버전</b> 등록 확인</li>
+      <li><b>STEP 2.</b> <b>pnpm-lock.yaml 재생성</b> (Nexus 연결 환경에서 <code class="inline">pnpm install</code>) 후 커밋 — <span class="badge b-todo">필수</span></li>
+      <li><b>STEP 3.</b> preflight(폐쇄망 사전점검) 통과 확인</li>
+      <li><b>STEP 4.</b> <code class="inline">pnpm install --frozen-lockfile</code> 정상 확인</li>
+      <li><b>STEP 5.</b> <code class="inline">pnpm db:generate</code> (Prisma 엔진 미러) 정상 확인</li>
+      <li><b>STEP 6.</b> <code class="inline">pnpm build</code> (turbo) 성공 확인 — 이전 이슈 단계</li>
+      <li><b>STEP 7.</b> Docker 이미지 build & push (api/web/worker/migrate) → ACR</li>
+      <li><b>STEP 8.</b> Helm/ArgoCD 배포 (Pod 기동)</li>
+    </ul>
+  </section>
+
+  <!-- 1. 무엇이 바뀌었나 -->
+  <section class="card">
+    <h2>1. 이번에 반영된 변경 사항</h2>
+    <p>metis.ai 빌드 성공본의 <b>실제 설치 버전</b>에 맞춰, 간소화버전 리포의 모든 <code class="inline">package.json</code>을 <b>정확히 고정(^/~ 제거)</b>했습니다. 이렇게 하면 Nexus가 항상 동일 버전을 내려주어 빌드 재현성이 보장됩니다.</p>
+
+    <table>
+      <thead><tr><th>구분</th><th>항목</th><th>변경 전</th><th>변경 후 (고정)</th></tr></thead>
+      <tbody>
+        <tr><td>패키지매니저</td><td>pnpm</td><td>9.15.9</td><td><b>11.7.0</b> (<code class="inline">packageManager</code> 필드)</td></tr>
+        <tr><td rowspan="4">루트 devDeps</td><td>turbo</td><td>latest</td><td>2.9.18</td></tr>
+        <tr><td>prettier</td><td>^3.3.3</td><td>3.8.3</td></tr>
+        <tr><td>tsx</td><td>^4.19.0</td><td>4.21.0</td></tr>
+        <tr><td>@types/node</td><td>^22.0.0</td><td>22.19.17</td></tr>
+        <tr><td rowspan="3">apps/api</td><td>@nestjs/common·core</td><td>^10.4.0</td><td>10.4.15</td></tr>
+        <tr><td>@nestjs/cli · schematics</td><td>^10.x</td><td>11.0.14 · 11.0.10</td></tr>
+        <tr><td>typescript</td><td>^5.7.0</td><td>5.9.3</td></tr>
+        <tr><td rowspan="2">apps/web</td><td>next / react</td><td>^15.1.0 / ^19.0.0</td><td>15.5.9 / 19.2.4</td></tr>
+        <tr><td>tailwindcss</td><td>^3.4.17</td><td>3.4.19</td></tr>
+        <tr><td>database</td><td>prisma / @prisma/client</td><td>^6.2.0</td><td>6.19.3</td></tr>
+      </tbody>
+    </table>
+    <p class="small">※ 전체 버전 표는 본 리포의 각 <code class="inline">package.json</code>에서 확인 가능합니다(루트, apps/api, apps/web, apps/worker, packages/database, packages/types). <code class="inline">packages/config</code>는 의존성이 없어 변경 없음.</p>
+
+    <h3>pnpm 10/11 빌드 스크립트 승인 (추가됨)</h3>
+    <p>pnpm 10부터 보안상 패키지 <b>postinstall(빌드 스크립트)이 기본 차단</b>됩니다. <code class="inline">tsx</code>가 사용하는 <code class="inline">esbuild</code>는 플랫폼 바이너리 설치 스크립트가 필요하므로, 루트 <code class="inline">package.json</code>에 다음을 추가해 두었습니다.</p>
+    <pre><span class="c">// package.json (root)</span>
+"pnpm": {
+  "onlyBuiltDependencies": [ "esbuild" ]
+}</pre>
+    <p class="small">Prisma는 사내망에서 엔진 바이너리를 직접 반입/미러로 처리하시므로, prisma postinstall은 차단된 상태로 두고 <code class="inline">pnpm db:generate</code>를 명시 실행하는 현재 방식을 유지합니다.</p>
+  </section>
+
+  <!-- 2. 단계별 상세 -->
+  <section class="card">
+    <h2>2. 사내망 잔여 단계 — 상세 절차</h2>
+
+    <div class="step">
+      <div class="num">1</div>
+      <div class="body">
+        <h3>Nexus 허용 목록(allow-list) 갱신 <span class="badge b-todo">선행 필수</span></h3>
+        <p class="lbl">목적</p>
+        <p>버전을 고정·상향했으므로, 폐쇄망 Nexus 프록시가 <b>새 버전들을 내려줄 수 있어야</b> 합니다. 허용되지 않은 버전이 하나라도 있으면 install 단계에서 404/403으로 실패합니다.</p>
+        <p class="lbl">확인할 항목</p>
+        <ul>
+          <li><b>pnpm 자체</b>: corepack이 <code class="inline">pnpm@11.7.0</code> 바이너리를 npm 레지스트리(Nexus)에서 받습니다 → <code class="inline">pnpm@11.7.0</code> 허용 필요</li>
+          <li><b>상향된 라이브러리</b>: turbo 2.9.18, @nestjs/cli 11.0.14, @nestjs/schematics 11.0.10, next 15.5.9, react/react-dom 19.2.4, typescript 5.9.3, prettier 3.8.3 등 — <b>고정 버전 전부</b></li>
+          <li><b>전이 의존성</b>: 위 패키지들의 새 하위 의존성(esbuild 플랫폼 패키지, @next/swc-* 등)도 Nexus 프록시 캐시 대상에 포함</li>
+        </ul>
+        <div class="callout warn"><b>팁</b> Nexus가 <code class="inline">npm-proxy</code>(원격 프록시) 형태라면 최초 요청 시 자동 캐시되지만, <b>allow-list/방화벽 정책</b>이 걸려 있으면 신규 버전이 막힐 수 있습니다. STEP 2 실행 전에 정책 담당과 확인하세요.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">2</div>
+      <div class="body">
+        <h3>pnpm-lock.yaml 재생성 + 커밋 <span class="badge b-todo">이슈 직접 원인</span></h3>
+        <p class="lbl">목적</p>
+        <p>package.json 버전을 바꿨으므로 기존 <code class="inline">pnpm-lock.yaml</code>은 더 이상 일치하지 않습니다. CI·Azure·Dockerfile 모두 <code class="inline">pnpm install <b>--frozen-lockfile</b></code>을 쓰기 때문에, 락파일을 갱신하지 않으면 <i>“lockfile not up to date / specifiers mismatch”</i>로 <b>빌드가 바로 실패</b>합니다. (이전 보고의 “pnpm build 이슈” 핵심 원인)</p>
+        <p class="lbl">실행 (Nexus 연결된 환경에서 1회)</p>
+        <pre><span class="k">corepack enable</span>                         <span class="c"># package.json의 pnpm@11.7.0 사용</span>
+<span class="k">pnpm config set registry</span> "https://nexus.corp.local/repository/npm-proxy/"
+<span class="k">pnpm install</span>                            <span class="c"># --frozen-lockfile 없이 → 락파일 재생성</span>
+<span class="k">git add</span> pnpm-lock.yaml package.json apps/*/package.json packages/*/package.json
+<span class="k">git commit</span> -m "chore: bump pnpm 11.7.0 & pin deps (사내망 빌드 정렬)"
+<span class="k">git push</span></pre>
+        <div class="callout danger"><b>주의</b> 이 단계는 <b>네트워크(Nexus)가 연결된 빌드 서버/러너에서</b> 수행해야 합니다. 개발 PC가 인터넷 차단이라면 사내 빌드 러너에서 실행 후 락파일을 커밋하세요. 락파일은 lockfileVersion <code class="inline">9.0</code>(pnpm 9~11 호환)이라 포맷 변경은 없습니다.</div>
+        <p class="lbl">확인</p>
+        <p><code class="inline">pnpm-lock.yaml</code> diff에 신규 버전(예: <code class="inline">next@15.5.9</code>, <code class="inline">turbo@2.9.18</code>)이 반영됐는지, <code class="inline">lockfileVersion: '9.0'</code> 유지되는지 확인.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">3</div>
+      <div class="body">
+        <h3>폐쇄망 Preflight 점검</h3>
+        <p class="lbl">목적</p>
+        <p>CI 최초 잡(<code class="inline">scripts/preflight-closed-network.sh</code>)이 베이스 이미지·npm·prisma 미러 접근성을 사전 점검합니다. 로컬에서 미리 돌려 환경 변수가 올바른지 확인하세요.</p>
+        <pre><span class="k">bash</span> scripts/preflight-closed-network.sh</pre>
+        <p class="lbl">필요 환경 변수 (CI Variables)</p>
+        <ul>
+          <li><code class="inline">NEXUS_NPM_REGISTRY</code> — 예: <code class="inline">https://nexus.corp.local/repository/npm-proxy/</code></li>
+          <li><code class="inline">NEXUS_DOCKER_PROXY</code> — 베이스 이미지(node:20-bookworm-slim) 프록시</li>
+          <li><code class="inline">PRISMA_MIRROR</code> — Prisma 엔진 미러(raw-proxy)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">4</div>
+      <div class="body">
+        <h3>의존성 설치 검증 (frozen-lockfile)</h3>
+        <p>STEP 2에서 커밋한 락파일로 재현 설치가 되는지 확인합니다. CI와 동일한 명령입니다.</p>
+        <pre><span class="k">corepack enable</span>
+<span class="k">npm config set registry</span> "$NEXUS_NPM_REGISTRY"
+<span class="k">pnpm config set registry</span> "$NEXUS_NPM_REGISTRY"
+<span class="k">pnpm install --frozen-lockfile</span></pre>
+        <div class="callout ok"><b>esbuild</b> 설치 로그에 <code class="inline">esbuild</code> 빌드가 실행되면 정상(루트 <code class="inline">onlyBuiltDependencies</code> 반영). “Ignored build scripts: esbuild” 경고가 보이고 이후 <code class="inline">db:seed</code>가 실패하면 STEP 트러블슈팅 참고.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">5</div>
+      <div class="body">
+        <h3>Prisma Client 생성 (엔진 미러)</h3>
+        <p>사내망은 Prisma 엔진 다운로드가 제약되므로, 미러/반입 바이너리를 사용합니다.</p>
+        <pre><span class="k">PRISMA_ENGINES_MIRROR</span>="$PRISMA_MIRROR" <span class="k">pnpm db:generate</span></pre>
+        <p class="small">※ <code class="inline">pnpm db:generate</code> = <code class="inline">prisma generate --schema=prisma/schema.prisma</code>. 엔진 파일을 직접 반입하는 기존 방식이 있다면 그대로 사용하세요.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">6</div>
+      <div class="body">
+        <h3>전체 빌드 (turbo)</h3>
+        <p>이전에 막혔던 단계입니다. STEP 2 락파일 정렬 후에는 정상 통과해야 합니다.</p>
+        <pre><span class="k">pnpm build</span>     <span class="c"># turbo run build → api(nest) · web(next) · worker/database/types(tsc)</span></pre>
+        <div class="callout warn"><b>만약 여기서 타입/컴파일 오류가 나면</b> 버전 상향(특히 next 15.5.x, typescript 5.9.x, @nestjs/cli 11)에 따른 것일 수 있습니다. 오류 로그를 그대로 공유해 주시면 개별 대응하겠습니다. (현재 코드 기준 알려진 차단 이슈는 없습니다.)</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">7</div>
+      <div class="body">
+        <h3>Docker 이미지 빌드 & ACR 푸시</h3>
+        <p>멀티타깃 Dockerfile(<code class="inline">deploy/docker/Dockerfile</code>)로 4개 타깃을 빌드합니다: <b>api · web · worker · migrate</b>. 베이스 이미지·레지스트리·Prisma 미러를 build-arg로 주입합니다.</p>
+        <pre><span class="c"># ACR 로그인</span>
+<span class="k">echo</span> "$REGISTRY_PASSWORD" | <span class="k">docker login</span> "$REGISTRY" -u "$REGISTRY_USERNAME" --password-stdin
+
+<span class="c"># 4개 타깃 빌드 & 푸시</span>
+<span class="k">for</span> T in api web worker migrate; <span class="k">do</span>
+  <span class="k">docker build</span> -f deploy/docker/Dockerfile --target "$T" \
+    --build-arg BASE_IMAGE="$NEXUS_DOCKER_PROXY/library/node:20-bookworm-slim" \
+    --build-arg NPM_REGISTRY="$NEXUS_NPM_REGISTRY" \
+    --build-arg PRISMA_ENGINES_MIRROR="$PRISMA_MIRROR" \
+    -t "$REGISTRY/metis-$T:$TAG" .
+  <span class="k">docker push</span> "$REGISTRY/metis-$T:$TAG"
+<span class="k">done</span></pre>
+        <div class="callout warn"><b>중요</b> 이미지 안에서도 <code class="inline">pnpm install --frozen-lockfile</code>이 다시 실행됩니다. 따라서 STEP 2의 <b>갱신된 pnpm-lock.yaml이 커밋·반영된 상태</b>여야 Docker 빌드가 통과합니다.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">8</div>
+      <div class="body">
+        <h3>배포 (Helm / ArgoCD)</h3>
+        <p>CI는 Azure 로그인 후 Helm으로 배포하며, 이미지 레지스트리/태그를 주입합니다. ArgoCD를 쓰는 경우 매니페스트의 이미지 태그를 <code class="inline">$TAG</code>로 갱신 후 동기화합니다.</p>
+        <pre><span class="c"># Helm (CI 방식)</span>
+<span class="k">helm upgrade --install</span> metis ./deploy/helm \
+  --set image.registry="$REGISTRY" --set image.tag="$TAG"
+
+<span class="c"># 또는 ArgoCD</span>
+<span class="k">argocd app set</span> metis --helm-set image.tag="$TAG"
+<span class="k">argocd app sync</span> metis</pre>
+        <p class="lbl">배포 후 확인</p>
+        <ul>
+          <li><b>migrate</b> Job/Pod이 먼저 완료(<code class="inline">pnpm db:push &amp;&amp; pnpm db:seed</code>)되는지</li>
+          <li>api / web / worker Pod <code class="inline">Running</code> + readiness 통과</li>
+          <li>웹 접속 → 대시보드/Agent 실행 정상 동작</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. 트러블슈팅 -->
+  <section class="card">
+    <h2>3. 트러블슈팅 (자주 나는 오류)</h2>
+    <table>
+      <thead><tr><th>증상</th><th>원인</th><th>조치</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code class="inline">ERR_PNPM_OUTDATED_LOCKFILE</code> / specifiers don't match</td>
+          <td>package.json 버전은 바뀌었는데 pnpm-lock.yaml 미갱신</td>
+          <td><b>STEP 2</b> 수행(락파일 재생성·커밋). 임시로 <code class="inline">--no-frozen-lockfile</code>로 확인 가능하나, CI엔 갱신된 락파일 커밋이 정답</td>
+        </tr>
+        <tr>
+          <td>install 중 <code class="inline">404 / 403</code> (특정 패키지·버전)</td>
+          <td>Nexus allow-list에 신규 고정 버전 미등록</td>
+          <td><b>STEP 1</b> — 해당 버전을 Nexus 정책에 허용</td>
+        </tr>
+        <tr>
+          <td><code class="inline">Cannot find module 'pnpm'</code> / corepack 다운로드 실패</td>
+          <td>corepack이 Nexus에서 pnpm@11.7.0을 못 받음</td>
+          <td>Nexus npm 프록시에 <code class="inline">pnpm@11.7.0</code> 허용. 또는 베이스 이미지에 pnpm 사전 설치</td>
+        </tr>
+        <tr>
+          <td><code class="inline">esbuild: Failed to install platform binary</code> / seed 단계 esbuild 오류</td>
+          <td>pnpm 10+ 빌드 스크립트 차단</td>
+          <td>루트 <code class="inline">pnpm.onlyBuiltDependencies: ["esbuild"]</code> 반영 확인(이미 추가됨). 그래도 막히면 <code class="inline">pnpm approve-builds</code></td>
+        </tr>
+        <tr>
+          <td>Prisma <code class="inline">Failed to fetch the engine</code></td>
+          <td>엔진 다운로드가 폐쇄망에서 차단</td>
+          <td><code class="inline">PRISMA_ENGINES_MIRROR</code> 설정 또는 엔진 바이너리 직접 반입</td>
+        </tr>
+        <tr>
+          <td>turbo / next build 타입 오류</td>
+          <td>버전 상향(next 15.5.x, ts 5.9.x, nest cli 11)에 따른 차이</td>
+          <td>오류 로그 공유 → 개별 대응 (현재 코드 기준 알려진 차단 이슈 없음)</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 4. 부록 -->
+  <section class="card">
+    <h2>4. 부록 — CI 파이프라인 단계 매핑</h2>
+    <table>
+      <thead><tr><th>CDCD 단계</th><th>명령/스크립트</th><th>상태</th></tr></thead>
+      <tbody>
+        <tr><td>preflight (폐쇄망 사전점검)</td><td><code class="inline">scripts/preflight-closed-network.sh</code></td><td><span class="badge b-wait">확인</span></td></tr>
+        <tr><td>pnpm install</td><td><code class="inline">pnpm install --frozen-lockfile</code> (Nexus)</td><td><span class="badge b-todo">락파일 갱신 필요</span></td></tr>
+        <tr><td>prisma generate</td><td><code class="inline">pnpm db:generate</code> (미러)</td><td><span class="badge b-done">방식 확립</span></td></tr>
+        <tr><td>pnpm build</td><td><code class="inline">pnpm build</code> (turbo)</td><td><span class="badge b-wait">락파일 후 재검증</span></td></tr>
+        <tr><td>secret scan</td><td><code class="inline">node scripts/check-secrets.mjs</code></td><td><span class="badge b-done">기존</span></td></tr>
+        <tr><td>docker build &amp; push (ACR)</td><td><code class="inline">--target api|web|worker|migrate</code></td><td><span class="badge b-wait">대기중</span></td></tr>
+        <tr><td>배포 (Helm/ArgoCD)</td><td>image.tag 주입 → sync</td><td><span class="badge b-wait">대기중</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>핵심 요약 한 줄</h3>
+    <div class="callout danger">
+      <b>지금 막 할 일은 단 하나 — “Nexus 연결된 러너에서 <code class="inline">pnpm install</code>로 pnpm-lock.yaml을 재생성해 커밋”</b>입니다. 그러면 <code class="inline">--frozen-lockfile</code> 기반의 CI·Docker 빌드가 정상 진행됩니다. (그 전에 STEP 1의 Nexus 버전 허용만 확인)
+    </div>
+    <p class="small">문의: 본 변경(버전 고정·pnpm 11.7.0·onlyBuiltDependencies)은 모두 리포에 반영 완료. 빌드 로그에서 막히는 지점이 있으면 해당 로그를 전달 주시면 이어서 대응하겠습니다.</p>
+  </section>
+
+  <footer>
+    Metis.AI · 사내망 빌드·배포 가이드 v1.0 · 2026-06-22 · 본 문서는 metis-ai 리포 루트에 함께 보관됩니다.
+  </footer>
+
+</div>
+</body>
+</html>

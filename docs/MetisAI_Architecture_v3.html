@@ -1,0 +1,331 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>METIS.AI 아키텍처 문서 v3 (상세)</title>
+<style>
+:root{--ink:#1e293b;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--navy:#0f1b2d;--bg:#f8fafc;--green:#16a34a;--amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0d9488}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;font-size:13.5px;line-height:1.65}
+.layout{display:flex;max-width:1280px;margin:0 auto}
+nav.toc{width:262px;flex-shrink:0;position:sticky;top:0;align-self:flex-start;height:100vh;overflow:auto;background:var(--navy);color:#cbd5e1;padding:18px 14px}
+nav.toc h2{color:#fff;font-size:14px;margin:0 0 2px}nav.toc .ver{font-size:10px;color:#7dd3fc;margin-bottom:12px}
+nav.toc a{display:block;color:#cbd5e1;text-decoration:none;font-size:12px;padding:3px 8px;border-radius:5px}
+nav.toc a:hover{background:rgba(255,255,255,.08);color:#fff}nav.toc a.sub{padding-left:18px;font-size:11px;color:#94a3b8}
+main{flex:1;padding:26px 34px;background:#fff;min-width:0}
+h1{font-size:24px;margin:0 0 4px}.subtitle{color:var(--muted);margin:0 0 20px}
+h2.sec{font-size:18px;margin:32px 0 8px;padding-bottom:6px;border-bottom:2px solid var(--accent);scroll-margin-top:8px}
+h3{font-size:14.5px;margin:18px 0 4px;color:var(--navy)}
+p{margin:5px 0}ul{margin:5px 0;padding-left:20px}li{margin:2px 0}
+code{background:#f1f5f9;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}th,td{text-align:left;padding:6px 8px;border:1px solid var(--line);vertical-align:top}th{background:#f1f5f9;font-weight:700}
+.note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:9px 12px;font-size:12px;margin:9px 0}
+.cap{font-size:11px;color:var(--muted);margin:2px 0 10px;text-align:center}
+/* layered diagram */
+.diagram{border:1px solid var(--line);border-radius:10px;padding:14px;background:#fcfdff;margin:10px 0}
+.layer{border:1px dashed #cbd5e1;border-radius:8px;padding:8px 10px;margin:8px 0;background:#fff}
+.layer>.lt{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.boxrow{display:flex;flex-wrap:wrap;gap:8px}
+.box{flex:1;min-width:120px;border-radius:7px;padding:8px 10px;font-size:12px;border:1px solid;background:#fff}
+.box b{display:block;font-size:12.5px;margin-bottom:2px}.box span{font-size:10.5px;color:var(--muted)}
+.b-blue{border-color:#bfdbfe;background:#eff6ff}.b-green{border-color:#bbf7d0;background:#f0fdf4}.b-amber{border-color:#fed7aa;background:#fff7ed}
+.b-violet{border-color:#ddd6fe;background:#f5f3ff}.b-teal{border-color:#99f6e4;background:#f0fdfa}.b-gray{border-color:#e2e8f0;background:#f8fafc}.b-red{border-color:#fecaca;background:#fef2f2}
+.arrow{text-align:center;color:#94a3b8;font-size:16px;margin:-2px 0}
+.flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:11.5px;margin:8px 0}
+.flow .n{border:1px solid #bfdbfe;background:#eff6ff;border-radius:6px;padding:5px 9px}
+.flow .a{color:#94a3b8}
+.grp{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin:8px 0}
+.mod{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:#fff;font-size:11.5px}
+.mod b{font-size:12px}.mod span{display:block;color:var(--muted);font-size:10.5px;margin-top:1px}
+.pill{display:inline-block;font-size:9.5px;font-weight:700;border-radius:5px;padding:1px 6px;background:#e0e7ff;color:#3730a3}
+@media print{nav.toc{display:none}main{padding:0}}
+</style></head><body><div class="layout">
+<nav class="toc">
+<h2>METIS.AI 아키텍처</h2><div class="ver">v3 상세 · 2026-06</div>
+<a href="#over">1. 개요 · 원칙</a>
+<a href="#ctx">2. 시스템 컨텍스트 (L1)</a>
+<a href="#cont">3. 컨테이너 (L2)</a>
+<a href="#sw">4. SW 아키텍처 (모듈)</a>
+<a href="#logic">5. 논리 아키텍처 (흐름)</a>
+<a href="#l-eval" class="sub">5.1 평가 파이프라인</a>
+<a href="#l-ingest" class="sub">5.2 수집 온램프</a>
+<a href="#l-finops" class="sub">5.3 FinOps 3게이트</a>
+<a href="#l-eff" class="sub">5.4 효과성 계산</a>
+<a href="#l-gov" class="sub">5.5 거버넌스·ORB</a>
+<a href="#data">6. 데이터 아키텍처 (모델)</a>
+<a href="#func">7. 기능 아키텍처 (메뉴↔모듈↔모델)</a>
+<a href="#cross">8. 횡단 관심사 (보안·관측·MT)</a>
+<a href="#deploy">9. 배포 아키텍처</a>
+<a href="#seq">10. 시퀀스 다이어그램</a>
+<a href="#stack">11. 기술 스택</a>
+<a href="#appx">12. 부록(모듈·모델 전수)</a>
+</nav>
+<main>
+<h1>METIS.AI 아키텍처 문서</h1>
+<p class="subtitle">기능 · 소프트웨어 · 논리 · 데이터 · 배포 상세 (현행 구현 기준, v3 · 2026-06)</p>
+
+<h2 class="sec" id="over">1. 개요 · 아키텍처 원칙</h2>
+<p>METIS.AI는 멀티테넌트 <b>AgentOps 거버넌스·성과(ROI) 플랫폼</b>입니다. Turborepo 모노레포(3 apps / 4 packages), 백엔드 NestJS, 프론트 Next.js 15, 영속 PostgreSQL(Prisma), 큐/캐시 Redis(BullMQ)로 구성됩니다.</p>
+<table>
+<tr><th>원칙</th><th>구현</th></tr>
+<tr><td>도메인 모듈화</td><td>NestJS 27개 도메인 모듈(평가/거버넌스/FinOps/지식/수집 등) 분리</td></tr>
+<tr><td>단일 평가 엔진</td><td>내부 워크플로우·외부 SDK 모두 동일한 <code>EvaluatorService.evaluate()</code>를 통과</td></tr>
+<tr><td>멀티테넌시</td><td>모든 도메인 데이터에 <code>tenantId</code> 스탬프 + 서버측 강제 격리</td></tr>
+<tr><td>보안 기본값</td><td>httpOnly 쿠키+자동갱신, CSRF, RBAC(6역할), SSRF/프롬프트가드, CSP nonce</td></tr>
+<tr><td>관측·복원력</td><td>OpenTelemetry 계측, best-effort 훅(평가 실패가 실행을 막지 않음), 큐 재시도</td></tr>
+</table>
+
+<h2 class="sec" id="ctx">2. 시스템 컨텍스트 (C4 Level 1)</h2>
+<div class="diagram">
+<div class="boxrow">
+<div class="box b-gray"><b>👤 사용자</b><span>운영자·개발자·감사자·관리자 (RBAC 6역할)</span></div>
+<div class="box b-gray"><b>🤖 외부 AI 에이전트</b><span>LangChain·자체 서비스 (수집 SDK로 연동)</span></div>
+</div>
+<div class="arrow">▼ HTTPS / SDK</div>
+<div class="box b-blue" style="text-align:center"><b>METIS.AI 플랫폼</b><span>평가·거버넌스·성과·FinOps·지식·리스크</span></div>
+<div class="arrow">▼ 외부 연동</div>
+<div class="boxrow">
+<div class="box b-violet"><b>LLM 제공자</b><span>Anthropic · OpenAI (평가·임베딩·실행)</span></div>
+<div class="box b-teal"><b>OpenTelemetry</b><span>트레이스/메트릭 수출(선택)</span></div>
+<div class="box b-amber"><b>외부 시스템</b><span>커넥터(Slack·웹검색·저장소 등)</span></div>
+</div>
+</div>
+<p class="cap">그림 2-1. 시스템 컨텍스트 — 누가/무엇이 METIS와 상호작용하는가</p>
+
+<h2 class="sec" id="cont">3. 컨테이너 아키텍처 (C4 Level 2)</h2>
+<div class="diagram">
+<div class="layer"><div class="lt">Client</div><div class="boxrow">
+<div class="box b-blue"><b>apps/web</b> <span class="pill">Next.js 15 · React 19</span><span>App Router · TanStack Query · Zustand · Tailwind(다크) · /api 프록시</span></div>
+</div></div>
+<div class="arrow">▼ /api/* → /v1/* (rewrite, same-origin)</div>
+<div class="layer"><div class="lt">Application</div><div class="boxrow">
+<div class="box b-green"><b>apps/api</b> <span class="pill">NestJS 10</span><span>27 도메인 모듈 · REST /v1 · 전역 가드(JWT·RBAC·Throttle) · Swagger</span></div>
+<div class="box b-amber"><b>apps/worker</b> <span class="pill">BullMQ</span><span>비동기 작업(평가/적재 큐 — 확장 지점)</span></div>
+</div></div>
+<div class="arrow">▼</div>
+<div class="layer"><div class="lt">Shared packages</div><div class="boxrow">
+<div class="box b-gray"><b>packages/database</b><span>Prisma 스키마·클라이언트(60 모델)</span></div>
+<div class="box b-gray"><b>packages/types</b><span>공유 TS 타입</span></div>
+<div class="box b-gray"><b>packages/ui</b><span>공용 UI</span></div>
+<div class="box b-gray"><b>packages/config</b><span>tsconfig·lint</span></div>
+</div></div>
+<div class="arrow">▼</div>
+<div class="layer"><div class="lt">Infra (docker compose)</div><div class="boxrow">
+<div class="box b-teal"><b>PostgreSQL</b><span>영속 저장(실행·평가·정책·지식·효과성)</span></div>
+<div class="box b-red"><b>Redis</b><span>BullMQ 큐 · 캐시 · jti/레이트리밋/예산 상태</span></div>
+</div></div>
+</div>
+<p class="cap">그림 3-1. 컨테이너 — 배포 단위와 의존 관계</p>
+
+<h2 class="sec" id="sw">4. 소프트웨어 아키텍처 — API 도메인 모듈 (27)</h2>
+<p>NestJS 모듈을 책임 도메인별로 그룹화. 각 모듈 = Controller(REST) + Service(로직) + (선택) Guard/DTO.</p>
+<h3>인증 · 테넌시</h3>
+<div class="grp">
+<div class="mod"><b>auth</b><span>로그인·JWT·쿠키·자동갱신(refresh)·logout</span></div>
+<div class="mod"><b>tenant</b><span>테넌트·멤버십·역할</span></div>
+</div>
+<h3>실행 · 오케스트레이션</h3>
+<div class="grp">
+<div class="mod"><b>workflow</b><span>워크플로우(main agent) CRUD·버전·게시</span></div>
+<div class="mod"><b>workflow-nodes</b><span>PipelineEngine + 12 executor(ai-analysis·pentest·log-monitor·slack…)</span></div>
+<div class="mod"><b>execution</b><span>ExecutionSession/Step 목록·이력</span></div>
+<div class="mod"><b>agent-kernel</b><span>A2A 버스·미션·핸드오프·디스패처(내부 원시기능)</span></div>
+<div class="mod"><b>capability-registry</b><span>역량 등록·바인딩·시뮬레이터</span></div>
+<div class="mod"><b>autonomous-ops</b><span>자율 운영·자가치유 액션</span></div>
+<div class="mod"><b>ap-agent</b><span>AP(회계) 도메인 에이전트(인보이스 매칭)</span></div>
+</div>
+<h3>평가 · 품질</h3>
+<div class="grp">
+<div class="mod"><b>evaluator</b><span>4게이트+LLM심사+이상탐지+정책알람+피드백(핵심 엔진)</span></div>
+<div class="mod"><b>metrics</b><span>LLM IO 계측(확장)</span></div>
+</div>
+<h3>거버넌스 · 리스크</h3>
+<div class="grp">
+<div class="mod"><b>governance</b><span>정책 CRUD·평가·감사로그·증거팩·KPI</span></div>
+<div class="mod"><b>orb</b><span>게시 심사 보드·자동채점(5영역)·lifecycle</span></div>
+<div class="mod"><b>fds</b><span>운영 리스크·이상탐지·알람·룰엔진·어댑터</span></div>
+</div>
+<h3>지식 · 비용 · 성과</h3>
+<div class="grp">
+<div class="mod"><b>knowledge</b><span>지식 CRUD·검색/주입·오류패턴·활용도·정책승격</span></div>
+<div class="mod"><b>finops</b><span>3게이트(의미캐시·라우팅·패커)·토큰로그·예측·임베딩</span></div>
+<div class="mod"><b>dashboard</b><span>집계(home/agents/effectiveness)·효과성·MTTD/MTTR·시스템 롤업</span></div>
+</div>
+<h3>연동 · 수집 · 알림</h3>
+<div class="grp">
+<div class="mod"><b>ingest</b><span>외부 Agent 수집(/ingest/runs)·API키·키가드</span></div>
+<div class="mod"><b>connector</b><span>외부 시스템 커넥터·거버넌스(서킷/SSRF)</span></div>
+<div class="mod"><b>events</b><span>SSE 이벤트 스트림</span></div>
+<div class="mod"><b>notification</b><span>알림</span></div>
+<div class="mod"><b>email</b><span>메일 발송</span></div>
+</div>
+<h3>패키징 · 배포 · 빌드</h3>
+<div class="grp">
+<div class="mod"><b>pack</b><span>팩·설치·버전</span></div>
+<div class="mod"><b>builder</b><span>빌더 하네스(plan·eval·validate·repair)·LLM 플래너</span></div>
+<div class="mod"><b>release</b><span>카나리·섀도우·승격·릴리스 허브</span></div>
+<div class="mod"><b>health</b><span>헬스/레디니스</span></div>
+</div>
+<h2 class="sec" id="logic">5. 논리 아키텍처 — 핵심 흐름</h2>
+
+<h3 id="l-eval">5.1 평가 파이프라인 (모든 실행의 심장)</h3>
+<p>워크플로우 실행 시 <code>PipelineEngine</code>이 노드를 순회하며, 각 노드 실행 직후 <b>동일한</b> <code>EvaluatorService.evaluate()</code>를 호출합니다(best-effort, 실패해도 파이프라인 미중단).</p>
+<div class="flow">
+<span class="n">PipelineEngine.execute()</span><span class="a">→</span><span class="n">노드 loop</span><span class="a">→</span><span class="n">executor.execute()</span><span class="a">→</span><span class="n">ExecutionStep 저장</span><span class="a">→</span><span class="n">evaluate()</span>
+</div>
+<div class="diagram"><div class="lt" style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">EvaluatorService.evaluate() 내부</div>
+<div class="boxrow">
+<div class="box b-blue"><b>Gate1·2 품질</b><span>정확도·환각·점수 (quality-evaluator)</span></div>
+<div class="box b-violet"><b>LLM 심사</b><span>샘플링(adaptive) · llm-judge</span></div>
+<div class="box b-red"><b>Gate 보안</b><span>프롬프트 인젝션·출력유출·툴체인 (security-evaluator + prompt-guard)</span></div>
+</div><div class="arrow">▼</div><div class="boxrow">
+<div class="box b-amber"><b>Gate 비용/정책</b><span>cost-evaluator + 활성 정책</span></div>
+<div class="box b-teal"><b>이상 탐지</b><span>z-score·IQR·회귀·에러서지 (anomaly-detector, DB 히스토리)</span></div>
+<div class="box b-green"><b>종합점수·저장</b><span>computeOverallScore → AgentEvaluation</span></div>
+</div><div class="arrow">▼</div><div class="boxrow">
+<div class="box b-red"><b>알람</b><span>정책 위반 → FDSAlert(raiseAlarms)</span></div>
+<div class="box b-gray"><b>지식 캡처</b><span>오류 → ErrorPattern/KnowledgeArtifact</span></div>
+</div></div>
+<p class="cap">그림 5-1. 4게이트+이상+알람+지식의 단일 평가 파이프라인</p>
+
+<h3 id="l-ingest">5.2 수집 온램프 (외부 Agent → 동일 엔진)</h3>
+<div class="flow">
+<span class="n">외부 Agent + @metis.eval</span><span class="a">→</span><span class="n">POST /v1/ingest/runs (API키)</span><span class="a">→</span><span class="n">IngestKeyGuard(tenant 해석)</span><span class="a">→</span><span class="n">redactSecrets·멱등 upsert</span><span class="a">→</span><span class="n">ExecutionSession(source=sdk)</span><span class="a">→</span><span class="n">EvaluatorService.evaluate()</span><span class="a">→</span><span class="n">동일 대시보드</span>
+</div>
+<p>핵심: 평가 로직을 재구현하지 않고 "입구"만 추가 — 외부/내부 에이전트가 같은 화면에 동일 기준으로 집계.</p>
+
+<h3 id="l-finops">5.3 FinOps 3게이트 (비용 최적화)</h3>
+<div class="flow">
+<span class="n">프롬프트</span><span class="a">→</span><span class="n">Gate1 의미 캐시(임베딩 코사인≥0.93 → HIT)</span><span class="a">→</span><span class="n">Gate2 모델 라우팅(난이도→tier)</span><span class="a">→</span><span class="n">Gate3 스킬 패커(압축)</span><span class="a">→</span><span class="n">FinOpsTokenLog</span>
+</div>
+<p>의미 캐시는 OpenAI 임베딩(text-embedding-3-small)로 코사인 유사도 매칭(키 없거나 차단 시 정확일치 폴백).</p>
+
+<h3 id="l-eff">5.4 효과성(성과) 계산</h3>
+<div class="flow">
+<span class="n">Agent 기준(effectivenessJson: 수작업분·system)</span><span class="a">+</span><span class="n">실측(ExecutionSession latency·success)</span><span class="a">→</span><span class="n">절감공수=성공×수작업분 − 실제</span><span class="a">→</span><span class="n">MM·ROI·절감%</span>
+</div>
+<p>MTTD=원천신호(EffectivenessSignal DETECTION) 또는 평균지연 근사 · MTTR=FDSAlert createdAt→resolvedAt · 커버리지=COVERAGE 신호 · 시스템별 롤업(활용/오류/보안).</p>
+
+<h3 id="l-gov">5.5 거버넌스 · ORB lifecycle</h3>
+<div class="flow">
+<span class="n">정책코드 엔진(Policy)</span><span class="a">→</span><span class="n">평가 시 정책 검사</span><span class="a">→</span><span class="n">위반 FDSAlert</span><span class="a">→</span><span class="n">Risk 워크스페이스 조치</span><span class="a">→</span><span class="n">감사로그·Evidence Pack</span>
+</div>
+<div class="flow">
+<span class="n">ORB 임시등록</span><span class="a">→</span><span class="n">자동채점(5영역)</span><span class="a">→</span><span class="n">심사</span><span class="a">→</span><span class="n">승인 → Workflow 게시(WorkflowVersion·VersionPromotion)</span>
+</div>
+
+<h2 class="sec" id="data">6. 데이터 아키텍처 (Prisma 60 모델)</h2>
+<p>모든 도메인 데이터는 <code>Tenant</code>에 귀속(멀티테넌시). 도메인별 핵심 모델·관계:</p>
+<table>
+<tr><th>도메인</th><th>핵심 모델</th><th>관계 요지</th></tr>
+<tr><td>테넌시/인증</td><td>Tenant · User · Membership · IngestApiKey</td><td>Tenant 1—N User(Membership 역할), 1—N IngestApiKey</td></tr>
+<tr><td>실행</td><td>Workflow · WorkflowVersion · WorkflowNodeDef · WorkflowEdgeDef · ExecutionSession · ExecutionStep · ExecutionTrace</td><td>Workflow(main, +code/system/effectivenessJson) 1—N Version/Node/Edge; Session 1—N Step</td></tr>
+<tr><td>평가</td><td>AgentEvaluation · EvaluationPolicy · PolicyEvaluation</td><td>Session/Step별 평가(workflowKey·stepKey·anomalyEvents·security·cost)</td></tr>
+<tr><td>거버넌스</td><td>Policy · PolicySuggestion · AuditLog · OrbReview · Certification</td><td>정책·제안·감사·게시심사</td></tr>
+<tr><td>리스크</td><td>FDSAlert · FDSRule · AutoAction · AdapterRegistration</td><td>알람(subjectType=AgentEvaluation, detailsJson.workflowKey, resolvedAt→MTTR)</td></tr>
+<tr><td>지식</td><td>KnowledgeArtifact · KnowledgeUsage · ErrorPattern</td><td>오류패턴(workflowKey) → 지식 → 활용도/정책승격</td></tr>
+<tr><td>FinOps</td><td>FinOpsConfig · FinOpsAgentConfig · FinOpsTokenLog · FinOpsNamespace · FinOpsSkill</td><td>토큰로그(promptEmbedding으로 의미캐시)·에이전트별 게이트 설정</td></tr>
+<tr><td>성과</td><td>EffectivenessSignal</td><td>DETECTION/COVERAGE 원천신호 → MTTD/커버리지 실측</td></tr>
+<tr><td>에이전트커널</td><td>AgentDefinition · Mission · AgentMessage · AgentHandoff · CapabilityBinding</td><td>A2A·미션·핸드오프</td></tr>
+<tr><td>패키징/배포</td><td>Pack · PackVersion · PackInstallation · CanaryDeployment · CanaryGate · CanaryMetricSnapshot · ShadowConfig · ShadowPair · VersionPromotion · ReplayDataset/Case/Run</td><td>팩 설치·카나리·섀도우·리플레이</td></tr>
+<tr><td>빌더</td><td>BuilderRequest · BuilderPlan · BuilderEvalResult · BuilderValidationResult · BuilderRepairAction · BuilderParamSet · BuilderConnectorGap</td><td>자동 빌드 하네스</td></tr>
+<tr><td>커넥터/AP</td><td>Connector · APInvoice</td><td>외부 연결·회계 매칭</td></tr>
+</table>
+<div class="note">📌 효과성/리스크의 핵심 조인 키는 <code>workflowKey</code>(에이전트)와 <code>system</code>(Workflow.system 컬럼). 이상 데이터는 AgentEvaluation.anomalyEvents + FDSAlert(detailsJson.category)로 이원화.</div>
+
+<h2 class="sec" id="func">7. 기능 아키텍처 (메뉴 ↔ 모듈 ↔ 모델)</h2>
+<table>
+<tr><th>화면(메뉴)</th><th>API 모듈</th><th>주요 모델</th></tr>
+<tr><td>홈 대시보드</td><td>dashboard</td><td>ExecutionSession·AgentEvaluation·Workflow·EffectivenessSignal·FinOpsTokenLog</td></tr>
+<tr><td>운영/개발/품질/편의 Agent</td><td>workflow·execution·evaluator</td><td>Workflow·ExecutionStep·AgentEvaluation</td></tr>
+<tr><td>Agent 관리/통제(기준·시스템)</td><td>workflow·finops</td><td>Workflow.effectivenessJson/system·FinOpsAgentConfig</td></tr>
+<tr><td>정책코드 엔진·평가 Gate·정책 제안</td><td>governance·evaluator</td><td>Policy·EvaluationPolicy·PolicySuggestion</td></tr>
+<tr><td>Evidence Pack·AI 활동 로그·KPI</td><td>governance</td><td>AuditLog·ExecutionSession</td></tr>
+<tr><td>성과/효과성</td><td>dashboard</td><td>Workflow·AgentEvaluation·EffectivenessSignal·FDSAlert</td></tr>
+<tr><td>ORB 심사</td><td>orb·workflow</td><td>OrbReview·WorkflowVersion·VersionPromotion</td></tr>
+<tr><td>지식관리(Registry/패턴/Pipeline)</td><td>knowledge</td><td>KnowledgeArtifact·KnowledgeUsage·ErrorPattern</td></tr>
+<tr><td>워크플로우 빌더·템플릿·실행 모니터링·커넥터</td><td>workflow·workflow-nodes·connector</td><td>Workflow·NodeDef·EdgeDef·Connector</td></tr>
+<tr><td>FinOps·FinOps 데모</td><td>finops</td><td>FinOpsConfig·FinOpsTokenLog</td></tr>
+<tr><td>Agent Evaluator·Anomalies</td><td>evaluator</td><td>AgentEvaluation(anomalyEvents)</td></tr>
+<tr><td>Risk 워크스페이스</td><td>fds</td><td>FDSAlert·FDSRule</td></tr>
+<tr><td>Release Hub</td><td>release</td><td>Canary*·Shadow*·VersionPromotion</td></tr>
+<tr><td>사용자 관리</td><td>tenant·auth</td><td>User·Membership</td></tr>
+<tr><td>외부 Agent 연동</td><td>ingest·metrics</td><td>IngestApiKey·ExecutionSession(source=sdk)</td></tr>
+</table>
+<h2 class="sec" id="cross">8. 횡단 관심사 (Cross-cutting)</h2>
+<table>
+<tr><th>관심사</th><th>구현</th></tr>
+<tr><td>인증/세션</td><td>httpOnly 쿠키(metis_access 15분 '/'·metis_refresh 1d '/api/auth') + <b>401 시 단일플라이트 자동 갱신·재시도</b>(api-client) → 세션 끊김 방지</td></tr>
+<tr><td>인가(RBAC)</td><td>전역 JwtAuthGuard + RolesGuard(@Roles), @Public()로 공개 라우트, 6역할</td></tr>
+<tr><td>멀티테넌시</td><td>resolveTenantId(미존재 거부) · 모든 쿼리 tenantId 스코프 · 수집키→tenant 서버측 해석</td></tr>
+<tr><td>CSRF</td><td>double-submit(metis_csrf 쿠키 ↔ X-CSRF-Token 헤더), GET 면제</td></tr>
+<tr><td>SSRF/Egress</td><td>url-validator(pinnedLookup·DNS rebinding 방어), egress 전 redactSecrets</td></tr>
+<tr><td>프롬프트 보안</td><td>prompt-guard(인젝션 패턴 EN/KO·시크릿 마스킹), 보안 게이트 적용</td></tr>
+<tr><td>레이트리밋/예산</td><td>ThrottleGuard · Redis 기반 jti 회전/거부목록·LLM 예산(SharedRedis, 없으면 인메모리)</td></tr>
+<tr><td>CSP</td><td>middleware nonce 기반(prod) · helmet</td></tr>
+<tr><td>관측</td><td>OpenTelemetry 계측(상관ID 인터셉터·감사 인터셉터)</td></tr>
+<tr><td>복원력</td><td>평가/지식/신호 훅 best-effort try-catch(실행 미중단) · 큐 재시도(확장)</td></tr>
+</table>
+
+<h2 class="sec" id="deploy">9. 배포 아키텍처</h2>
+<h3>로컬(개발)</h3>
+<div class="diagram"><div class="boxrow">
+<div class="box b-blue"><b>web :3000</b><span>next dev (/api 프록시→:4000/v1)</span></div>
+<div class="box b-green"><b>api :4000</b><span>nest start:dev</span></div>
+<div class="box b-amber"><b>worker</b><span>BullMQ</span></div>
+</div><div class="arrow">▼ docker compose</div><div class="boxrow">
+<div class="box b-teal"><b>PostgreSQL :5432</b><span>metis_dev</span></div>
+<div class="box b-red"><b>Redis :6379</b></div>
+</div></div>
+<p class="cap">그림 9-1. <code>start-metis.bat</code> = Docker 기동 → db push/seed → 3 서버 실행</p>
+<h3>프로덕션(권장 토폴로지)</h3>
+<ul>
+<li>web(정적/SSR) · api(수평확장 N replica, 무상태) · worker(N) 분리 컨테이너</li>
+<li>관리형 PostgreSQL(+읽기 복제, 대량 트레이스 시 OLAP/ClickHouse 분리 검토) · 관리형 Redis</li>
+<li>리버스 프록시(trust proxy=1)·TLS·CORS 허용목록·AUTH_SECRET 강제(부팅 검증)</li>
+<li>비밀: .env(로컬) → Secret Manager(프로덕션). 온프레미스/프라이빗 배포 지원(금융·공공)</li>
+</ul>
+
+<h2 class="sec" id="seq">10. 시퀀스 다이어그램</h2>
+<h3>10.1 내부 워크플로우 실행 + 평가</h3>
+<div class="flow">
+<span class="n">Web</span><span class="a">→</span><span class="n">POST /v1/workflow-nodes/execute-sync</span><span class="a">→</span><span class="n">PipelineEngine</span><span class="a">→</span><span class="n">executor.execute</span><span class="a">→</span><span class="n">ExecutionStep.create</span><span class="a">→</span><span class="n">evaluate()</span><span class="a">→</span><span class="n">AgentEvaluation/FDSAlert</span><span class="a">→</span><span class="n">결과 반환</span>
+</div>
+<h3>10.2 외부 SDK 적재 + 평가</h3>
+<div class="flow">
+<span class="n">@metis.eval</span><span class="a">→</span><span class="n">/v1/ingest/runs</span><span class="a">→</span><span class="n">IngestKeyGuard</span><span class="a">→</span><span class="n">IngestService</span><span class="a">→</span><span class="n">ExecutionSession(sdk)</span><span class="a">→</span><span class="n">evaluate()</span><span class="a">→</span><span class="n">202/200</span>
+</div>
+<h3>10.3 ORB 게시</h3>
+<div class="flow">
+<span class="n">임시등록</span><span class="a">→</span><span class="n">OrbAutoScore(5영역)</span><span class="a">→</span><span class="n">심사</span><span class="a">→</span><span class="n">승인</span><span class="a">→</span><span class="n">Workflow 게시(Version/Promotion)</span>
+</div>
+<h3>10.4 FinOps 캐시 HIT</h3>
+<div class="flow">
+<span class="n">optimize(prompt)</span><span class="a">→</span><span class="n">embed</span><span class="a">→</span><span class="n">코사인≥0.93?</span><span class="a">→</span><span class="n">HIT: 캐시응답·100%절감</span><span class="a">|</span><span class="n">MISS: 라우팅·패커·로그(embedding 저장)</span>
+</div>
+<h3>10.5 401 자동 세션 갱신</h3>
+<div class="flow">
+<span class="n">API 401</span><span class="a">→</span><span class="n">silentRefresh(/auth/refresh, single-flight)</span><span class="a">→</span><span class="n">성공: 원요청 재시도</span><span class="a">|</span><span class="n">실패: /login</span>
+</div>
+
+<h2 class="sec" id="stack">11. 기술 스택</h2>
+<table>
+<tr><th>레이어</th><th>기술</th></tr>
+<tr><td>모노레포</td><td>Turborepo + pnpm (apps: api·web·worker / packages: database·types·ui·config)</td></tr>
+<tr><td>프론트</td><td>Next.js 15(App Router)·React 19·TanStack Query·Zustand·Tailwind(다크)·lucide-react·인라인 SVG 차트</td></tr>
+<tr><td>백엔드</td><td>NestJS 10·REST(/v1)·class-validator(Zod 병행)·Swagger·전역 가드/인터셉터/필터</td></tr>
+<tr><td>데이터</td><td>PostgreSQL·Prisma ORM(60 모델)</td></tr>
+<tr><td>큐/캐시</td><td>Redis·BullMQ(worker)</td></tr>
+<tr><td>AI</td><td>Anthropic·OpenAI(LLM 심사·임베딩·실행)·OpenTelemetry(계측)</td></tr>
+<tr><td>SDK</td><td>Python 수집 SDK(sdks/python, 무의존성·@metis.eval)</td></tr>
+<tr><td>인프라</td><td>Docker Compose(로컬)·헬스/레디니스·CSP/Helmet</td></tr>
+</table>
+
+<h2 class="sec" id="appx">12. 부록 — 전수 목록</h2>
+<h3>API 도메인 모듈 (27)</h3>
+<p style="font-size:12px">auth · tenant · workflow · workflow-nodes · execution · agent-kernel · capability-registry · autonomous-ops · ap-agent · evaluator · metrics · governance · orb · fds · knowledge · finops · dashboard · ingest · connector · events · notification · email · pack · builder · release · health · (database.module)</p>
+<h3>Prisma 모델 (60)</h3>
+<p style="font-size:11.5px">Tenant · User · Membership · IngestApiKey · Workflow · WorkflowVersion · WorkflowNodeDef · WorkflowEdgeDef · ExecutionSession · ExecutionStep · ExecutionTrace · AgentEvaluation · EvaluationPolicy · PolicyEvaluation · Policy · PolicySuggestion · AuditLog · OrbReview · Certification · FDSAlert · FDSRule · AutoAction · AdapterRegistration · KnowledgeArtifact · KnowledgeUsage · ErrorPattern · FinOpsConfig · FinOpsAgentConfig · FinOpsTokenLog · FinOpsNamespace · FinOpsSkill · EffectivenessSignal · AgentDefinition · Mission · AgentMessage · AgentHandoff · CapabilityBinding · Pack · PackVersion · PackInstallation · CanaryDeployment · CanaryGate · CanaryMetricSnapshot · ShadowConfig · ShadowPair · VersionPromotion · ReplayDataset · ReplayCase · ReplayCaseResult · ReplayRun · BuilderRequest · BuilderPlan · BuilderEvalResult · BuilderValidationResult · BuilderRepairAction · BuilderParamSet · BuilderConnectorGap · Connector · APInvoice</p>
+<h3>워크플로우 노드 executor (12)</h3>
+<p style="font-size:12px">ai-analysis · pentest · log-monitor · data-storage · document-gen · email-send · file-upload · schedule · slack · web-search · passthrough · (report-template)</p>
+<h3>평가 엔진 구성</h3>
+<p style="font-size:12px">evaluator.service(오케스트레이션) · quality-evaluator · security-evaluator(+security-advanced) · cost-evaluator · anomaly-detector · llm-judge · prompt-guard · agentic-evaluator · conversation-evaluator · streaming-evaluator · feedback(policy-alarm)</p>
+<p class="cap" style="margin-top:18px">© METIS.AI 아키텍처 문서 v3 (2026-06). 현행 구현 기준. 기능 추가 시 갱신.</p>
+</main></div></body></html>

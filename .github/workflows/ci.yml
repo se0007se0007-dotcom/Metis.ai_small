@@ -1,0 +1,123 @@
+# ════════════════════════════════════════════════════════════════
+# Metis.AI — 사내 GitHub(Enterprise) CI/CD (GitHub Actions, self-hosted runner)
+#
+# 사내 깃허브에 push하면서 "이미지/미러 못 찾는 오류"를 잡아가는 워크플로.
+# 가장 먼저 preflight 잡이 폐쇄망 의존성(베이스 이미지·npm·prisma 미러)을
+# 한 번에 검사해서, 오류를 하나씩 만나며 진행하지 않아도 되게 한다.
+#
+# 준비:
+#   1) 랜딩존 VM에 self-hosted runner 등록 (labels: [self-hosted, metis])
+#      VM에 docker/kubectl/helm/az 설치
+#   2) Repo Settings → Secrets and variables → Actions:
+#      [Variables]
+#        NEXUS_NPM_REGISTRY  = https://nexus.corp.local/repository/npm-proxy/
+#        NEXUS_DOCKER_PROXY  = nexus.corp.local:8443/dockerhub-proxy
+#        PRISMA_MIRROR       = https://nexus.corp.local/repository/prisma-raw-proxy
+#        REGISTRY            = ktacr.azurecr.io   (또는 Nexus docker-hosted)
+#        AKS_RG / AKS_NAME / AKS_NAMESPACE
+#      [Secrets]
+#        REGISTRY_USERNAME / REGISTRY_PASSWORD   (ACR admin 또는 SP)
+#        AZURE_CREDENTIALS (az ad sp create-for-rbac --sdk-auth 출력 — 배포용)
+# ════════════════════════════════════════════════════════════════
+
+name: metis-ci
+
+on:
+  push:
+    branches: [main, metis-improvements]
+  workflow_dispatch: {}
+
+env:
+  TAG: ${{ github.run_number }}
+
+jobs:
+  # ── 0. 폐쇄망 사전점검: 빠진 미러/이미지를 한 번에 보고 ──────────
+  preflight:
+    runs-on: [self-hosted, metis]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Closed-network preflight
+        run: bash scripts/preflight-closed-network.sh
+        env:
+          NEXUS_NPM_REGISTRY: ${{ vars.NEXUS_NPM_REGISTRY }}
+          NEXUS_DOCKER_PROXY: ${{ vars.NEXUS_DOCKER_PROXY }}
+          PRISMA_MIRROR: ${{ vars.PRISMA_MIRROR }}
+
+  # ── 1. CI: 설치/생성/빌드/시크릿 검사 ───────────────────────────
+  ci:
+    needs: preflight
+    runs-on: [self-hosted, metis]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps (Nexus npm proxy)
+        run: |
+          export COREPACK_NPM_REGISTRY="${{ vars.NEXUS_NPM_REGISTRY }}"
+          corepack enable
+          npm config set registry "${{ vars.NEXUS_NPM_REGISTRY }}"
+          pnpm config set registry "${{ vars.NEXUS_NPM_REGISTRY }}"
+          pnpm install --frozen-lockfile
+
+      - name: Prisma generate (mirror)
+        run: pnpm db:generate
+        env:
+          PRISMA_ENGINES_MIRROR: ${{ vars.PRISMA_MIRROR }}
+
+      - name: Build all (turbo)
+        run: pnpm build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      - name: Secret scan
+        run: node scripts/check-secrets.mjs
+
+  # ── 2. 이미지 빌드/푸시 ────────────────────────────────────────
+  image:
+    needs: ci
+    runs-on: [self-hosted, metis]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Registry login
+        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login "${{ vars.REGISTRY }}" -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+
+      - name: Build & push (api/web/worker/migrate)
+        run: |
+          set -euo pipefail
+          for T in api web worker migrate; do
+            docker build -f deploy/docker/Dockerfile --target "$T" \
+              --build-arg BASE_IMAGE="${{ vars.NEXUS_DOCKER_PROXY }}/library/node:20-bookworm-slim" \
+              --build-arg NPM_REGISTRY="${{ vars.NEXUS_NPM_REGISTRY }}" \
+              --build-arg PRISMA_ENGINES_MIRROR="${{ vars.PRISMA_MIRROR }}" \
+              -t "${{ vars.REGISTRY }}/metis-$T:${TAG}" \
+              -t "${{ vars.REGISTRY }}/metis-$T:latest" .
+            docker push "${{ vars.REGISTRY }}/metis-$T:${TAG}"
+            docker push "${{ vars.REGISTRY }}/metis-$T:latest"
+          done
+
+  # ── 3. AKS 배포 (environment 승인 게이트) ──────────────────────
+  deploy:
+    needs: image
+    runs-on: [self-hosted, metis]
+    environment: metis-prod   # Settings→Environments에서 Required reviewers 지정
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Helm deploy
+        run: |
+          set -euo pipefail
+          az aks get-credentials -g "${{ vars.AKS_RG }}" -n "${{ vars.AKS_NAME }}" --overwrite-existing
+          NS="${{ vars.AKS_NAMESPACE || 'metis' }}"
+          kubectl get ns "$NS" >/dev/null 2>&1 || kubectl create ns "$NS"
+          helm upgrade --install metis deploy/helm/metis \
+            --namespace "$NS" \
+            --set image.registry="${{ vars.REGISTRY }}" \
+            --set image.tag="${TAG}" \
+            -f deploy/helm/metis/values.yaml \
+            --wait --timeout 10m
+          kubectl -n "$NS" get pods -o wide

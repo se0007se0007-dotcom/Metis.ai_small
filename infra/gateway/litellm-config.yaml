@@ -1,0 +1,58 @@
+# LiteLLM Proxy config — Metis.AI optional LLM gateway (F4)
+#
+# Why: virtual keys, per-key/team budget ENFORCEMENT at the gateway level,
+# provider fallbacks, and a single place to add Gemini/Bedrock/Azure later —
+# without changing Metis application code (the app reaches providers via
+# ANTHROPIC_BASE_URL / OPENAI_BASE_URL env overrides).
+#
+# Start:   docker compose -f infra/compose/docker-compose.yml --profile gateway up -d
+# Then in .env:
+#   OPENAI_BASE_URL=http://localhost:4400/v1
+#   ANTHROPIC_BASE_URL=http://localhost:4400/anthropic   (passthrough route)
+#   (keys stay the same — LiteLLM forwards them, or use virtual keys below)
+#
+# Docs: https://docs.litellm.ai/docs/proxy/configs
+
+model_list:
+  # ── Anthropic ──
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
+      model: anthropic/claude-haiku-4-5-20251001
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: claude-opus-4-6
+    litellm_params:
+      model: anthropic/claude-opus-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+  # ── OpenAI ──
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+  # ── Google (uncomment when GEMINI_API_KEY is set) ──
+  # - model_name: gemini-3-flash
+  #   litellm_params:
+  #     model: gemini/gemini-3-flash
+  #     api_key: os.environ/GEMINI_API_KEY
+
+litellm_settings:
+  num_retries: 2
+  request_timeout: 120
+  # Fallback chain: if a model errors, try the next (FrugalGPT-adjacent safety)
+  fallbacks:
+    - claude-sonnet-4-6: ['gpt-4o']
+    - gpt-4o: ['claude-sonnet-4-6']
+
+general_settings:
+  # master key for the proxy admin API / virtual key issuance.
+  # Override via LITELLM_MASTER_KEY env in compose.
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # Spend tracking persists to the LiteLLM DB when DATABASE_URL is set;
+  # without it, budgets are in-memory per process (fine for local dev).

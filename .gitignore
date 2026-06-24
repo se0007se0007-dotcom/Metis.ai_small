@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+coverage/
+*.log
+.DS_Store
+
+# Local audit/browser-profile & screenshot artifacts (not source)
+.edge-home-audit-*/
+work-home-redesign-*.png

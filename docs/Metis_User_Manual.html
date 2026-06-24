@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metis.AI — 사용자 매뉴얼</title>
+<style>
+  :root{
+    --bg:#f6f8fc; --panel:#ffffff; --ink:#1a2236; --mut:#5b6b88; --line:#e2e8f4;
+    --brand:#3d5afe; --brand2:#0ea98a; --warn:#b8730d; --bad:#c0392b; --good:#1f8a5b;
+    --violet:#7c4dff; --soft:#eef2fb;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI",system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+    line-height:1.7;font-size:15px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px 90px}
+  header.cover{background:linear-gradient(120deg,#3d5afe,#7c4dff);color:#fff;padding:46px 22px 32px}
+  header .inner{max-width:1000px;margin:0 auto}
+  .badge{display:inline-block;font-size:12px;letter-spacing:.14em;background:rgba(255,255,255,.18);
+    padding:4px 12px;border-radius:999px}
+  h1{font-size:32px;margin:14px 0 6px}
+  header .sub{opacity:.95;max-width:720px;font-size:15px}
+  header .meta{margin-top:14px;font-size:13px;opacity:.85}
+  nav.toc{position:sticky;top:0;z-index:5;background:rgba(246,248,252,.95);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:24px}
+  nav.toc .inner{max-width:1000px;margin:0 auto;padding:0 22px;display:flex;flex-wrap:wrap;gap:6px}
+  nav.toc a{font-size:12.5px;color:var(--mut);text-decoration:none;border:1px solid var(--line);
+    padding:5px 10px;border-radius:8px;background:#fff}
+  nav.toc a:hover{color:var(--brand);border-color:var(--brand)}
+  section{margin:34px 0;scroll-margin-top:62px}
+  h2{font-size:21px;margin:0 0 10px;padding-bottom:8px;border-bottom:2px solid var(--line);display:flex;align-items:center;gap:10px}
+  h2 .n{background:var(--brand);color:#fff;width:30px;height:30px;border-radius:9px;display:inline-flex;
+    align-items:center;justify-content:center;font-size:15px;font-weight:800}
+  h3{font-size:16.5px;margin:20px 0 8px;color:#26314d}
+  p{margin:9px 0}
+  .lead{color:var(--mut)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;
+    box-shadow:0 1px 2px rgba(20,30,60,.04)}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:780px){.g2,.g3{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.6px;background:#fff;
+    border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--soft);font-weight:700;font-size:12.5px;color:#33405e}
+  tr:last-child td{border-bottom:0}
+  code{font-family:Consolas,monospace;font-size:12.5px;background:#eef2fb;border:1px solid var(--line);
+    padding:1px 6px;border-radius:6px;color:#2b3a66}
+  ol.steps{counter-reset:s;list-style:none;padding-left:0;margin:10px 0}
+  ol.steps>li{counter-increment:s;position:relative;padding:10px 0 10px 44px;border-bottom:1px dashed var(--line)}
+  ol.steps>li:last-child{border-bottom:0}
+  ol.steps>li::before{content:counter(s);position:absolute;left:0;top:9px;width:28px;height:28px;
+    background:var(--brand);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:13px}
+  .note{border-left:4px solid var(--brand);background:#eef2fb;padding:10px 14px;border-radius:0 10px 10px 0;margin:12px 0;font-size:13.8px}
+  .note.warn{border-color:var(--warn);background:#fdf4e3}
+  .note.good{border-color:var(--good);background:#e9f7ef}
+  .note.bad{border-color:var(--bad);background:#fbecea}
+  .pill{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--mut);margin:2px 3px 2px 0}
+  .pill.b{color:var(--brand);border-color:#c7d0f7;background:#eef2fb}
+  .pill.g{color:var(--good);border-color:#bfe6d1;background:#e9f7ef}
+  .pill.v{color:var(--violet);border-color:#dccdfb;background:#f1ecfe}
+  .kbd{font-family:Consolas,monospace;background:#fff;border:1px solid #c9d2ea;border-bottom-width:2px;
+    border-radius:6px;padding:1px 7px;font-size:12px}
+  .faq dt{font-weight:700;margin-top:12px;color:#26314d}
+  .faq dd{margin:4px 0 0;color:var(--mut)}
+  .route{font-family:Consolas,monospace;font-size:12px;color:var(--violet);background:#f1ecfe;
+    border:1px solid #dccdfb;padding:1px 7px;border-radius:6px}
+  footer{margin-top:46px;padding-top:16px;border-top:1px solid var(--line);color:var(--mut);font-size:12.5px}
+  .toccard{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+</style>
+</head>
+<body>
+<header class="cover">
+  <div class="inner">
+    <span class="badge">USER MANUAL · 사용자 매뉴얼</span>
+    <h1>Metis.AI 사용자 매뉴얼</h1>
+    <p class="sub">AI 에이전트를 등록하고, 실행하고, 비용·품질·보안·이상을 한 화면에서 확인하는 방법을 단계별로 안내합니다. 현재 버전 기준입니다.</p>
+    <div class="meta">대상: 관리자 · 운영자 · 검토자 | 기준: 현재 빌드 | 접속: <code>http://localhost:3000</code></div>
+  </div>
+</header>
+
+<nav class="toc"><div class="inner">
+  <a href="#start">1. 시작하기</a>
+  <a href="#roles">2. 역할·권한</a>
+  <a href="#dash">3. 대시보드</a>
+  <a href="#master">4. 기준정보</a>
+  <a href="#register">5. Agent 등록</a>
+  <a href="#run">6. 실행</a>
+  <a href="#detail">7. 이력·4게이트·구간</a>
+  <a href="#gov">8. 거버넌스</a>
+  <a href="#install">9. 설치·기동</a>
+  <a href="#trouble">10. 트러블슈팅</a>
+  <a href="#faq">FAQ</a>
+</div></nav>
+
+<div class="wrap">
+
+<section id="start">
+  <h2><span class="n">1</span>시작하기</h2>
+  <p class="lead">웹 브라우저에서 <code>http://localhost:3000</code> 으로 접속해 로그인합니다. 메뉴는 업무 흐름 순서(보기 → 실행 → 기준정보 → 거버넌스)로 구성되어 있습니다.</p>
+  <div class="grid g3">
+    <div class="card"><h4>① 무엇을 보나</h4><p class="lead">홈 대시보드에서 전체 실행·비용·품질·이상을 한눈에.</p></div>
+    <div class="card"><h4>② 무엇을 하나</h4><p class="lead">에이전트 화면에서 실행하고 결과(4게이트)를 확인.</p></div>
+    <div class="card"><h4>③ 무엇을 관리하나</h4><p class="lead">기준정보에서 Agent·모델단가·사용자·운영기준값 편집.</p></div>
+  </div>
+  <div class="note">처음이라면 추천 순서: <b>기준정보에서 Agent 확인 → 전용 실행화면 URL 설정 → 실행 → 실행 이력에서 4게이트·구간 확인</b>.</div>
+</section>
+
+<section id="roles">
+  <h2><span class="n">2</span>역할 · 권한 (RBAC)</h2>
+  <p class="lead">계정은 테넌트(조직) 내 역할을 가집니다. 역할에 따라 보이는 메뉴와 가능한 작업이 다릅니다.</p>
+  <table>
+    <tr><th style="width:170px">역할</th><th>할 수 있는 일</th></tr>
+    <tr><td><span class="pill v">PLATFORM_ADMIN</span></td><td>플랫폼 전체 관리(테넌트 생성 포함), 모든 기준정보 편집.</td></tr>
+    <tr><td><span class="pill v">TENANT_ADMIN</span></td><td>소속 조직의 기준정보(Agent·사용자·팀·운영기준값) 편집, 게시 승인.</td></tr>
+    <tr><td><span class="pill b">OPERATOR</span></td><td>에이전트 실행, 실행 이력·대시보드 조회.</td></tr>
+    <tr><td><span class="pill b">DEVELOPER</span></td><td>빌더로 워크플로우 설계·실행, 커넥터 연결.</td></tr>
+    <tr><td><span class="pill">AUDITOR</span></td><td>감사 로그·거버넌스 조회(읽기 중심).</td></tr>
+    <tr><td><span class="pill">VIEWER</span></td><td>대시보드·이력 조회(읽기 전용).</td></tr>
+  </table>
+  <div class="note warn"><b>권한 안내:</b> 기준정보의 <b>Agent 편집·전용 실행화면 URL 저장</b>은 <code>TENANT_ADMIN</code>/<code>PLATFORM_ADMIN</code> 권한이 필요합니다. 저장이 안 되면 먼저 역할을 확인하세요.</div>
+</section>
+
+<section id="dash">
+  <h2><span class="n">3</span>대시보드 보는 법</h2>
+  <p class="lead">메뉴 <span class="route">홈</span>. 최근 기간의 실행을 집계해 KPI·헬스·ROI로 보여줍니다.</p>
+  <h3>상단 KPI</h3>
+  <table>
+    <tr><th style="width:160px">지표</th><th>의미</th></tr>
+    <tr><td>Agent 총 수행</td><td>기간 내 총 실행 건수. 클릭 시 <b>전체 실행 이력</b> 목록이 열립니다.</td></tr>
+    <tr><td>성공률 / 평균·최대 지연</td><td>성공 비율과 응답 지연(ms). 지연이 큰 실행을 가려냅니다.</td></tr>
+    <tr><td>합계 비용</td><td>기간 내 LLM 비용 합계($). 모델단가 기준정보로 계산.</td></tr>
+    <tr><td>헬스 / 등급</td><td>운영기준값(임계치)로 산출한 상태(정상/주의/위험)와 등급(A~D).</td></tr>
+  </table>
+  <h3>구성 요소</h3>
+  <ul>
+    <li><b>전체/성공/실패 실행 이력</b> — KPI 타일 클릭으로 목록 팝업. 행을 누르면 실행 상세로.</li>
+    <li><b>APM X‑View</b> — 가로=시각, 세로=지연(ms) 산점도. 영역 드래그로 구간 선택해 상세 확인.</li>
+    <li><b>메인/서브 에이전트 현황</b> — 어느 에이전트(또는 노드 구간)가 문제인지 한눈에.</li>
+  </ul>
+  <div class="note">상단의 메인 Agent / Sub‑Agent 필터를 고르면 대시보드 전체가 그 범위로 좁혀집니다. <b>필터 해제</b>로 되돌립니다.</div>
+</section>
+
+<section id="master">
+  <h2><span class="n">4</span>기준정보(Master Data) 관리</h2>
+  <p class="lead">관리자 메뉴 <span class="route">기준정보</span> 아래에서 플랫폼 전반이 참조하는 값을 직접 편집합니다. 여기서 바꾸면 모든 화면(대시보드·실행·드롭다운)에 반영됩니다.</p>
+  <table>
+    <tr><th style="width:190px">메뉴</th><th>관리 대상</th></tr>
+    <tr><td><span class="route">기준정보 › Agent</span></td><td>메인/서브 에이전트 목록. 이름·코드·설명, <b>전용 실행화면 URL(launchUrl)</b>, 게시 여부. 서브→메인 승격(다중 메인 금지).</td></tr>
+    <tr><td><span class="route">기준정보 › 모델 단가</span></td><td>gpt/claude 등 모델별 입력/출력 단가. 비용 계산·모델 드롭다운의 원천.</td></tr>
+    <tr><td><span class="route">기준정보 › 운영기준값</span></td><td>시급(hourlyRate)·월 가동시간·헬스 임계치·등급 컷오프. 대시보드 ROI/헬스/등급 산출 기준.</td></tr>
+    <tr><td><span class="route">기준정보 › 테넌트/팀</span> · <span class="route">사용자</span></td><td>조직(테넌트)·팀 계층, 사용자 등록/삭제.</td></tr>
+    <tr><td><span class="route">관리 › Ingest 키</span></td><td>외부 시스템이 SDK로 실행 결과를 보고할 때 쓰는 <code>mts_…</code> 키 발급/조회.</td></tr>
+  </table>
+  <h3>모델 단가가 화면에 반영되는 방식</h3>
+  <p>등록 화면 등의 <b>모델 선택 드롭다운</b>은 하드코딩이 아니라 <b>모델 단가 기준정보</b>를 불러옵니다. 단가를 추가/수정하면 드롭다운과 비용 계산에 즉시 반영됩니다.</p>
+</section>
+
+<section id="register">
+  <h2><span class="n">5</span>Agent 등록 · 편집</h2>
+  <p class="lead">메뉴 <span class="route">기준정보 › Agent</span>. 에이전트의 이름·코드, 그리고 <b>전용 실행화면 URL</b>을 설정합니다.</p>
+  <ol class="steps">
+    <li><b>Agent 목록 열기</b> — 메인 에이전트와 그 아래 서브(노드)가 함께 표시됩니다. 표시 이름은 <code>[코드] 이름</code> 표준 형식.</li>
+    <li><b>편집</b> — 대상 Agent의 편집을 누르고 이름/코드/설명을 정리합니다.</li>
+    <li><b>전용 실행화면 URL 입력</b> — 외부 전용화면이 있는 에이전트는 <code>전용 실행 화면 URL (선택)</code>에 주소를 입력합니다(예: <code>http://localhost:8600</code>).</li>
+    <li><b>저장</b> — 저장 후 성공 토스트에 <b>저장된 URL이 표시</b>됩니다. 이 URL이 보이면 정상 저장된 것입니다.</li>
+    <li><b>게시</b> — 카탈로그에 노출하려면 게시(또는 ORB 승인)로 <code>listed</code>를 켭니다.</li>
+  </ol>
+  <div class="note good"><b>저장 확인 팁:</b> 저장 시 토스트에 “실행화면 URL: …”이 뜨면 DB에 저장된 것입니다. “API가 옛 빌드일 수 있어요”가 뜨면 API 재시작이 필요합니다(아래 9·10장 참고).</div>
+  <div class="note"><b>서브 → 메인 승격</b>은 지원되지만, 하나의 서브가 여러 메인에 매핑되는 것은 금지됩니다(중복 시 안내 후 차단).</div>
+</section>
+
+<section id="run">
+  <h2><span class="n">6</span>Agent 실행</h2>
+  <p class="lead">메뉴 <span class="route">에이전트 › 운영/개발</span> 또는 카테고리 화면에서 실행합니다. 실행은 어떤 경로든 <b>대시보드·실행 이력·4게이트</b>에 기록됩니다.</p>
+  <h3>6‑1. 외부 전용화면 에이전트 (예: 테스트 자동화)</h3>
+  <ol class="steps">
+    <li>대상 Agent의 <b>실행</b>을 누르면, 등록해 둔 <code>launchUrl</code> 화면이 <b>metis 안에 그대로 임베드</b>되어 열립니다.</li>
+    <li>그 화면에서 평소처럼 입력하고 실행합니다(예: 코드 붙여넣기 → 실행).</li>
+    <li>실행이 끝나면 결과(보고서·비용·지연·구간)가 자동으로 metis에 기록되고, “기록되었습니다” 토스트가 뜹니다.</li>
+    <li>대시보드/실행 이력/AI 활동 로그에서 방금 실행을 확인합니다.</li>
+  </ol>
+  <div class="note warn"><b>처음 한 번:</b> 외부 화면(test‑agent) 컨테이너는 코드를 이미지에 포함하므로, 화면/기록 기능이 바뀌면 컨테이너를 <b>다시 빌드</b>해야 반영됩니다. (9장 참고)</div>
+  <h3>6‑2. 사내 워크플로우 에이전트</h3>
+  <p>빌더로 만든 워크플로우는 노드(서브 에이전트)가 순차 실행되고, 노드마다 4게이트가 평가되어 실행 상세에 노드별로 남습니다. 저장된 에이전트는 빌더로 가지 않고 key로 즉시 실행할 수 있습니다.</p>
+</section>
+
+<section id="detail">
+  <h2><span class="n">7</span>실행 이력 · 4게이트 · 구간별 소요</h2>
+  <p class="lead">실행 이력에서 행을 클릭하면 <b>실행 상세</b>가 열립니다. 여기서 한 실행의 모든 것을 봅니다.</p>
+  <h3>실행 상세 구성</h3>
+  <table>
+    <tr><th style="width:180px">영역</th><th>내용</th></tr>
+    <tr><td>4축 요약</td><td><b>품질 · 보안 · 비용 · 수행시간</b>을 점수/등급으로 요약.</td></tr>
+    <tr><td>구간별 소요</td><td>실행을 구간(예: 분석 / LLM 리뷰 / 집계·기록)으로 나눠 <b>막대 + 초·%</b>로 표시. 가장 큰 구간을 강조해 <b>병목</b>을 바로 보여주고 개선 힌트를 제공.</td></tr>
+    <tr><td>품질(Sub‑Agent별)</td><td>노드별 종합·등급·정확도·환각률.</td></tr>
+    <tr><td>보안 · 이상 · 알림</td><td>위협/유출 카운트, 이상 탐지, 관련 FDS 알림과 적용 정책.</td></tr>
+  </table>
+  <h3>4‑게이트란</h3>
+  <div class="grid g2">
+    <div class="card"><h4>품질</h4><p class="lead">정확도·환각률·응답품질로 결과의 신뢰도를 평가.</p></div>
+    <div class="card"><h4>비용</h4><p class="lead">토큰·모델단가로 실행 비용을 산출, 효율 등급화.</p></div>
+    <div class="card"><h4>보안</h4><p class="lead">입력 위협·출력 유출·도구체인 위험을 점검.</p></div>
+    <div class="card"><h4>이상</h4><p class="lead">평소와 다른 패턴(이상 이벤트)을 탐지.</p></div>
+  </div>
+  <h3>AI 활동 로그</h3>
+  <p>메뉴 <span class="route">에이전트 › AI 활동 로그</span>. 누가·언제·무엇을 실행/변경했는지 감사 기록(AuditLog)을 보여줍니다. 에이전트 실행도 <b>실행(EXECUTE)</b> 항목으로 남습니다.</p>
+  <div class="note good"><b>구간별 소요는 어디서 보나:</b> 실행 이력 → 실행 클릭 → 실행 상세의 “구간별 소요” 패널. 외부 에이전트도 실행 화면이 구간 타이밍을 보고하면 구간이 표시됩니다.</div>
+</section>
+
+<section id="gov">
+  <h2><span class="n">8</span>거버넌스 · 인사이트</h2>
+  <table>
+    <tr><th style="width:190px">메뉴</th><th>용도</th></tr>
+    <tr><td><span class="route">거버넌스 › 정책</span></td><td>실행을 통제하는 규칙(비용 상한, 인증 요구, 감사 등). 위반 시 차단/경고.</td></tr>
+    <tr><td><span class="route">거버넌스 › ORB</span></td><td>에이전트 게시 심사. 승인되면 카탈로그에 노출.</td></tr>
+    <tr><td><span class="route">거버넌스 › 효과성·KPI</span></td><td>절감·ROI·효과 지표. 운영기준값(시급 등)을 반영해 산출.</td></tr>
+    <tr><td><span class="route">거버넌스 › 런타임</span></td><td>실행 중 위험 의사결정(차단·격리·승인요구)과 자동조치 이력.</td></tr>
+    <tr><td><span class="route">인사이트 › 이상/평가기</span></td><td>이상 탐지·품질 평가 결과를 집중적으로 분석.</td></tr>
+  </table>
+</section>
+
+<section id="install">
+  <h2><span class="n">9</span>설치 · 기동</h2>
+  <p class="lead">로컬 전체 스택은 <code>start-metis.bat</code> 한 번으로 기동합니다(7단계). PostgreSQL·Redis·FinOps 컨테이너 → DB 셋업 → 앱 기동 순.</p>
+  <ol class="steps">
+    <li>프로젝트 폴더로 이동: <code>cd /d "…\metis간소화버전"</code></li>
+    <li><code>start-metis.bat</code> 실행. 브라우저에서 <code>http://localhost:3000</code> 접속.</li>
+    <li>외부 화면(test‑agent) 기능을 갱신했다면 컨테이너 재빌드:<br><code>docker compose -f finops-platform\docker-compose.yml up -d --build test-agent</code></li>
+    <li>API 코드만 갱신했다면: <code>pnpm --filter @metis/api build</code> 후 API 재시작.</li>
+  </ol>
+  <div class="note good"><b>중요 — 데이터 보존:</b> 시드(데모 데이터 주입)는 <b>최초 1회만</b> 실행됩니다. 이후 재시작에는 시드를 건너뛰어 <b>저장한 Agent 편집(launchUrl)과 실제 실행 이력이 보존</b>됩니다. (마커 파일 <code>.metis_seeded</code> 기준)</div>
+  <div class="note warn">데모 데이터를 처음부터 다시 깔고 싶을 때만 <code>.metis_seeded</code> 파일을 삭제하고 재기동하세요. (이때 데모 데이터는 재생성되지만, 사용자의 실제 실행 이력은 보존되도록 시드가 보강되어 있습니다.)</div>
+</section>
+
+<section id="trouble">
+  <h2><span class="n">10</span>트러블슈팅</h2>
+  <dl class="faq">
+    <dt>전용 실행화면 URL을 저장했는데 다시 열면 비어 있어요</dt>
+    <dd>① 저장 시 토스트에 URL이 표시되는지 확인 → 표시되면 정상. ② 안 되면 API가 옛 빌드일 수 있으니 <code>pnpm --filter @metis/api build</code> 후 API 재시작. ③ 권한(<code>TENANT_ADMIN</code> 이상)인지 확인.</dd>
+    <dt>재시작했더니 실행 이력·URL이 사라졌어요</dt>
+    <dd>과거에는 재기동 시 시드가 데이터를 덮어썼습니다. 현재는 시드가 <b>최초 1회만</b> 돌도록 바뀌어 보존됩니다. 그래도 사라지면 <code>.metis_seeded</code> 파일이 있는지 확인하세요(있어야 시드를 건너뜁니다).</dd>
+    <dt>실행은 되는데 대시보드/이력에 안 보여요</dt>
+    <dd>외부 화면 컨테이너가 옛 버전일 수 있습니다. test‑agent를 재빌드(<code>--build</code>)하고 브라우저를 <span class="kbd">Ctrl</span>+<span class="kbd">F5</span> 강력 새로고침 후 다시 실행하세요. 실행 후 “기록되었습니다” 토스트가 뜨는지 확인.</dd>
+    <dt>실행이 오래 걸려요 — 어디가 느린지 보고 싶어요</dt>
+    <dd>실행 상세의 <b>구간별 소요</b> 패널에서 구간별 시간·비중을 확인하세요. 외부 화면 로그(<code>docker compose … logs -f --timestamps test-agent</code>)의 <code>[TIMING]</code> 줄로도 구간을 볼 수 있습니다. (LLM 호출이 보통 가장 큼 — 병렬화/토큰 조정으로 단축)</dd>
+    <dt>기동 창이 바로 닫혀요</dt>
+    <dd>전제(Node·pnpm·Docker)가 설치되어 있는지, Docker Desktop이 실행 중인지 확인하세요. PostgreSQL이 뜰 때까지 스크립트가 대기합니다.</dd>
+  </dl>
+</section>
+
+<section id="faq">
+  <h2><span class="n">＋</span>자주 묻는 질문</h2>
+  <dl class="faq">
+    <dt>“에이전트”는 어떻게 등록되나요?</dt>
+    <dd>메인 에이전트는 워크플로우로, 서브 에이전트는 그 노드로 표현됩니다. 기준정보 › Agent에서 이름·코드·전용화면 URL을 편집합니다.</dd>
+    <dt>외부에서 만든 에이전트도 metis에서 관리되나요?</dt>
+    <dd>네. 전용 실행화면 URL을 등록하면 metis 안에 그 화면이 임베드되어 실행되고, 결과가 대시보드·이력·4게이트·AI 활동 로그에 기록됩니다. 서버‑투‑서버라면 Ingest 키로 보고할 수도 있습니다.</dd>
+    <dt>비용은 어떻게 계산되나요?</dt>
+    <dd>모델 단가 기준정보 × 토큰 사용량으로 산출되어 실행별로 기록되고, 대시보드에서 합산됩니다.</dd>
+    <dt>대시보드 등급/헬스 기준을 바꾸려면?</dt>
+    <dd>기준정보 › 운영기준값에서 임계치·등급 컷오프·시급 등을 편집하면 모든 집계에 반영됩니다.</dd>
+  </dl>
+</section>
+
+<footer>
+  본 매뉴얼은 현재 빌드 기준으로 작성되었습니다. 화면 구성이나 메뉴 명칭은 버전에 따라 일부 다를 수 있습니다.
+</footer>
+</div>
+</body>
+</html>

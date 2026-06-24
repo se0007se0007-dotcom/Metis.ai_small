@@ -1,0 +1,150 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<title>metis-ai 지능 계층 이식 — 테스트 결과 보고서</title>
+<style>
+body{font-family:"Pretendard","Malgun Gothic","Segoe UI",sans-serif;background:#0d1117;color:#e6edf3;max-width:1080px;margin:0 auto;padding:32px;line-height:1.7}
+h1{font-size:22px;border-bottom:2px solid #2d3646;padding-bottom:12px}h2{font-size:17px;color:#4f8ff7;margin-top:36px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:12px 0}
+th,td{border:1px solid #2d3646;padding:7px 10px;text-align:left;vertical-align:top}th{background:#161b22;color:#8b96a8}
+.ok{color:#3fb97a;font-weight:700}.warn{color:#e3b341}.muted{color:#8b96a8;font-size:12px}
+.kpi{display:inline-block;background:#161b22;border:1px solid #2d3646;border-radius:8px;padding:14px 22px;margin:6px 8px 6px 0;text-align:center}
+.kpi b{display:block;font-size:24px}.kpi span{font-size:11.5px;color:#8b96a8}
+pre{background:#161b22;border:1px solid #2d3646;border-radius:8px;padding:14px;font-size:11px;overflow-x:auto;max-height:480px}
+code{background:#161b22;padding:1px 5px;border-radius:4px;font-size:12px}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:#1f6feb33;color:#79b8ff}
+</style></head><body>
+<h1>🔮 metis-ai 지능 계층 → Metis FinOps 플랫폼 전체 이식 · 테스트 결과 보고서</h1>
+<div class="muted">생성: 2026-06-12 15:56 · 대상: C:\Users\se000\14.FINOPS플랫폼 · 원본: metis-ai (apps/api/src/modules/finops, evaluator)</div>
+
+<div style="margin:20px 0">
+<span class="kpi"><b class="ok">119 / 119</b><span>전체 테스트 PASS</span></span>
+<span class="kpi"><b>71</b><span>E2E 시나리오 체크</span></span>
+<span class="kpi"><b>32</b><span>지능계층 단위테스트</span></span>
+<span class="kpi"><b>16</b><span>거버넌스 단위테스트</span></span>
+<span class="kpi"><b>8</b><span>이식 기능 영역</span></span>
+</div>
+
+<h2>1. 이식 완료 항목 (갭 분석 1~8번 전체)</h2>
+<table>
+<tr><th>#</th><th>기능</th><th>metis-ai 원본</th><th>이식 위치</th><th>핵심 검증</th></tr>
+<tr><td>1</td><td><b>임베딩 시맨틱 캐시</b><br><span class="muted">코사인 유사도(기본 0.93) 2단계 캐시, 429 쿼터 쿨다운, 시크릿 redaction, exact-match 폴백, METIS_EMBED_MOCK 테스트 모드. 임베딩은 캐시 허용 요청만 수행 → PII/고위험 프롬프트는 외부 임베딩 API로도 안 나감(거버넌스 융합 유지)</span></td><td>embedding.service.ts<br>token-optimizer(checkSemanticCache)</td><td>gateway/embeddings.py (신규)<br>gateway/app.py</td><td class="ok">유사 문장 히트(cosine 0.857)·상이 문장 미스·종류/유사도 응답 노출 ✓</td></tr>
+<tr><td>2</td><td><b>월말 예측 + What-if + 자동 권고</b><br><span class="muted">선형 외삽 월말 전망·전월비·신뢰도 / 캐시TTL·전면강등·스킬패커압축 3레버 시뮬레이션(원본의 상수 추정 대신 원장 실데이터 counterfactual) / 권고 5종 생성→적용(정책 반영+감사)</span></td><td>finops-prediction.service.ts (483줄)</td><td>control_plane/intelligence.py (신규)<br>/api/forecast · /api/whatif · /api/recommendations</td><td class="ok">전망 산출·시나리오≤기준선·권고 생성→적용→정책 반영→applied 상태 ✓</td></tr>
+<tr><td>3</td><td><b>이상감지 5종</b><br><span class="muted">품질 z-score 드리프트(임계 2.5) · 토큰 IQR 스파이크(계수 2.0) · 지연 선형회귀 추세 · 에러 서지(20%p) · 거버넌스 차단 패턴. 알림 dedup 30분</span></td><td>evaluator/anomaly-detector.ts</td><td>intelligence.py + /api/anomalies + 백그라운드 루프(120s)</td><td class="ok">4종 시드 데이터 전부 감지 + 알림 기록 ✓ (거버넌스 패턴은 단위테스트로 검증)</td></tr>
+<tr><td>4</td><td><b>품질 회귀 가드레일 자동 원복</b><br><span class="muted">강등 run 품질이 비강등 대비 10%↑ 하락 시 감지, METIS_AUTO_REVERT=1(기본)이면 강등 자동 비활성 + 구성변경/critical 알림. 품질 게시 시점 + 120초 주기 점검</span></td><td>finops-insight.service.ts<br>(qualityRegressions + revertAgentToSafeTiers)</td><td>intelligence.py + /api/quality_guard</td><td class="ok">-45.7% 회귀 감지 → 자동 원복 → 알림 ✓</td></tr>
+<tr><td>5</td><td><b>모델 단가 런타임 관리</b><br><span class="muted">model_prices 테이블(10종 시드) + GET/POST API + 모델ID 정규화(4.6→4-6, 날짜 서픽스 제거) + 강등맵 오버라이드. 저장 즉시 과금 반영</span></td><td>model-price.service.ts</td><td>pricing.py 런타임 오버레이 + db.py + /api/model_prices</td><td class="ok">단가 ×10 변경 → 즉시 과금 반영 → 원복 ✓ 정규화 ✓</td></tr>
+<tr><td>6</td><td><b>FOCUS 1.4 + x_ 토큰 확장</b><br><span class="muted">ChargeCategory/ChargeClass/ListCost(=counterfactual)/ContractedCost + x_InputTokens 등 토큰 5종·절감·데이터등급·리스크·캐시판정 확장 11컬럼</span></td><td>finops-insight.service.ts (FOCUS 1.4)</td><td>/api/export/focus</td><td class="ok">헤더 컬럼 검증 ✓ (기존 1.3 소비처 호환: BilledCost 유지)</td></tr>
+<tr><td>7</td><td><b>복잡도 기반 라우팅</b><br><span class="muted">길이/키워드(한국어 포함)/코드/JSON/tools 휴리스틱 → 복잡도≤0.3이면 경제모델 강등 후보. 레지스트리 opt-in(에이전트별 토글), 품질 게이트·거버넌스 리스크 방어를 그대로 통과해야 적용</span></td><td>token-optimizer routeToOptimalModel</td><td>gateway(점수 산정)→precheck(판정)</td><td class="ok">단순 프롬프트 강등(사유 명시)·복잡 프롬프트 유지 ✓</td></tr>
+<tr><td>8</td><td><b>웹훅 알림</b><br><span class="muted">METIS_ALERT_WEBHOOK 설정 시 모든 알림을 Slack 호환 {"text":...}로 비동기 전송(best-effort)</span></td><td>FinOpsConfig 알림 채널</td><td>db.add_alert</td><td class="warn">코드 리뷰 검증 (외부 웹훅 — 수동 확인 항목)</td></tr>
+</table>
+
+<h2>2. 품질 검증 결과</h2>
+<table>
+<tr><th>스위트</th><th>방식</th><th>결과</th></tr>
+<tr><td>tests/governance_unit.py</td><td>순수 로직 (서비스 불필요)</td><td class="ok">PASS 16 / FAIL 0</td></tr>
+<tr><td>tests/intelligence_unit.py <span class="badge">신규</span></td><td>통계함수·복잡도·임베딩 코사인·redaction·정규화·단가 오버레이</td><td class="ok">PASS 32 / FAIL 0</td></tr>
+<tr><td>tests/e2e.py <span class="badge">확장 v3</span></td><td>실서비스 기동(control plane + gateway) 후 71개 시나리오 체크 — 기존 25종 회귀 + 거버넌스 G1~G5 + 신규 I1~I8</td><td class="ok">PASS 71 / FAIL 0</td></tr>
+</table>
+<div class="muted">기존 기능 회귀 0건: 원장·캐시정책·절감회계 4종·스킬패커·서킷브레이커·품질게이트·거버넌스 융합(Patent 3) 모두 기존과 동일하게 통과. 민감 데이터 캐시 누출 0 유지.</div>
+
+<h2>3. E2E 전체 로그</h2>
+<pre>== 서비스 기동 완료 ==
+  [PASS] 게이트웨이 임베딩 mock 모드
+  [PASS] 기본 호출 200
+  [PASS] 비용 계산됨
+  [PASS] 원장 기록 + 한글 테넌트
+  [PASS] 중앙 정책 캐시 히트 (cs-relay-bot, 헤더 불필요)
+  [PASS] exact 캐시 종류 표기
+  [PASS] 캐시 미적용 에이전트는 캐시 안 됨 (report-writer)
+  [PASS] 테넌트 스코프 캐시 격리
+  [PASS] 절감 회계: prompt_cache
+  [PASS] 절감 회계: semantic_cache
+  [PASS] 스킬패커 실측 절감 기록
+  [PASS] 미등록 에이전트 과대신고 차단
+  [PASS] 루프 감지 → 차단
+  [PASS] 게이트 초기 상태 = canary (데이터 없음)
+  [PASS] 품질 시딩 후 게이트 = approved
+  [PASS] 게이트 통과 후 강등 적용
+  [PASS] run 한도 최종 차단
+  [PASS] cost-of-pass 계산
+  [PASS] 서킷브레이커 알림
+  [PASS] 레지스트리: cs-relay-bot 시맨틱 캐시 적용 표시
+  [PASS] 레지스트리: code-review 툴 5500 토큰
+  [PASS] 미등록 에이전트 자동 등록(캐시 OFF)
+  [PASS] 정책 토글 반영
+  [PASS] run 통계(p50/p99)
+  [PASS] 인사이트 생성
+  [PASS] FOCUS CSV export
+  [PASS] 대시보드 서빙
+  [PASS] 거버넌스: PII 캐시 차단(재사용 안됨)
+  [PASS] 거버넌스: 일반 데이터는 캐시 정상
+  [PASS] 거버넌스: 동일 정책해시 캐시 히트
+  [PASS] 거버넌스: 정책해시 변경 시 캐시 무효화
+  [PASS] 거버넌스: 고위험 강등 방어(상향)
+  [PASS] 거버넌스 API: 캐시 차단 집계
+  [PASS] 거버넌스 API: 민감 데이터 캐시 누출 0(준수)
+  [PASS] 거버넌스 정책 토글
+  [PASS] 임베딩 캐시: 최초 호출은 미스
+  [PASS] 임베딩 캐시: 유사 문장 히트
+  [PASS] 임베딩 캐시: 종류=semantic_embedding
+  [PASS] 임베딩 캐시: 유사도 ≥ 임계(0.6)
+  [PASS] 임베딩 캐시: 상이 문장은 미스
+  [PASS] 복잡도 라우팅 토글
+  [PASS] 복잡도 라우팅: 단순 프롬프트 강등
+  [PASS] 복잡도 라우팅: 사유 명시
+  [PASS] 복잡도 라우팅: 복잡도 점수 응답 포함
+  [PASS] 복잡도 라우팅: 복잡 프롬프트는 원 모델 유지
+  [PASS] 예측: 월말 전망 산출
+  [PASS] 예측: 신뢰도 0..1
+  [PASS] 예측: 일별 시리즈 포함
+  [PASS] What-if: 절감 시나리오 ≥ 0
+  [PASS] What-if: 시나리오 ≤ 기준선
+  [PASS] What-if: 메커니즘별 분해
+  [PASS] 권고 생성
+  [PASS] 권고: code-review 복잡도 라우팅 제안
+  [PASS] 권고 적용 성공
+  [PASS] 권고 적용 → 정책 반영
+  [PASS] 권고 상태 = applied
+  [PASS] 이상감지: 에러 서지
+  [PASS] 이상감지: 토큰 스파이크
+  [PASS] 이상감지: 품질 드리프트
+  [PASS] 이상감지: 지연 추세
+  [PASS] 이상감지: 알림 기록
+  [PASS] 가드레일: 품질 회귀 감지
+  [PASS] 가드레일: 하락률 ≥ 10%
+  [PASS] 가드레일: 강등 자동 원복
+  [PASS] 가드레일: 원복 알림
+  [PASS] 단가 마스터 시드 (10종)
+  [PASS] 단가 변경 즉시 과금 반영 (×10)
+  [PASS] 단가 원복 반영
+  [PASS] 단가 정규화 (4.6→4-6)
+  [PASS] FOCUS 1.4: ListCost/ContractedCost
+  [PASS] FOCUS 1.4: x_ 토큰 확장 컬럼
+
+결과: PASS 71 / FAIL 0
+EXIT=0</pre>
+
+<h2>4. 변경 파일</h2>
+<table>
+<tr><th>파일</th><th>변경</th></tr>
+<tr><td>services/gateway/embeddings.py</td><td><b>신규</b> — 임베딩 클라이언트(쿨다운·redaction·mock) + 복잡도 점수</td></tr>
+<tr><td>services/gateway/app.py</td><td>2단계 캐시(exact→임베딩 유사도), 복잡도 점수 precheck 동봉, metis 응답에 cache_kind/cache_similarity/complexity 추가</td></tr>
+<tr><td>services/control_plane/intelligence.py</td><td><b>신규</b> — 예측·What-if·권고·이상감지 5종·가드레일 (순수 통계함수 분리로 단위테스트 가능)</td></tr>
+<tr><td>services/control_plane/app.py</td><td>지능 API 9종 + 복잡도 라우팅 판정 + FOCUS 1.4 + 단가 API + 인사이트에 예측/이상감지 통합 + 120초 지능 루프</td></tr>
+<tr><td>services/control_plane/pricing.py</td><td>런타임 단가 오버레이 + normalize_model_id + downgrade_of</td></tr>
+<tr><td>services/control_plane/db.py</td><td>model_prices/recommendations 테이블 + agents.complexity_routing(MIGRATIONS 자동 ALTER) + month_start + 웹훅</td></tr>
+<tr><td>static/index.html · app.js</td><td>신규 "예측·이상감지" 뷰(전망 KPI·What-if·권고·이상감지·가드레일) + 재무 뷰 단가 마스터 편집 + 에이전트 뷰 복잡도 라우팅 토글 + FOCUS 1.4 라벨 — 기존 디자인 유지</td></tr>
+<tr><td>tests/e2e.py · tests/intelligence_unit.py</td><td>e2e 25→71 체크 확장(v3) · 단위 32체크 신규</td></tr>
+</table>
+
+<h2>5. 운영 노트 / 알려진 한계</h2>
+<table>
+<tr><th>항목</th><th>내용</th></tr>
+<tr><td>서버 재시작 필요</td><td>실행 중인 서비스는 이전 코드가 메모리에 있음 — <code>stop.bat</code> → <code>run.bat</code> 후 새 기능 활성화. 기존 DB는 MIGRATIONS가 자동 보강.</td></tr>
+<tr><td>실 임베딩 키</td><td>임베딩은 OpenAI 키 필요(text-embedding-3-small, ~$0.02/1M tok). 현재 키가 크레딧 소진 상태라 운영에선 exact-match로 자동 폴백(무해). 키 충전 또는 <code>OPENAI_EMBED_MODEL</code>+Azure 검토.</td></tr>
+<tr><td>임베딩 인덱스 스코프</td><td>유사도 인덱스는 레플리카 로컬(값은 Redis 공유 가능) — 멀티 레플리카에선 유사도 히트율만 소폭 하락, 정합성 문제 없음. 운영 확장 시 Redis 벡터 인덱스 검토.</td></tr>
+<tr><td>복잡도 라우팅 기본값</td><td>안전을 위해 전 에이전트 기본 OFF — 에이전트 정책 화면에서 토글 또는 자동 권고로 적용.</td></tr>
+<tr><td>웹훅</td><td><code>.env</code>에 <code>METIS_ALERT_WEBHOOK=https://hooks.slack.com/...</code> 설정 시 활성. 미설정이면 인앱 알림만.</td></tr>
+<tr><td>가드레일 임계</td><td><code>METIS_GUARD_DROP_PCT</code>(기본 10%), <code>METIS_AUTO_REVERT</code>(기본 1). 자동 원복은 구성변경+critical 알림으로 감사 추적됨.</td></tr>
+</table>
+
+<div class="muted" style="margin-top:28px;border-top:1px solid #2d3646;padding-top:12px">Metis FinOps — metis-ai 지능 계층 이식 · 모든 테스트는 mock 프로바이더(METIS_EMBED_MOCK=1)로 실 API 비용 0으로 수행됨</div>
+</body></html>

@@ -1,0 +1,32 @@
+# 사내망 전용 노출 — 둘 중 환경에 맞는 것 하나만 사용
+#
+# (A) NGINX Ingress Controller (internal LB) 사용 시 아래 그대로
+# (B) Azure Application Gateway Ingress Controller(AGIC) 사용 시:
+#     ingressClassName: azure-application-gateway 로 바꾸고
+#     annotations 에 appgw.ingress.kubernetes.io/use-private-ip: "true" 추가
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: metis-finops
+  namespace: metis-finops
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"   # 테스트 에이전트 LLM 리뷰 대기
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: metis-finops.internal.company.com   # 사내 DNS 에 맞게 수정
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: control-plane     # 대시보드 + 모든 API 의 단일 진입점
+                port: { number: 8500 }
+          - path: /v1                   # 에이전트들이 호출하는 OpenAI 호환 게이트웨이
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port: { number: 8400 }

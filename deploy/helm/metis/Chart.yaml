@@ -1,0 +1,6 @@
+apiVersion: v2
+name: metis
+description: METIS — AgentOps Governance & ROI 플랫폼 (api/web/worker)
+type: application
+version: 0.1.0
+appVersion: "1.1.0"

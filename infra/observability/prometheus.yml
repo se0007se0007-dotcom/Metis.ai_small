@@ -1,0 +1,20 @@
+# Prometheus scrape config for Metis.AI
+#
+# The API runs on the HOST (start-metis.bat), so the container reaches it via
+# host.docker.internal (Docker Desktop on Windows/macOS resolves this natively).
+# If you set METRICS_TOKEN in the API .env, mirror it here under authorization.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: 'metis-api'
+    metrics_path: /metrics/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:4000']
+        labels:
+          service: 'metis-api'
+    # Uncomment when METRICS_TOKEN is set in the API environment:
+    # authorization:
+    #   type: Bearer
+    #   credentials: <METRICS_TOKEN value>

@@ -1,0 +1,15 @@
+{{- if .Values.api.hpa }}
+{{- if .Values.api.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: metis-api
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: metis-api}
+  minReplicas: {{ .Values.api.hpa.min }}
+  maxReplicas: {{ .Values.api.hpa.max }}
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: {{ .Values.api.hpa.cpu }}}}
+{{- end }}
+{{- end }}

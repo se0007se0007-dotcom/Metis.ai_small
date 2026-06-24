@@ -1,0 +1,57 @@
+# 이미지 주소의 __REGISTRY__ 를 실제 레지스트리로 치환 후 적용:
+#   sed -i "s|__REGISTRY__|myacr.azurecr.io|g" deploy/k8s/*.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: metis-data
+  namespace: metis-finops
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+  # AKS 기본 StorageClass(managed-csi) 사용. Azure Files 필요 시 storageClassName: azurefile-csi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control-plane
+  namespace: metis-finops
+spec:
+  replicas: 1            # SQLite 프로토타입은 단일 레플리카 (운영: PostgreSQL 전환 후 확장)
+  selector:
+    matchLabels: { app: control-plane }
+  template:
+    metadata:
+      labels: { app: control-plane }
+    spec:
+      containers:
+        - name: control-plane
+          image: __REGISTRY__/metis-finops/control-plane:1.0.0
+          ports: [{ containerPort: 8500 }]
+          env:
+            - { name: METIS_DB, value: /data/metis.db }
+            - { name: TEST_AGENT_URL, value: http://test-agent:8600 }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8500 }
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet: { path: /api/health, port: 8500 }
+            initialDelaySeconds: 15
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: metis-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: control-plane
+  namespace: metis-finops
+spec:
+  selector: { app: control-plane }
+  ports: [{ port: 8500, targetPort: 8500 }]

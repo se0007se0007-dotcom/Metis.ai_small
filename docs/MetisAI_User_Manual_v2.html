@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>METIS.AI 사용자 매뉴얼</title>
+    <style>
+      :root {
+        --blue: #2563eb;
+        --blue-d: #1d4ed8;
+        --ink: #0f172a;
+        --muted: #64748b;
+        --bg: #f8fafc;
+        --card: #fff;
+        --border: #e2e8f0;
+        --green: #16a34a;
+        --red: #dc2626;
+        --amber: #d97706;
+        --violet: #7c3aed;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        line-height: 1.65;
+      }
+      .wrap {
+        display: flex;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      /* sidebar */
+      nav.toc {
+        position: sticky;
+        top: 0;
+        align-self: flex-start;
+        width: 280px;
+        height: 100vh;
+        overflow-y: auto;
+        background: var(--ink);
+        color: #cbd5e1;
+        padding: 24px 16px;
+        flex-shrink: 0;
+      }
+      nav.toc h2 {
+        color: #fff;
+        font-size: 15px;
+        margin: 18px 0 8px;
+        border-bottom: 1px solid #334155;
+        padding-bottom: 6px;
+      }
+      nav.toc h2:first-child {
+        margin-top: 0;
+      }
+      nav.toc a {
+        display: block;
+        color: #94a3b8;
+        text-decoration: none;
+        font-size: 13px;
+        padding: 4px 8px;
+        border-radius: 6px;
+      }
+      nav.toc a:hover {
+        background: #1e293b;
+        color: #fff;
+      }
+      .toc-brand {
+        font-size: 20px;
+        font-weight: 800;
+        color: #fff;
+        margin-bottom: 4px;
+      }
+      .toc-brand span {
+        color: #60a5fa;
+      }
+      .toc-sub {
+        font-size: 11px;
+        color: #64748b;
+        margin-bottom: 20px;
+      }
+      /* content */
+      main {
+        flex: 1;
+        padding: 48px 56px;
+        max-width: 1040px;
+      }
+      h1 {
+        font-size: 34px;
+        margin: 0 0 6px;
+      }
+      h1 span {
+        color: var(--blue);
+      }
+      .lead {
+        color: var(--muted);
+        font-size: 16px;
+        margin-bottom: 32px;
+      }
+      section {
+        margin-bottom: 48px;
+        scroll-margin-top: 20px;
+      }
+      section > h2 {
+        font-size: 25px;
+        border-bottom: 3px solid var(--blue);
+        padding-bottom: 8px;
+        margin-top: 0;
+      }
+      h3 {
+        font-size: 19px;
+        margin-top: 28px;
+        color: var(--blue-d);
+      }
+      h4 {
+        font-size: 15px;
+        margin: 18px 0 6px;
+      }
+      p,
+      li {
+        font-size: 14.5px;
+      }
+      code {
+        background: #eef2ff;
+        color: #3730a3;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-family: 'Consolas', monospace;
+      }
+      pre {
+        background: var(--ink);
+        color: #e2e8f0;
+        padding: 16px;
+        border-radius: 10px;
+        overflow-x: auto;
+        font-size: 13px;
+      }
+      pre code {
+        background: none;
+        color: inherit;
+        padding: 0;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 14px 0;
+        font-size: 13.5px;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 9px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #f1f5f9;
+        font-weight: 700;
+      }
+      tr:nth-child(even) td {
+        background: #fafcff;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin: 16px 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .b-blue {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+      .b-green {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .b-amber {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .b-red {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .b-violet {
+        background: #ede9fe;
+        color: #5b21b6;
+      }
+      .b-gray {
+        background: #e2e8f0;
+        color: #334155;
+      }
+      .note {
+        border-left: 4px solid var(--blue);
+        background: #eff6ff;
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        margin: 14px 0;
+        font-size: 13.5px;
+      }
+      .warn {
+        border-left: 4px solid var(--amber);
+        background: #fffbeb;
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        margin: 14px 0;
+        font-size: 13.5px;
+      }
+      .steps {
+        counter-reset: step;
+        list-style: none;
+        padding-left: 0;
+      }
+      .steps li {
+        counter-increment: step;
+        position: relative;
+        padding: 8px 0 8px 44px;
+        border-bottom: 1px dashed var(--border);
+      }
+      .steps li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 8px;
+        width: 28px;
+        height: 28px;
+        background: var(--blue);
+        color: #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .kbd {
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-bottom-width: 2px;
+        border-radius: 5px;
+        padding: 1px 7px;
+        font-size: 12px;
+        font-family: monospace;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 12px;
+        border-top: 1px solid var(--border);
+        padding-top: 16px;
+        margin-top: 40px;
+      }
+      @media (max-width: 980px) {
+        nav.toc {
+          display: none;
+        }
+        main {
+          padding: 28px 20px;
+        }
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav class="toc">
+        <div class="toc-brand">METIS<span>.AI</span></div>
+        <div class="toc-sub">사용자 매뉴얼 · v2 (2026-05)</div>
+        <h2>시작하기</h2>
+        <a href="#intro">1. 제품 개요</a>
+        <a href="#start">2. 설치 및 실행</a>
+        <a href="#login">3. 로그인 · 권한</a>
+        <a href="#layout">4. 화면 구성</a>
+        <h2>Agent & 미션</h2>
+        <a href="#agents">5. Agent 카탈로그</a>
+        <a href="#agent-test">6. Agent 실행 테스트</a>
+        <a href="#missions">7. 미션 (A2A 협업)</a>
+        <h2>거버넌스</h2>
+        <a href="#audit">8. AI 활동 로그</a>
+        <a href="#policy">9. 정책코드 엔진</a>
+        <a href="#eval-policy">10. 평가 Gate 설정</a>
+        <a href="#suggestions">11. 정책 제안 (피드백)</a>
+        <a href="#orb">12. ORB 심사</a>
+        <a href="#evidence">13. Evidence / KPI</a>
+        <h2>지식 & 워크플로우</h2>
+        <a href="#knowledge">14. Knowledge</a>
+        <a href="#builder">15. 워크플로우 빌더 · 마켓</a>
+        <a href="#monitor">16. 실행 모니터링</a>
+        <a href="#connectors">17. 커넥터 관리</a>
+        <h2>인사이트</h2>
+        <a href="#evaluator">18. Agent Evaluator</a>
+        <a href="#finops">19. FinOps</a>
+        <a href="#anomalies">20. Anomalies</a>
+        <h2>릴리스 & 운영</h2>
+        <a href="#release">21. Release Hub</a>
+        <a href="#workspaces">22. 워크스페이스</a>
+        <a href="#admin">23. 사용자 관리</a>
+        <h2>부록</h2>
+        <a href="#test">24. 테스트 가이드</a>
+        <a href="#faq">25. FAQ · 문제해결</a>
+      </nav>
+
+      <main>
+        <h1>METIS<span>.AI</span> 사용자 매뉴얼</h1>
+        <p class="lead">
+          멀티테넌트 AgentOps 거버넌스 SaaS — Agent 실행·평가·정책·릴리스를 한 곳에서 관리합니다.
+        </p>
+
+        <section id="intro">
+          <h2>1. 제품 개요</h2>
+          <p>
+            METIS.AI는 기업이 다수의 AI Agent를 <b>안전하고 일관되게</b> 운영하도록 돕는 거버넌스
+            플랫폼입니다. Agent의 실행 결과를 4-Gate(품질·보안·이상탐지·비용)로 평가하고, 정책으로
+            통제하며, 릴리스(Canary/Shadow/Replay)를 관리합니다.
+          </p>
+          <div class="grid2">
+            <div class="card">
+              <h4>핵심 가치</h4>
+              <ul>
+                <li><b>평가 자동화</b>: 모든 Agent 응답을 4-Gate로 채점</li>
+                <li><b>정책 기반 통제</b>: 코드 수정 없이 설정으로 Gate 기준 변경</li>
+                <li><b>피드백 루프</b>: 이력 분석 → 정책 자동 제안 → 승인 반영</li>
+                <li><b>안전한 릴리스</b>: Canary/Shadow/Replay로 점진 배포</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h4>주요 사용자</h4>
+              <ul>
+                <li><b>운영자(OPERATOR)</b>: Agent 실행·모니터링</li>
+                <li><b>개발자(DEVELOPER)</b>: 워크플로우·Agent 등록</li>
+                <li><b>감사자(AUDITOR)</b>: 로그·정책·평가 검토</li>
+                <li><b>테넌트 관리자(TENANT_ADMIN)</b>: 정책·사용자 관리</li>
+                <li><b>플랫폼 관리자(PLATFORM_ADMIN)</b>: 전체 운영</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="start">
+          <h2>2. 설치 및 실행</h2>
+          <p>
+            Windows 환경 기준, 사전 요구사항: <code>Node.js 20+</code>, <code>pnpm</code>,
+            <code>Docker Desktop</code>.
+          </p>
+          <h3>원클릭 실행</h3>
+          <ol class="steps">
+            <li>프로젝트 루트의 <code>start-metis.bat</code> 더블클릭</li>
+            <li>
+              배치가 자동으로: Docker(PostgreSQL+Redis) 기동 → 의존성 설치 → Prisma 클라이언트 생성
+              → DB 스키마 push → seed → 빌드 → API/Worker/Frontend 3개 창 기동
+            </li>
+            <li>브라우저가 <code>http://localhost:3000</code> 자동 오픈</li>
+          </ol>
+          <table>
+            <tr>
+              <th>서비스</th>
+              <th>주소</th>
+              <th>설명</th>
+            </tr>
+            <tr>
+              <td>Frontend</td>
+              <td><code>http://localhost:3000</code></td>
+              <td>웹 UI</td>
+            </tr>
+            <tr>
+              <td>API</td>
+              <td><code>http://localhost:4000/v1</code></td>
+              <td>REST API (prefix /v1)</td>
+            </tr>
+            <tr>
+              <td>Swagger 문서</td>
+              <td><code>http://localhost:4000/docs</code></td>
+              <td>OpenAPI UI (개발 모드만)</td>
+            </tr>
+          </table>
+          <div class="warn">
+            <b>새 기능 추가 후</b>에는 새 DB 테이블이 생길 수 있으므로
+            <code>start-metis.bat</code>를 재실행하거나
+            <code>pnpm db:generate && pnpm --filter @metis/database push -- --accept-data-loss</code
+            >를 먼저 실행하세요.
+          </div>
+          <div class="note">
+            중지: 실행된 콘솔 창에서 아무 키나 누르면 3개 서버가 모두
+            종료됩니다(<code>stop-metis.bat</code>도 사용 가능).
+          </div>
+        </section>
+
+        <section id="login">
+          <h2>3. 로그인 · 권한</h2>
+          <p>
+            기본 관리자 계정: <code>admin@metis.ai</code> / <code>metis1234</code>. 로그인 시 JWT
+            액세스 토큰이 발급되어 HttpOnly 쿠키와 응답 body로 전달됩니다.
+          </p>
+          <h3>6개 역할(RBAC)</h3>
+          <table>
+            <tr>
+              <th>역할</th>
+              <th>주요 권한</th>
+            </tr>
+            <tr>
+              <td><span class="badge b-red">PLATFORM_ADMIN</span></td>
+              <td>전체 테넌트·플랫폼 운영</td>
+            </tr>
+            <tr>
+              <td><span class="badge b-blue">TENANT_ADMIN</span></td>
+              <td>정책·사용자·평가 Gate 설정, 제안 승인</td>
+            </tr>
+            <tr>
+              <td><span class="badge b-green">OPERATOR</span></td>
+              <td>Agent 실행·미션·모니터링</td>
+            </tr>
+            <tr>
+              <td><span class="badge b-violet">DEVELOPER</span></td>
+              <td>워크플로우·Agent 등록</td>
+            </tr>
+            <tr>
+              <td><span class="badge b-amber">AUDITOR</span></td>
+              <td>로그·정책·평가·제안 조회</td>
+            </tr>
+            <tr>
+              <td><span class="badge b-gray">VIEWER</span></td>
+              <td>읽기 전용</td>
+            </tr>
+          </table>
+          <div class="note">
+            메뉴는 역할에 따라 노출이 달라집니다. 예: "평가 Gate 설정/정책 제안"은
+            TENANT_ADMIN·PLATFORM_ADMIN·AUDITOR에게 보입니다(수정은 관리자만).
+          </div>
+        </section>
+
+        <section id="layout">
+          <h2>4. 화면 구성</h2>
+          <p>
+            상단 네비게이션(TopNav) + 좌측 사이드바(SideNav) + 중앙 메인 + (일부 화면) 우측 인스펙터
+            구조입니다. 좌측 사이드바는 기능 그룹별로 묶여 있습니다:
+            <b
+              >대시보드 · Agent · 미션 · Governance · Knowledge · Orchestration · Insights · Release
+              · Admin</b
+            >.
+          </p>
+        </section>
+
+        <section id="agents">
+          <h2>5. Agent 카탈로그</h2>
+          <p>좌측 <b>Agent</b> 그룹에서 카테고리별 Agent를 확인합니다. 기본 제공 14개 Agent:</p>
+          <table>
+            <tr>
+              <th>그룹</th>
+              <th>Agent</th>
+            </tr>
+            <tr>
+              <td>운영(OPS) 7종</td>
+              <td>
+                테스트 자동화, 서비스 모니터링, 캠페인 모니터링, 변경 영향도, 이벤트 대응, 지식
+                자산화, 품질가디언
+              </td>
+            </tr>
+            <tr>
+              <td>개발(DEV) 4종</td>
+              <td>Spec Agent, 영향도 분석, Dev Agent, Test Agent</td>
+            </tr>
+            <tr>
+              <td>편의(EXT) 3종</td>
+              <td>QueryBuddy, SR Routing, SR 영향도</td>
+            </tr>
+          </table>
+        </section>
+
+        <section id="agent-test">
+          <h2>6. Agent 실행 테스트</h2>
+          <p>
+            좌측 <b>Agent 실행 테스트</b>에서 특정 Agent를 시뮬레이션 실행하고 그 결과가 자동으로
+            4-Gate 평가됩니다. 실행 세션과 스텝이 DB에 기록되어 모니터링·이력에서 추적됩니다.
+          </p>
+        </section>
+
+        <section id="missions">
+          <h2>7. 미션 (A2A 협업)</h2>
+          <p>
+            여러 Agent가 하나의 목표를 위해 메시지를 주고받으며 협업하는 작업 단위입니다.
+            <b>활성 미션 / 미션 이력</b>에서 진행 상태, 참여 Agent, 핸드오프,
+            자가치유(Auto-Action)를 확인합니다.
+          </p>
+          <ul>
+            <li>
+              미션 상태: PLANNING → RUNNING → (WAITING_HUMAN) →
+              SUCCEEDED/FAILED/CANCELLED/ROLLED_BACK
+            </li>
+            <li>미션 상세 화면에서 참여 Agent와 타임라인을 봅니다.</li>
+          </ul>
+        </section>
+
+        <section id="audit">
+          <h2>8. AI 활동 로그 (Governance)</h2>
+          <p>
+            <b>Governance → AI 활동 로그</b>: 모든 감사 이벤트(생성·실행·정책검사·인증·릴리스 등)를
+            조회합니다. action·correlationId로 필터링하고 페이지네이션됩니다.
+          </p>
+        </section>
+
+        <section id="policy">
+          <h2>9. 정책코드 엔진</h2>
+          <p>
+            <b>Governance → 정책코드 엔진</b>: 실행 차단/경고 규칙(YAML/JSON)을 정의합니다. 규칙은
+            <code>conditions</code> + <code>effect(deny/warn/allow)</code> 구조이며, 실행 전 정책
+            평가에서 FAIL이면 차단됩니다.
+          </p>
+        </section>
+
+        <section id="eval-policy">
+          <h2>10. 평가 Gate 설정 <span class="badge b-blue">Phase 1</span></h2>
+          <p>
+            <b>Governance → 평가 Gate 설정</b>: 4-Gate 평가 엔진의
+            <b>가중치·임계값을 코드 수정 없이</b> 조정합니다. 저장하면 5분 내(캐시) 평가 엔진에
+            반영됩니다.
+          </p>
+          <h3>조정 항목</h3>
+          <table>
+            <tr>
+              <th>Gate</th>
+              <th>주요 설정</th>
+            </tr>
+            <tr>
+              <td>품질</td>
+              <td>가중치, Hard Gate 최소 점수, LLM Judge 사용/모델/일일 예산</td>
+            </tr>
+            <tr>
+              <td>보안</td>
+              <td>가중치, Critical/High 상한(cap), PII 스캔, 프롬프트 인젝션 탐지</td>
+            </tr>
+            <tr>
+              <td>이상탐지</td>
+              <td>가중치, Z-Score 임계값, IQR 계수</td>
+            </tr>
+            <tr>
+              <td>비용</td>
+              <td>가중치, 일일 예산, Slow/Critical 지연(ms)</td>
+            </tr>
+            <tr>
+              <td>연동</td>
+              <td>Canary 품질/보안 최소, ORB 통과/조건부 임계값</td>
+            </tr>
+          </table>
+          <ol class="steps">
+            <li>상단 드롭다운에서 적용 범위 선택(기본 / 운영 / 개발 / 고도화)</li>
+            <li>각 Gate 카드에서 값 조정 — <b>가중치 합계는 1.00이어야 저장 가능</b></li>
+            <li>
+              <span class="kbd">저장</span> 클릭 → 토스트 확인. 되돌리려면
+              <span class="kbd">기본값 복원</span>
+            </li>
+          </ol>
+          <div class="note">
+            정책이 없거나 기본값이면 평가 점수는 기존 동작과 100% 동일합니다(하위호환).
+          </div>
+        </section>
+
+        <section id="suggestions">
+          <h2>11. 정책 제안 (피드백 루프) <span class="badge b-blue">Phase 2</span></h2>
+          <p>
+            <b>Governance → 정책 제안</b>: 최근 평가 이력을 분석해 정책 조정을 <b>제안</b>하고,
+            관리자가 <b>승인하면 정책에 자동 반영</b>합니다.
+          </p>
+          <h3>탐지 패턴</h3>
+          <table>
+            <tr>
+              <th>패턴</th>
+              <th>의미</th>
+              <th>제안</th>
+            </tr>
+            <tr>
+              <td>보안 반복 실패</td>
+              <td>특정 Agent가 보안 Gate 반복 실패</td>
+              <td>securityCriticalCap 강화</td>
+            </tr>
+            <tr>
+              <td>품질 하락</td>
+              <td>품질 점수 하락 추세</td>
+              <td>qualityHardGateMin 상향</td>
+            </tr>
+            <tr>
+              <td>비용 초과</td>
+              <td>비용 효율 지속 저조</td>
+              <td>검토 권고(자동 변경 없음)</td>
+            </tr>
+            <tr>
+              <td>이상 급증</td>
+              <td>이상 탐지율 임계 초과</td>
+              <td>LLM Judge 활성화 권고</td>
+            </tr>
+          </table>
+          <ol class="steps">
+            <li><span class="kbd">지금 분석</span> 클릭 → 최근 30일 이력 점검</li>
+            <li>제안 카드에서 변경안 diff 확인 (예: <code>securityCriticalCap: 40 → 30</code>)</li>
+            <li><span class="kbd">승인·적용</span> 또는 <span class="kbd">거부</span></li>
+            <li>
+              상단 <b>적응형 샘플링 현황</b>: Agent별 LLM Judge 호출 빈도(%)를 표시 — 이상 시 100%로
+              올리고 정상 지속 시 10%까지 자동 절감
+            </li>
+          </ol>
+          <div class="warn">
+            자동으로 정책을 바꾸지 않습니다. 반드시 <b>제안 → 관리자 승인</b>을 거칩니다. 비용
+            초과처럼 위험 낮은 패턴은 자동 변경 없이 권고만 합니다.
+          </div>
+        </section>
+
+        <section id="orb">
+          <h2>12. ORB 심사 (Ops.AI Review Board)</h2>
+          <p>
+            <b>Governance → ORB 심사</b>: Agent 등록 전 5개
+            영역(품질30·성능20·보안25·데이터표준15·확장성10 = 100점)으로 심사합니다. 필수
+            체크(M1~M7) 중 하나라도 실패하면 점수와 무관하게 자동 반려됩니다.
+          </p>
+          <ol class="steps">
+            <li>심사 목록에서 대상 클릭 → 5개 영역 항목별 1~5점 채점</li>
+            <li>필수 체크(Mandatory) 통과 여부 토글</li>
+            <li>판정: 70+ 승인 / 50–69 조건부 / 그외 반려</li>
+            <li>강점·개선점 입력 후 <span class="kbd">최종 판정 제출</span></li>
+          </ol>
+        </section>
+
+        <section id="evidence">
+          <h2>13. Evidence Pack · KPI 대시보드</h2>
+          <p>
+            <b>Evidence Pack</b>: 감사 대응용 증거 묶음을 조회/생성합니다. <b>KPI 대시보드</b>:
+            거버넌스 핵심 지표를 시각화합니다.
+          </p>
+        </section>
+
+        <section id="knowledge">
+          <h2>14. Knowledge</h2>
+          <ul>
+            <li>
+              <b>Knowledge Registry</b>: 테넌트에 설치된 팩 및 운영 지식 자산 관리(설치/제거,
+              상태·소스 유형 통계)
+            </li>
+            <li><b>Artifact 관리</b>: 지식 산출물(문서·패턴 등) 관리</li>
+            <li><b>Agent 오류 패턴 관리</b>: 실패한 실행에서 오류 패턴을 자동 도출</li>
+            <li><b>Knowledge Pipeline</b>: 지식 수집·정제 파이프라인</li>
+          </ul>
+        </section>
+
+        <section id="builder">
+          <h2>15. 워크플로우 빌더 · 템플릿 마켓</h2>
+          <p>
+            <b>Orchestration → 워크플로우 빌더</b>:
+            노드(스케줄·웹검색·AI처리·이메일·배포·Slack·조건·승인대기 등)를 연결해 자동화
+            워크플로우를 만듭니다. <b>템플릿 마켓</b>에서 Starter Pack을 가져와 시작할 수 있습니다.
+          </p>
+          <div class="note">
+            빌더는 저장 시 서버에 영속되며(OCC 버전 관리), 버전 스냅샷으로 롤백할 수 있습니다.
+          </div>
+        </section>
+
+        <section id="monitor">
+          <h2>16. 실행 모니터링</h2>
+          <p>
+            <b>Orchestration → 실행 모니터링</b>: 커넥터 호출 현황, 서킷 브레이커, 레이트 제한, 호출
+            로그, MCP 서버 생명주기를 실시간 대시보드로 봅니다(30초 자동 새로고침).
+          </p>
+        </section>
+
+        <section id="connectors">
+          <h2>17. 커넥터 관리</h2>
+          <p>
+            <b>Orchestration → 커넥터 관리</b>: 외부 시스템(REST/Webhook/MCP) 커넥터를
+            등록·상태점검·시작/중지/재시작하고 도구를 탐색합니다.
+          </p>
+        </section>
+
+        <section id="evaluator">
+          <h2>18. Agent Evaluator <span class="badge b-violet">핵심</span></h2>
+          <p>
+            <b>Insights → Agent Evaluator</b>: 4-Gate 평가 결과를 종합 대시보드로 봅니다. 탭: 개요 ·
+            품질 · 보안 · 이상 · 비용.
+          </p>
+          <h3>4-Gate 평가 모델</h3>
+          <table>
+            <tr>
+              <th>Gate</th>
+              <th>측정</th>
+              <th>기본 가중치</th>
+            </tr>
+            <tr>
+              <td>품질</td>
+              <td>정확도·환각률·응답품질 (LLM Judge 연계)</td>
+              <td>40%</td>
+            </tr>
+            <tr>
+              <td>보안</td>
+              <td>입력 위협·출력 유출·툴체인 위험</td>
+              <td>30%</td>
+            </tr>
+            <tr>
+              <td>비용</td>
+              <td>비용 효율·지연·토큰</td>
+              <td>15%</td>
+            </tr>
+            <tr>
+              <td>이상탐지</td>
+              <td>Z-Score·IQR·추세·오류급증</td>
+              <td>15%</td>
+            </tr>
+          </table>
+          <div class="note">
+            <b>드릴다운</b>: "품질" 탭의 <b>최근 평가 상세</b> 표에서 행을 클릭하면 해당 건의 4-Gate
+            상세(점수·위험도·비용·이상·권고)가 펼쳐집니다.
+          </div>
+          <h3>수동 평가 데모</h3>
+          <p>
+            "개요" 탭의 데모 패널에서 입력/출력/컨텍스트를 넣고 즉시 평가해볼 수 있습니다(<code
+              >POST /evaluator/demo</code
+            >). LLM Judge는 <code>.env</code>에 <code>ANTHROPIC_API_KEY</code> 또는
+            <code>OPENAI_API_KEY</code>가 있을 때 동작합니다.
+          </p>
+          <h3>LLM Judge</h3>
+          <p>
+            응답을 사실정확도·완전성·관련성·독성·편향(+컨텍스트 시 충실도) 5~6개 차원으로
+            채점합니다. 사실 오류는 factual_accuracy=0으로 품질 점수가 강하게 제한되고, "완료" 같은
+            한 단어 응답은 completeness=0으로 처리됩니다.
+          </p>
+        </section>
+
+        <section id="finops">
+          <h2>19. FinOps <span class="badge b-green">비용</span></h2>
+          <p><b>Insights → FinOps</b>: 토큰 비용을 최적화합니다. 탭: 현재 · 예측 · 권고 · 로그.</p>
+          <ul>
+            <li>
+              <b>Gate 1 시맨틱 캐시</b> / <b>Gate 2 모델 라우터</b>(tier1/2/3) /
+              <b>Gate 3 스킬 패커</b>
+            </li>
+            <li>
+              <b>What-If 시뮬레이터</b>: 캐시 TTL·tier 다운그레이드·스킬 예산을 조정해 절감액을 미리
+              계산
+            </li>
+            <li><b>비용 예측</b>: 이번 달 실적 기반 월말 예상 비용</li>
+            <li><b>권고</b>: 자동 절감 권고를 적용</li>
+          </ul>
+        </section>
+
+        <section id="anomalies">
+          <h2>20. Anomalies</h2>
+          <p>
+            <b>Insights → Anomalies</b>: 이상 탐지 이벤트(지연 추세·정확도 드리프트·토큰
+            스파이크·오류 급증·보안 패턴)를 모아 봅니다.
+          </p>
+        </section>
+
+        <section id="release">
+          <h2>21. Release Hub</h2>
+          <p><b>Release → Release Hub</b>에서 점진적 릴리스를 관리합니다.</p>
+          <table>
+            <tr>
+              <th>기능</th>
+              <th>설명</th>
+            </tr>
+            <tr>
+              <td>Replay</td>
+              <td>과거 실행 입출력을 후보 버전에 재생해 회귀 검증</td>
+            </tr>
+            <tr>
+              <td>Shadow</td>
+              <td>운영 트래픽을 후보 버전에 그림자 실행(부작용 없음)으로 비교</td>
+            </tr>
+            <tr>
+              <td>Canary</td>
+              <td>트래픽 일부를 후보에 점진 라우팅 + Gate 평가 + 자동 롤백</td>
+            </tr>
+            <tr>
+              <td>Promotions</td>
+              <td>버전 승격/롤백 이력</td>
+            </tr>
+          </table>
+        </section>
+
+        <section id="workspaces">
+          <h2>22. 워크스페이스</h2>
+          <p>
+            업무 도메인별 작업 공간: <b>OPS(운영) · DEV(개발) · AP(매입채무) · Risk(위험)</b>. 예:
+            AP 워크스페이스는 송장 3-way 매칭(Invoice·PO·GR)과 승인 워크플로우를, Risk는
+            FDS(이상거래 탐지) 알림을 다룹니다.
+          </p>
+        </section>
+
+        <section id="admin">
+          <h2>23. 사용자 관리</h2>
+          <p><b>Admin → 사용자 관리</b>: 테넌트 멤버와 역할을 관리합니다(관리자 전용).</p>
+        </section>
+
+        <section id="test">
+          <h2>24. 테스트 가이드</h2>
+          <p>
+            레포 <code>scripts/</code>에 통합 스모크 스크립트가 있습니다(서버 기동 후 별도
+            터미널에서 실행).
+          </p>
+          <pre><code>cd metis-ai
+# 평가 Gate 정책 API
+node scripts/test-evaluation-policy.mjs
+# 정책 피드백(제안/승인/샘플링)
+node scripts/test-policy-feedback.mjs --approve
+# E2E 전수 평가 (14×4×3=168건, LLM Judge는 .env 키 필요)
+node scripts/test-e2e-evaluation.mjs --repeat 3 --out e2e-report.json</code></pre>
+          <div class="note">
+            각 스크립트는 로그인 → API 호출 → 결과를 ✅/❌로 출력합니다. 계정/포트가 다르면
+            <code>--email --password --base</code> 플래그로 지정하세요.
+          </div>
+        </section>
+
+        <section id="faq">
+          <h2>25. FAQ · 문제해결</h2>
+          <h4>Q. "평가 Gate 설정" 저장 시 오류가 났습니다.</h4>
+          <p>
+            최신 버전에서 수정되었습니다. 저장 페이로드에서 읽기전용 <code>id</code>를 제외하도록
+            고쳐졌습니다. 프론트를 새로고침하세요.
+          </p>
+          <h4>Q. "정책 제안"에서 "table does not exist" 에러.</h4>
+          <p>
+            새 테이블(<code>PolicySuggestion</code>)이 추가됐기 때문입니다.
+            <code>start-metis.bat</code> 재실행 또는
+            <code
+              >pnpm db:generate &amp;&amp; pnpm --filter @metis/database push --
+              --accept-data-loss</code
+            >
+            후 다시 시도하세요.
+          </p>
+          <h4>Q. LLM Judge가 동작하지 않습니다(L0만 표시).</h4>
+          <p>
+            <code>.env</code>에 <code>ANTHROPIC_API_KEY</code> 또는 <code>OPENAI_API_KEY</code>를
+            설정해야 합니다. 없으면 통계 기반(Layer 0)만 적용되어 환각 판정 정확도가 낮아집니다.
+          </p>
+          <h4>Q. 제안이 0건으로 나옵니다.</h4>
+          <p>
+            평가 이력이 적거나 패턴이 없으면 정상입니다. Agent 실행 테스트나
+            <code>POST /evaluator/demo</code>로 평가를 여러 건 쌓은 뒤 "지금 분석"을 누르세요.
+          </p>
+          <h4>Q. Swagger가 안 보입니다.</h4>
+          <p>
+            Swagger는 개발 모드(<code>NODE_ENV != production</code>)에서만
+            <code>http://localhost:4000/docs</code>에 노출됩니다. <code>start-metis.bat</code>은
+            개발 모드로 띄웁니다.
+          </p>
+          <footer>
+            METIS.AI 사용자 매뉴얼 v2 · 생성일 2026-05-30 · 멀티테넌트 AgentOps 거버넌스 SaaS
+          </footer>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,94 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: metis-postgres
+    environment:
+      POSTGRES_USER: metis
+      POSTGRES_PASSWORD: metis_secret
+      POSTGRES_DB: metis_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U metis -d metis_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: metis-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Observability stack (P3) ──────────────────────────────
+  # Scrapes the host-run API at host.docker.internal:4000/metrics/prometheus.
+  # Grafana: http://localhost:3100 (admin / metis_admin)
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: metis-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+    ports:
+      - '9090:9090'
+    volumes:
+      - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: metis-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: metis_admin
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    ports:
+      - '3100:3000'
+    volumes:
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ── Optional LLM Gateway (F4) — start with: --profile gateway ─────
+  # LiteLLM Proxy (MIT): virtual keys, budget enforcement, fallbacks.
+  # App integration is env-only: OPENAI_BASE_URL=http://localhost:4400/v1,
+  # ANTHROPIC_BASE_URL=http://localhost:4400/anthropic
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: metis-litellm
+    profiles: ['gateway']
+    command: ['--config', '/app/config.yaml', '--port', '4000']
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-metis-litellm-master}
+    ports:
+      - '4400:4000'
+    volumes:
+      - ../gateway/litellm-config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  promdata:
+  grafanadata:

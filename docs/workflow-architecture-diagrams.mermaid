@@ -1,0 +1,301 @@
+%% Metis.AI 워크플로우 서버 저장 아키텍처 다이어그램
+
+%% ═══════════════════════════════════════════
+%% 1. 전체 데이터 흐름
+%% ═══════════════════════════════════════════
+
+---
+title: 워크플로우 생성 → 저장 → 실행 전체 흐름
+---
+flowchart TB
+    subgraph Frontend["프론트엔드 (Next.js)"]
+        A[사용자 프롬프트 입력] --> B[BuilderHarness 로컬/API]
+        B --> C[캔버스에 노드 배치]
+        C --> D[설정 패널에서 노드 상세 설정]
+        D --> E["저장 버튼 클릭"]
+    end
+
+    subgraph BuilderPipeline["빌더 파이프라인 (기존)"]
+        F["BH-1: Intent 분류"] --> G["BH-2: 파라미터 추출"]
+        G --> H["BH-3: 정책 주입"]
+        H --> I["BH-4: 구조 검증"]
+        I --> J["BH-5: Readiness 스코어링"]
+    end
+
+    subgraph NewEngine["노드 해석 엔진 (신규)"]
+        K["NodeResolutionEngine"]
+        K --> K1["uiType → executionType 매핑"]
+        K --> K2["capability 자동 해석"]
+        K --> K3["inputMapping 자동 추론"]
+        K --> K4["parameterBindings 생성"]
+    end
+
+    subgraph Persistence["서버 영속화 (신규)"]
+        L["WorkflowPersistenceService"]
+        L --> L1["Workflow 생성"]
+        L --> L2["WorkflowNodeDef[] 정규화 저장"]
+        L --> L3["WorkflowEdge[] 그래프 저장"]
+        L --> L4["WorkflowVersion 스냅샷"]
+        L --> L5["OCC 버전 체크"]
+    end
+
+    subgraph Execution["실행 엔진 (기존 + 브릿지)"]
+        M["WorkflowExecutionBridge (신규)"]
+        M --> M1["parameterBindings 해석"]
+        M --> M2["configJson 런타임 주입"]
+        M --> M3["WorkflowNode[] 변환"]
+        M3 --> N["WorkflowRunnerService"]
+        N --> O["NodeRouter"]
+        O --> P1["ConnectorService"]
+        O --> P2["AgentDispatcher"]
+        O --> P3["AdapterInvocation"]
+        O --> P4["Decision Evaluator"]
+        O --> P5["Human/Mission Pause"]
+    end
+
+    E --> F
+    J --> K
+    K --> L
+    L --> |실행 요청| M
+
+    style NewEngine fill:#e8f5e9
+    style Persistence fill:#e3f2fd
+    style Frontend fill:#fff3e0
+    style BuilderPipeline fill:#fce4ec
+    style Execution fill:#f3e5f5
+
+
+%% ═══════════════════════════════════════════
+%% 2. 3-Layer 타입 시스템
+%% ═══════════════════════════════════════════
+
+---
+title: 노드 3-Layer 타입 시스템
+---
+flowchart LR
+    subgraph Layer1["Layer 1: UI Type<br/>(프론트엔드)"]
+        direction TB
+        U1[web-search]
+        U2[ai-processing]
+        U3[email-send]
+        U4[slack-message]
+        U5[condition]
+        U6[jira]
+        U7[git-deploy]
+        U8[pentest]
+        U9[schedule]
+        U10[notification]
+    end
+
+    subgraph Layer2["Layer 2: Execution Type<br/>(런타임 라우팅)"]
+        direction TB
+        E1[connector]
+        E2[agent]
+        E3[adapter]
+        E4[decision]
+        E5[human]
+        E6[start]
+    end
+
+    subgraph Layer3["Layer 3: Capability<br/>(구체적 실현)"]
+        direction TB
+        C1["connector:google-search"]
+        C2["agent:workflow-agent:claude-sonnet-4.6"]
+        C3["connector:email-smtp:send"]
+        C4["connector:slack-webhook:post"]
+        C5["decision:json-path-eval"]
+        C6["connector:jira:create_ticket"]
+        C7["connector:git:create_deployment"]
+        C8["agent:pentest:8-vector"]
+        C9["trigger:cron"]
+        C10["connector:notification:email+browser"]
+    end
+
+    U1 --> E1 --> C1
+    U2 --> E2 --> C2
+    U3 --> E1 --> C3
+    U4 --> E1 --> C4
+    U5 --> E4 --> C5
+    U6 --> E1 --> C6
+    U7 --> E1 --> C7
+    U8 --> E2 --> C8
+    U9 --> E6 --> C9
+    U10 --> E1 --> C10
+
+    style Layer1 fill:#fff3e0
+    style Layer2 fill:#e3f2fd
+    style Layer3 fill:#e8f5e9
+
+
+%% ═══════════════════════════════════════════
+%% 3. 데이터베이스 ERD
+%% ═══════════════════════════════════════════
+
+---
+title: 워크플로우 ERD
+---
+erDiagram
+    Tenant ||--o{ Workflow : owns
+    Workflow ||--o{ WorkflowNodeDef : contains
+    Workflow ||--o{ WorkflowEdge : connects
+    Workflow ||--o{ WorkflowVersion : versions
+    Workflow ||--o{ WorkflowDraft : drafts
+    Workflow ||--o{ WorkflowExecution : executions
+    WorkflowExecution ||--|| ExecutionSession : bridges
+    Workflow }o--|| BuilderRequest : originates
+
+    Workflow {
+        string id PK
+        string tenantId FK
+        string key UK
+        string name
+        string status
+        int version
+        string activeVersionId
+        json parameterSchema
+        json triggerConfig
+    }
+
+    WorkflowNodeDef {
+        string id PK
+        string workflowId FK
+        string nodeKey UK
+        string name
+        string uiType
+        string executionType
+        string capability
+        string actionType
+        json configJson
+        json inputMapping
+        json parameterBindings
+        string connectorKey
+        int executionOrder
+        string[] dependsOn
+    }
+
+    WorkflowEdge {
+        string id PK
+        string workflowId FK
+        string fromNodeKey
+        string toNodeKey
+        string edgeType
+        string condition
+    }
+
+    WorkflowVersion {
+        string id PK
+        string workflowId FK
+        int versionNumber UK
+        json nodesSnapshot
+        json edgesSnapshot
+        string changeMessage
+        int readinessScore
+    }
+
+    WorkflowDraft {
+        string id PK
+        string workflowId FK
+        string editorUserId
+        json nodesJson
+        int baseVersion
+        datetime expiresAt
+    }
+
+    WorkflowExecution {
+        string id PK
+        string workflowId FK
+        string executionSessionId UK
+        json inputParameters
+        string triggeredBy
+    }
+
+
+%% ═══════════════════════════════════════════
+%% 4. OCC 시퀀스 다이어그램
+%% ═══════════════════════════════════════════
+
+---
+title: OCC (Optimistic Concurrency Control) 시퀀스
+---
+sequenceDiagram
+    participant A as User A
+    participant B as User B
+    participant S as Server
+    participant DB as Database
+
+    A->>S: GET /workflows/abc
+    S->>DB: SELECT ... WHERE id='abc'
+    DB-->>S: { version: 5, nodes: [...] }
+    S-->>A: { version: 5, nodes: [...] }
+
+    B->>S: GET /workflows/abc
+    S-->>B: { version: 5, nodes: [...] }
+
+    Note over A: User A가 노드 수정
+
+    A->>S: PUT /workflows/abc/nodes<br/>{ version: 5, nodes: [...] }
+    S->>DB: BEGIN TRANSACTION
+    S->>DB: SELECT version FROM Workflow WHERE id='abc' FOR UPDATE
+    DB-->>S: version = 5
+    Note over S: version === 5 ✓ 일치
+    S->>DB: UPDATE SET version=6, nodes=[...]
+    S->>DB: INSERT WorkflowVersion(v=6)
+    S->>DB: COMMIT
+    S-->>A: 200 OK { version: 6 }
+
+    Note over B: User B가 노드 수정
+
+    B->>S: PUT /workflows/abc/nodes<br/>{ version: 5, nodes: [...] }
+    S->>DB: SELECT version FROM Workflow WHERE id='abc' FOR UPDATE
+    DB-->>S: version = 6
+    Note over S: version !== 5 ✗ 충돌!
+    S-->>B: 409 Conflict<br/>{ currentVersion: 6,<br/>lastChangedBy: "User A" }
+
+    Note over B: 충돌 해결 다이얼로그 표시
+
+
+%% ═══════════════════════════════════════════
+%% 5. 파라미터 바인딩 흐름
+%% ═══════════════════════════════════════════
+
+---
+title: 파라미터 바인딩 해석 흐름 (실행 시)
+---
+flowchart TB
+    subgraph Input["실행 입력"]
+        I1["inputParameters:<br/>{ searchKeywords: 'CVE-2025',<br/>  llmModel: 'claude-haiku-4.5',<br/>  recipientEmail: 'admin@co.kr' }"]
+    end
+
+    subgraph Node1["노드 1: CVE 검색"]
+        N1C["configJson:<br/>{ searchEngine: 'Google',<br/>  maxResults: 20,<br/>  keywords: 'CVE-2024' }"]
+        N1B["parameterBindings:<br/>{ keywords: '{{param.searchKeywords}}' }"]
+        N1R["해석 결과:<br/>keywords = 'CVE-2025'<br/>(inputParameters에서 주입)"]
+    end
+
+    subgraph Node2["노드 2: AI 분석"]
+        N2C["configJson:<br/>{ model: 'claude-sonnet-4.6',<br/>  promptTemplate: '...' }"]
+        N2B["parameterBindings:<br/>{ model: '{{param.llmModel}}' }"]
+        N2M["inputMapping:<br/>{ context: '$.cve-search.output.search_results' }"]
+        N2R["해석 결과:<br/>model = 'claude-haiku-4.5'<br/>context = [이전 검색 결과]"]
+    end
+
+    subgraph Node3["노드 3: 메일 발송"]
+        N3C["configJson:<br/>{ subject: '[Metis] CVE 보고서',<br/>  recipientEmail: '' }"]
+        N3B["parameterBindings:<br/>{ recipientEmail: '{{param.recipientEmail}}' }"]
+        N3M["inputMapping:<br/>{ body: '$.ai-analysis.output.summary' }"]
+        N3R["해석 결과:<br/>recipientEmail = 'admin@co.kr'<br/>body = [AI 분석 요약]"]
+    end
+
+    I1 --> N1B --> N1R
+    I1 --> N2B --> N2R
+    I1 --> N3B --> N3R
+    N1C --> N1R
+    N2C --> N2R
+    N2M --> N2R
+    N3C --> N3R
+    N3M --> N3R
+
+    style Input fill:#fff3e0
+    style Node1 fill:#e3f2fd
+    style Node2 fill:#e8f5e9
+    style Node3 fill:#fce4ec

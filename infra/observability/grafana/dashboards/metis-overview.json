@@ -1,0 +1,119 @@
+{
+  "uid": "metis-overview",
+  "title": "Metis.AI Platform Overview",
+  "tags": ["metis", "agentops"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "실행 (24h, 상태별)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [{ "expr": "metis_executions_24h", "legendFormat": "{{status}}", "refId": "A" }],
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center" }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "평균 실행 지연 (ms)",
+      "gridPos": { "h": 6, "w": 4, "x": 8, "y": 0 },
+      "targets": [{ "expr": "metis_execution_avg_latency_ms", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "품질 평균점수 (24h)",
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 0 },
+      "targets": [{ "expr": "metis_evaluation_avg_score_24h", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "green", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "미해결 보안/이상 알림",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "targets": [{ "expr": "metis_fds_open_alerts", "legendFormat": "{{severity}}", "refId": "A" }],
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "LLM 비용 추이 (USD, 24h 윈도)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "metis_finops_cost_usd_24h", "legendFormat": "지출", "refId": "A" },
+        { "expr": "metis_finops_saved_usd_24h", "legendFormat": "절약", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "품질 점수 추이",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "metis_evaluation_avg_score_24h", "legendFormat": "평균점수", "refId": "A" },
+        { "expr": "metis_evaluations_24h_total", "legendFormat": "평가 건수", "refId": "B" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "등록 에이전트",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 14 },
+      "targets": [{ "expr": "metis_agents_registered_total", "refId": "A" }]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "활성 지식",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 14 },
+      "targets": [{ "expr": "metis_knowledge_active_total", "refId": "A" }]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "토큰 사용량 (24h)",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 14 },
+      "targets": [{ "expr": "metis_finops_tokens_24h", "refId": "A" }]
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "평가 건수 (24h)",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 14 },
+      "targets": [{ "expr": "metis_evaluations_24h_total", "refId": "A" }]
+    }
+  ]
+}

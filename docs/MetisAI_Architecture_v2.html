@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>METIS.AI 아키텍처 문서</title>
+    <style>
+      :root {
+        --blue: #2563eb;
+        --ink: #0f172a;
+        --muted: #64748b;
+        --bg: #f8fafc;
+        --card: #fff;
+        --border: #e2e8f0;
+        --green: #16a34a;
+        --amber: #d97706;
+        --violet: #7c3aed;
+        --red: #dc2626;
+        --cyan: #0891b2;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        line-height: 1.65;
+      }
+      .wrap {
+        display: flex;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      nav.toc {
+        position: sticky;
+        top: 0;
+        align-self: flex-start;
+        width: 270px;
+        height: 100vh;
+        overflow-y: auto;
+        background: #0b1220;
+        color: #cbd5e1;
+        padding: 24px 16px;
+        flex-shrink: 0;
+      }
+      nav.toc .brand {
+        font-size: 20px;
+        font-weight: 800;
+        color: #fff;
+      }
+      nav.toc .brand span {
+        color: #60a5fa;
+      }
+      nav.toc .sub {
+        font-size: 11px;
+        color: #64748b;
+        margin-bottom: 18px;
+      }
+      nav.toc a {
+        display: block;
+        color: #94a3b8;
+        text-decoration: none;
+        font-size: 13px;
+        padding: 5px 8px;
+        border-radius: 6px;
+      }
+      nav.toc a:hover {
+        background: #1e293b;
+        color: #fff;
+      }
+      main {
+        flex: 1;
+        padding: 48px 56px;
+        max-width: 1060px;
+      }
+      h1 {
+        font-size: 34px;
+        margin: 0 0 6px;
+      }
+      h1 span {
+        color: var(--blue);
+      }
+      .lead {
+        color: var(--muted);
+        font-size: 16px;
+        margin-bottom: 30px;
+      }
+      section {
+        margin-bottom: 46px;
+        scroll-margin-top: 20px;
+      }
+      section > h2 {
+        font-size: 24px;
+        border-bottom: 3px solid var(--blue);
+        padding-bottom: 8px;
+      }
+      h3 {
+        font-size: 18px;
+        color: #1d4ed8;
+        margin-top: 26px;
+      }
+      p,
+      li {
+        font-size: 14.5px;
+      }
+      code {
+        background: #eef2ff;
+        color: #3730a3;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-family: Consolas, monospace;
+        font-size: 13px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 14px 0;
+        font-size: 13.5px;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 9px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #f1f5f9;
+      }
+      tr:nth-child(even) td {
+        background: #fafcff;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin: 16px 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      }
+      .note {
+        border-left: 4px solid var(--blue);
+        background: #eff6ff;
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        margin: 14px 0;
+        font-size: 13.5px;
+      }
+      .mono {
+        font-family: Consolas, monospace;
+        font-size: 12.5px;
+      }
+      /* diagram */
+      .diagram {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 22px;
+        margin: 18px 0;
+        overflow-x: auto;
+      }
+      .layer {
+        border: 2px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin: 10px 0;
+      }
+      .layer h4 {
+        margin: 0 0 10px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .box {
+        flex: 1;
+        min-width: 120px;
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 12.5px;
+        text-align: center;
+      }
+      .box.b {
+        border-color: #bfdbfe;
+        background: #eff6ff;
+      }
+      .box.g {
+        border-color: #bbf7d0;
+        background: #f0fdf4;
+      }
+      .box.v {
+        border-color: #ddd6fe;
+        background: #f5f3ff;
+      }
+      .box.a {
+        border-color: #fde68a;
+        background: #fffbeb;
+      }
+      .box.c {
+        border-color: #a5f3fc;
+        background: #ecfeff;
+      }
+      .box.r {
+        border-color: #fecaca;
+        background: #fef2f2;
+      }
+      .box b {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 2px;
+      }
+      .arrow {
+        text-align: center;
+        color: var(--muted);
+        font-size: 18px;
+        margin: 2px 0;
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        background: #dbeafe;
+        color: #1e40af;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 12px;
+        border-top: 1px solid var(--border);
+        padding-top: 16px;
+        margin-top: 40px;
+      }
+      @media (max-width: 980px) {
+        nav.toc {
+          display: none;
+        }
+        main {
+          padding: 28px 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav class="toc">
+        <div class="brand">METIS<span>.AI</span></div>
+        <div class="sub">아키텍처 문서 · v2</div>
+        <a href="#overview">1. 개요</a>
+        <a href="#stack">2. 기술 스택</a>
+        <a href="#topology">3. 시스템 구성도</a>
+        <a href="#monorepo">4. 모노레포 구조</a>
+        <a href="#api-modules">5. API 모듈 맵</a>
+        <a href="#data">6. 데이터 모델(ERD)</a>
+        <a href="#eval">7. 평가 엔진 (4-Gate)</a>
+        <a href="#feedback">8. 정책 피드백 루프</a>
+        <a href="#release">9. 릴리스 엔지니어링</a>
+        <a href="#async">10. 비동기 처리(Worker)</a>
+        <a href="#security">11. 보안 · 멀티테넌시</a>
+        <a href="#flows">12. 핵심 시퀀스</a>
+        <a href="#decisions">13. 설계 결정 · 트레이드오프</a>
+        <a href="#quality">14. 코드 품질 현황</a>
+      </nav>
+      <main>
+        <h1>METIS<span>.AI</span> 아키텍처 문서</h1>
+        <p class="lead">
+          멀티테넌트 AgentOps 거버넌스 SaaS — Turborepo 기반 NestJS + Next.js + BullMQ 아키텍처.
+        </p>
+
+        <section id="overview">
+          <h2>1. 개요</h2>
+          <p>
+            METIS.AI는 AI Agent의 실행을 평가(4-Gate)·통제(정책)·배포(릴리스)하는 거버넌스
+            플랫폼입니다. 단일 코드베이스(Turborepo)에 3개 런타임(web·api·worker)과 3개 공유
+            패키지(database·types·config/ui)로 구성됩니다.
+          </p>
+          <div class="card">
+            <b>아키텍처 원칙</b>
+            <ul>
+              <li>
+                <b>도메인 모듈화</b>: NestJS 모듈 단위로 거버넌스/평가/실행/릴리스 도메인 분리
+              </li>
+              <li>
+                <b>정책 구동(config-driven)</b>: 평가 Gate 기준을 코드가 아닌 DB 정책으로 통제
+              </li>
+              <li><b>테넌트 격리</b>: 모든 데이터 접근을 tenantId로 스코핑</li>
+              <li><b>비동기 분리</b>: 무거운 작업(import·실행·replay·canary)은 BullMQ 큐로</li>
+              <li><b>안전한 fail</b>: 평가/감사 실패가 핵심 흐름을 막지 않도록 격리(try/catch)</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="stack">
+          <h2>2. 기술 스택</h2>
+          <table>
+            <tr>
+              <th>레이어</th>
+              <th>기술</th>
+            </tr>
+            <tr>
+              <td>Frontend</td>
+              <td>
+                Next.js 15(App Router) · React 19 · TypeScript · Tailwind CSS · TanStack Query ·
+                Zustand
+              </td>
+            </tr>
+            <tr>
+              <td>Backend API</td>
+              <td>NestJS 10 · TypeScript · class-validator · Swagger(OpenAPI)</td>
+            </tr>
+            <tr>
+              <td>ORM/DB</td>
+              <td>Prisma · PostgreSQL (JSONB manifest·감사로그)</td>
+            </tr>
+            <tr>
+              <td>비동기/큐</td>
+              <td>BullMQ · Redis (ioredis)</td>
+            </tr>
+            <tr>
+              <td>인증</td>
+              <td>JWT (HttpOnly 쿠키 + Bearer) · RBAC 6역할 · CSRF(double-submit)</td>
+            </tr>
+            <tr>
+              <td>LLM 평가</td>
+              <td>Anthropic Claude / OpenAI (LLM-as-Judge, 폴백 체인)</td>
+            </tr>
+            <tr>
+              <td>인프라</td>
+              <td>Docker Compose (PostgreSQL · Redis) · pnpm workspace · Turborepo</td>
+            </tr>
+          </table>
+        </section>
+
+        <section id="topology">
+          <h2>3. 시스템 구성도</h2>
+          <div class="diagram">
+            <div class="layer">
+              <h4>클라이언트</h4>
+              <div class="row">
+                <div class="box b"><b>Browser</b>Next.js SPA<br />localhost:3000</div>
+              </div>
+            </div>
+            <div class="arrow">▼ &nbsp; /api/* → /v1/* (Next rewrite proxy)</div>
+            <div class="layer">
+              <h4>애플리케이션</h4>
+              <div class="row">
+                <div class="box g"><b>API (NestJS)</b>:4000/v1<br />36 컨트롤러 · RBAC · 정책</div>
+                <div class="box v"><b>Worker</b>BullMQ consumer<br />6 큐</div>
+              </div>
+            </div>
+            <div class="arrow">▼</div>
+            <div class="layer">
+              <h4>데이터 · 인프라</h4>
+              <div class="row">
+                <div class="box c"><b>PostgreSQL</b>Prisma · 멀티테넌트</div>
+                <div class="box r"><b>Redis</b>BullMQ 큐 · 캐시</div>
+                <div class="box a"><b>LLM API</b>Anthropic / OpenAI</div>
+              </div>
+            </div>
+          </div>
+          <div class="note">
+            웹은 동일 출처 유지를 위해 <code>/api/:path*</code>를
+            <code>http://localhost:4000/v1/:path*</code>로 rewrite합니다(CORS 회피). Bearer JWT
+            요청은 CSRF 검증이 면제됩니다.
+          </div>
+        </section>
+
+        <section id="monorepo">
+          <h2>4. 모노레포 구조</h2>
+          <pre class="mono">
+metis-ai/
+  apps/
+    web/      Next.js 15 (App Router, route group (authenticated))
+    api/      NestJS 10 (modules/*)
+    worker/   BullMQ consumers (processors/*)
+  packages/
+    database/ Prisma client + schema + withTenantIsolation
+    types/    공유 DTO/contracts
+    config/   tsconfig/eslint
+    ui/       공유 UI(설계)
+  prisma/     schema.prisma · migrations · seed
+  infra/      docker compose · observability
+  scripts/    통합 테스트 스크립트(.mjs)
+  docs/       아키텍처 · 매뉴얼</pre
+          >
+        </section>
+
+        <section id="api-modules">
+          <h2>5. API 모듈 맵 (36 컨트롤러)</h2>
+          <table>
+            <tr>
+              <th>도메인</th>
+              <th>모듈 · 라우트</th>
+            </tr>
+            <tr>
+              <td>인증/테넌시</td>
+              <td><code>auth</code> · <code>tenants</code></td>
+            </tr>
+            <tr>
+              <td>거버넌스</td>
+              <td>
+                <code>governance</code>(audit·policies) ·
+                <code>governance/evaluation-policy</code> ·
+                <code>governance/policy-suggestions</code> · <code>orb</code>
+              </td>
+            </tr>
+            <tr>
+              <td>평가</td>
+              <td>
+                <code>evaluator</code>(recent·trend·streaming·demo·conversation) +
+                feedback(정책제안·적응형샘플링)
+              </td>
+            </tr>
+            <tr>
+              <td>실행/오케스트레이션</td>
+              <td>
+                <code>executions</code> · <code>workflows</code> · <code>api/workflow-nodes</code> ·
+                <code>connectors</code> · <code>capabilities</code>
+              </td>
+            </tr>
+            <tr>
+              <td>팩 레지스트리</td>
+              <td>
+                <code>packs</code> · <code>admin/packs</code> · <code>installations</code> ·
+                <code>certifications</code> · <code>jobs</code>
+              </td>
+            </tr>
+            <tr>
+              <td>릴리스</td>
+              <td>
+                <code>release/replay</code> · <code>release/shadow</code> ·
+                <code>release/canary</code> · <code>release/promotions</code>
+              </td>
+            </tr>
+            <tr>
+              <td>비즈니스 Agent</td>
+              <td>
+                <code>ap/invoices</code>(매입채무) · <code>fds</code>(이상거래) ·
+                <code>auto-actions</code>(자가치유) · <code>missions</code>(A2A)
+              </td>
+            </tr>
+            <tr>
+              <td>FinOps/지식</td>
+              <td><code>finops</code> · <code>knowledge</code> · <code>builder</code></td>
+            </tr>
+            <tr>
+              <td>플랫폼</td>
+              <td>
+                <code>health</code> · <code>events</code> · <code>email</code> ·
+                <code>api/notifications</code>
+              </td>
+            </tr>
+          </table>
+          <div class="note">
+            <code>EvaluatorModule</code>은 AppModule에 직접 등록되지 않지만
+            CapabilityRegistry/WorkflowNodes/Release 모듈을 통해 transitively 로드되어 라우트가
+            활성화됩니다.
+          </div>
+        </section>
+
+        <section id="data">
+          <h2>6. 데이터 모델 (핵심 엔티티)</h2>
+          <table>
+            <tr>
+              <th>엔티티</th>
+              <th>역할</th>
+            </tr>
+            <tr>
+              <td><code>Tenant</code> / <code>User</code> / <code>Membership</code></td>
+              <td>멀티테넌시 + RBAC</td>
+            </tr>
+            <tr>
+              <td><code>Policy</code> / <code>PolicyEvaluation</code></td>
+              <td>실행 차단/경고 정책 + 평가 기록</td>
+            </tr>
+            <tr>
+              <td><code>EvaluationPolicy</code> <span class="badge">P1</span></td>
+              <td>4-Gate 가중치·임계값(설정 구동)</td>
+            </tr>
+            <tr>
+              <td><code>PolicySuggestion</code> <span class="badge">P2</span></td>
+              <td>이력 분석 기반 정책 조정 제안(PENDING→APPLIED)</td>
+            </tr>
+            <tr>
+              <td><code>AgentEvaluation</code></td>
+              <td>스텝별 4-Gate 평가 결과</td>
+            </tr>
+            <tr>
+              <td>
+                <code>ExecutionSession</code> / <code>ExecutionStep</code> /
+                <code>ExecutionTrace</code>
+              </td>
+              <td>실행 세션·스텝·추적</td>
+            </tr>
+            <tr>
+              <td>
+                <code>Pack</code> / <code>PackVersion</code> / <code>PackInstallation</code> /
+                <code>Certification</code>
+              </td>
+              <td>팩 레지스트리·인증·설치</td>
+            </tr>
+            <tr>
+              <td>
+                <code>ReplayDataset/Run/Case</code> · <code>ShadowConfig/Pair</code> ·
+                <code>CanaryDeployment/Gate</code> · <code>VersionPromotion</code>
+              </td>
+              <td>릴리스 엔지니어링</td>
+            </tr>
+            <tr>
+              <td>
+                <code>Mission</code> / <code>AgentMessage</code> / <code>AgentHandoff</code> /
+                <code>AutoAction</code>
+              </td>
+              <td>A2A 협업·자가치유</td>
+            </tr>
+            <tr>
+              <td><code>FDSRule/Alert</code> · <code>APInvoice</code></td>
+              <td>이상거래 탐지·매입채무</td>
+            </tr>
+            <tr>
+              <td>
+                <code>AgentDefinition</code> / <code>OrbReview</code> /
+                <code>CapabilityBinding</code> / <code>AdapterRegistration</code>
+              </td>
+              <td>Agent 정의·심사·역량 레지스트리</td>
+            </tr>
+            <tr>
+              <td><code>Workflow/Version/NodeDef/EdgeDef</code></td>
+              <td>서버 영속 워크플로우(OCC 버전)</td>
+            </tr>
+            <tr>
+              <td><code>FinOps*</code> · <code>KnowledgeArtifact</code> · <code>AuditLog</code></td>
+              <td>비용 최적화·지식·감사</td>
+            </tr>
+          </table>
+        </section>
+
+        <section id="eval">
+          <h2>7. 평가 엔진 (4-Gate) <span class="badge">핵심</span></h2>
+          <p>
+            모든 Agent 응답은 <code>EvaluatorService.evaluate()</code>를 통과합니다. 4개 Gate를 독립
+            채점한 뒤 정책 가중치로 종합 점수(0–100)를 산출합니다.
+          </p>
+          <div class="diagram">
+            <div class="row">
+              <div class="box b"><b>품질 Gate</b>정확도·환각·응답품질<br />+ LLM Judge</div>
+              <div class="box r"><b>보안 Gate</b>입력위협·출력유출·툴체인</div>
+              <div class="box a"><b>이상탐지 Gate</b>Z-Score·IQR·추세</div>
+              <div class="box g"><b>비용 Gate</b>효율·지연·토큰</div>
+            </div>
+            <div class="arrow">▼ 정책 가중치 적용 (기본 40/30/15/15, 자동 정규화)</div>
+            <div class="row">
+              <div class="box v">
+                <b>종합 점수 + 하드게이트</b>품질 F → ≤40 · 보안 critical → ≤cap · 등급 A~F
+              </div>
+            </div>
+          </div>
+          <h3>설계 포인트</h3>
+          <ul>
+            <li>
+              <b>정책 구동</b>: 가중치/임계값을 <code>EvaluationPolicyService</code>가 DB에서
+              로드(5분 캐시). 미설정 시 기본값=기존 동작.
+            </li>
+            <li>
+              <b>하드게이트</b>: 가중평균을 상한으로 덮어쓰는 캡 — 사실오류·보안유출은 다른 점수와
+              무관하게 F 보장.
+            </li>
+            <li>
+              <b>LLM Judge</b>: factual_accuracy 50% 가중 + 보정 앵커 프롬프트 + temperature
+              0(일관성) + 예산캡 + Anthropic→OpenAI→Layer0 폴백.
+            </li>
+            <li><b>적응형 샘플링</b>: 건강할 때 Judge 호출 빈도를 floor(10%)까지 자동 절감.</li>
+          </ul>
+        </section>
+
+        <section id="feedback">
+          <h2>8. 정책 피드백 루프 <span class="badge">Phase 2</span></h2>
+          <div class="diagram">
+            <div class="row">
+              <div class="box c"><b>AgentEvaluation</b>최근 30일 이력</div>
+            </div>
+            <div class="arrow">▼ pattern-analysis (순수 로직)</div>
+            <div class="row">
+              <div class="box a"><b>패턴 탐지</b>보안반복실패·품질하락·비용초과·이상급증</div>
+            </div>
+            <div class="arrow">▼ PolicySuggestion(PENDING) 생성 · 중복 제거</div>
+            <div class="row">
+              <div class="box b"><b>관리자 검토</b>승인 → 정책 반영(APPLIED) / 거부</div>
+            </div>
+          </div>
+          <div class="note">
+            자동 정책 변경 금지 — <b>제안 → 휴먼 승인 → 반영</b> 게이트를 강제하고 결정에
+            <code>decidedByUserId</code>+timestamp 감사 기록을 남깁니다.
+          </div>
+        </section>
+
+        <section id="release">
+          <h2>9. 릴리스 엔지니어링</h2>
+          <table>
+            <tr>
+              <th>단계</th>
+              <th>메커니즘</th>
+              <th>안전장치</th>
+            </tr>
+            <tr>
+              <td>Replay</td>
+              <td>과거 입출력을 후보 버전에 재생</td>
+              <td>회귀/개선 verdict</td>
+            </tr>
+            <tr>
+              <td>Shadow</td>
+              <td>운영 트래픽 그림자 실행(부작용 없음)</td>
+              <td>control vs candidate diff</td>
+            </tr>
+            <tr>
+              <td>Canary</td>
+              <td>트래픽 점진 라우팅(5%→100%)</td>
+              <td>Gate 평가 + 자동 롤백</td>
+            </tr>
+            <tr>
+              <td>Promotion</td>
+              <td>버전 승격/롤백</td>
+              <td>이력·근거 기록</td>
+            </tr>
+          </table>
+          <p>
+            이 작업들은 Worker의 <code>replay</code>·<code>shadow</code>·<code>canary</code> 큐에서
+            비동기 처리됩니다.
+          </p>
+        </section>
+
+        <section id="async">
+          <h2>10. 비동기 처리 (Worker)</h2>
+          <p>
+            API가 BullMQ 큐에 작업을 넣고 Worker가 소비합니다. 큐: <code>pack-import</code> ·
+            <code>execution</code> · <code>replay</code> · <code>shadow</code> ·
+            <code>canary</code> · <code>auto-actions</code>.
+          </p>
+          <ul>
+            <li>각 작업은 correlationId로 추적되고 완료/실패 시 <code>AuditLog</code> 기록</li>
+            <li>graceful shutdown(SIGINT/SIGTERM) + unhandledRejection/uncaughtException 핸들러</li>
+            <li>동시성: <code>WORKER_CONCURRENCY</code>(기본 5), canary는 2로 제한</li>
+          </ul>
+        </section>
+
+        <section id="security">
+          <h2>11. 보안 · 멀티테넌시</h2>
+          <ul>
+            <li><b>인증</b>: <code>/auth/login</code> → JWT. HttpOnly 쿠키 + 응답 body Bearer.</li>
+            <li><b>RBAC</b>: <code>@Roles()</code> 데코레이터 + RolesGuard, 6역할.</li>
+            <li>
+              <b>CSRF</b>: double-submit 쿠키. <b>Bearer JWT 요청은 면제</b>(헤더 인증은 CSRF 벡터
+              아님).
+            </li>
+            <li>
+              <b>테넌트 격리</b>: <code>withTenantIsolation(prisma, ctx)</code>로 모든 쿼리를
+              tenantId 스코핑. tenant 미존재 시 첫 테넌트로 폴백(resolveTenantId).
+            </li>
+            <li>
+              <b>입력 검증</b>: 전역 ValidationPipe(<code>whitelist + forbidNonWhitelisted</code>) —
+              DTO 밖 필드는 400.
+            </li>
+            <li><b>보안 헤더</b>: helmet. <b>비밀/PII</b>는 보안 Gate가 출력에서 탐지.</li>
+          </ul>
+        </section>
+
+        <section id="flows">
+          <h2>12. 핵심 시퀀스</h2>
+          <h3>A. Agent 실행 → 평가</h3>
+          <pre class="mono">
+Client → API /executions
+  → 정책 평가(PolicyService): FAIL이면 차단
+  → ExecutionSession(QUEUED) 생성 → BullMQ execution 큐
+Worker → runExecution → 스텝 실행 → ExecutionStep 기록
+  → EvaluatorService.evaluate(): 4-Gate + LLM Judge(적응형 샘플링)
+  → AgentEvaluation 저장 + AuditLog</pre
+          >
+          <h3>B. 평가 Gate 설정 변경</h3>
+          <pre class="mono">
+Admin → PUT /governance/evaluation-policy (id 제외 페이로드)
+  → EvaluationPolicyService.updatePolicy → DB upsert → 캐시 무효화
+  → 다음 evaluate() 호출부터 새 가중치 적용(≤5분)</pre
+          >
+          <h3>C. 정책 피드백</h3>
+          <pre class="mono">
+Admin → POST /governance/policy-suggestions/analyze
+  → 30일 AgentEvaluation 로드 → analyzeEvaluations(순수) → PolicySuggestion(PENDING)
+Admin → POST .../:id/approve → proposedChanges를 EvaluationPolicy에 적용(APPLIED)</pre
+          >
+        </section>
+
+        <section id="decisions">
+          <h2>13. 설계 결정 · 트레이드오프</h2>
+          <table>
+            <tr>
+              <th>결정</th>
+              <th>이유 / 트레이드오프</th>
+            </tr>
+            <tr>
+              <td>순수 로직 분리(pattern-analysis, adaptive-sampling, computeOverallScore)</td>
+              <td>NestJS/Prisma 없이 단위 테스트 가능. I/O와 분리되어 회귀 검증 용이.</td>
+            </tr>
+            <tr>
+              <td>정책 미설정 시 기본값 = 기존 동작</td>
+              <td>하위호환 보장. 단, 정책 도입 전후 점수가 동일해야 함(테스트로 검증).</td>
+            </tr>
+            <tr>
+              <td>적응형 샘플링 인메모리 상태</td>
+              <td>
+                단순·빠름. 트레이드오프: 서버 재시작 시 100%로 초기화(영속 필요 시 Redis 백업).
+              </td>
+            </tr>
+            <tr>
+              <td>평가/감사 실패를 try/catch로 격리</td>
+              <td>
+                핵심 실행이 막히지 않음. 트레이드오프: silent-fail 위험 → 잘못된 필드 누락이 늦게
+                발견될 수 있음(코드 감사로 보완).
+              </td>
+            </tr>
+            <tr>
+              <td><code>(prisma as any)</code> 캐스트</td>
+              <td>생성 타입 지연 대응. 트레이드오프: 컴파일 타임 타입 안전성 일부 포기.</td>
+            </tr>
+            <tr>
+              <td>db push(개발) vs migrate(운영)</td>
+              <td>개발 편의. 운영 배포 시 정식 마이그레이션 이력 권장.</td>
+            </tr>
+          </table>
+        </section>
+
+        <section id="quality">
+          <h2>14. 코드 품질 현황 (2026-05 감사 기준)</h2>
+          <ul>
+            <li><b>규모</b>: 약 79,000 LOC (api 187 · web 91 · worker 12 파일)</li>
+            <li>
+              <b>Prisma 쓰기 154개 호출부</b> 스키마 대조 — 발견된 불일치 전부 수정
+              완료(agent-simulator ExecutionStep, finops-prediction ExecutionTrace ×2).
+            </li>
+            <li>
+              <b>프론트 크래시 위험</b>(registry·patterns·missions·market·evaluator·finops) — 전부
+              방어 처리 완료.
+            </li>
+            <li>
+              <b>단위 테스트</b>: 평가 정책/피드백/Golden Dataset 로직 77건 통과(scripts/*.mjs는
+              통합 스모크).
+            </li>
+            <li>
+              <b>잔여 권고(에러 아님)</b>: <code>lib/api-hooks.ts</code>(미사용 1018줄), 미사용 공유
+              컴포넌트 7개 — 정리 권고.
+            </li>
+          </ul>
+          <div class="note">상세 감사 내역은 별도 리포트(CODE_AUDIT_REPORT.md) 참조.</div>
+          <footer>METIS.AI 아키텍처 문서 v2 · 생성일 2026-05-30</footer>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

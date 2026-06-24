@@ -1,0 +1,364 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>METIS.AI 사용자 매뉴얼 v4 (상세 활용 가이드)</title>
+<style>
+:root{--ink:#1e293b;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--navy:#0f1b2d;--bg:#f8fafc;--green:#16a34a;--amber:#b45309;--red:#dc2626}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;font-size:14px;line-height:1.7}
+.layout{display:flex;max-width:1240px;margin:0 auto}
+nav.toc{width:266px;flex-shrink:0;position:sticky;top:0;align-self:flex-start;height:100vh;overflow:auto;background:var(--navy);color:#cbd5e1;padding:18px 14px}
+nav.toc h2{color:#fff;font-size:14px;margin:0 0 2px}nav.toc .ver{font-size:10px;color:#7dd3fc;margin-bottom:12px}
+nav.toc a{display:block;color:#cbd5e1;text-decoration:none;font-size:12px;padding:3px 8px;border-radius:5px}
+nav.toc a:hover{background:rgba(255,255,255,.08);color:#fff}nav.toc a.sub{padding-left:18px;font-size:11px;color:#94a3b8}
+nav.toc .grp{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin:10px 0 1px 8px}
+main{flex:1;padding:28px 38px;background:#fff;min-width:0}
+h1{font-size:25px;margin:0 0 4px}.subtitle{color:var(--muted);margin:0 0 22px}
+h2.sec{font-size:19px;margin:36px 0 8px;padding-bottom:6px;border-bottom:2px solid var(--accent);scroll-margin-top:8px}
+h3{font-size:15px;margin:20px 0 4px;color:var(--navy);scroll-margin-top:8px}
+h4{font-size:13px;margin:14px 0 4px;color:#334155}
+p{margin:5px 0}ul,ol{margin:5px 0;padding-left:22px}li{margin:3px 0}
+ol.steps{counter-reset:s;list-style:none;padding-left:0}
+ol.steps>li{counter-increment:s;position:relative;padding:4px 0 4px 34px;margin:4px 0}
+ol.steps>li::before{content:counter(s);position:absolute;left:0;top:3px;width:22px;height:22px;background:var(--accent);color:#fff;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+code{background:#f1f5f9;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
+pre{background:#0f1b2d;color:#e2e8f0;border-radius:8px;padding:12px 14px;overflow:auto;font-size:12px;line-height:1.55}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}th,td{text-align:left;padding:7px 9px;border:1px solid var(--line);vertical-align:top}th{background:#f1f5f9;font-weight:700}
+.tag{display:inline-block;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px}.new{background:#dcfce7;color:#166534}.path{background:#e0e7ff;color:#3730a3}
+.note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:9px 12px;font-size:12.5px;margin:9px 0}
+.warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:9px 12px;font-size:12.5px;margin:9px 0}
+.tip{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:9px 12px;font-size:12.5px;margin:9px 0}
+.crumb{font-size:11px;color:var(--muted);background:#f8fafc;border-left:3px solid var(--accent);padding:3px 8px;margin:4px 0 8px}
+.sc{background:#fafafa;border:1px solid var(--line);border-left:3px solid var(--green);border-radius:6px;padding:8px 12px;margin:8px 0;font-size:12.5px}
+.sc b{color:var(--green)}
+@media print{nav.toc{display:none}main{padding:0}}
+</style></head><body><div class="layout">
+<nav class="toc">
+<h2>METIS.AI 매뉴얼</h2><div class="ver">v4 · 상세 활용 가이드 · 2026-06</div>
+<a href="#intro">1. 개요 · 핵심 개념</a>
+<a href="#start">2. 설치 · 로그인 · 권한</a>
+<div class="grp">대시보드 활용</div>
+<a href="#home">3. 홈 대시보드 사용법</a>
+<a href="#h-quick" class="sub">3.1 기간·빠른실행</a>
+<a href="#h-kpi" class="sub">3.2 요약 카드</a>
+<a href="#h-eff" class="sub">3.3 효과성 요약</a>
+<a href="#h-util" class="sub">3.4 활용 랭킹</a>
+<a href="#h-chart" class="sub">3.5 성과·품질 추이</a>
+<a href="#h-apm" class="sub">3.6 APM X-View</a>
+<a href="#h-agents" class="sub">3.7 Agent 현황·런처</a>
+<div class="grp">기능 메뉴 활용</div>
+<a href="#agent">4. Agent 운영·관리</a>
+<a href="#a-baseline" class="sub">4.3 기준/시스템 편집</a>
+<a href="#gov">5. 거버넌스</a>
+<a href="#orb" class="sub">5.5 ORB 심사</a>
+<a href="#eff">6. 성과/효과성 분석</a>
+<a href="#know">7. 지식관리</a>
+<a href="#orch">8. 오케스트레이션</a>
+<a href="#insight">9. 인사이트·FinOps</a>
+<div class="grp">연동 · 실전</div>
+<a href="#ingest">10. 외부 Agent 연동(SDK)</a>
+<a href="#signal">11. 효과성 원천 수집</a>
+<a href="#e2e">12. 실전 End-to-End</a>
+<a href="#faq">13. 문제해결 · 변경이력</a>
+</nav>
+<main>
+<h1>METIS.AI 사용자 매뉴얼</h1>
+<p class="subtitle">상세 활용 가이드 v4 — "무엇"이 아니라 "어떻게 쓰는가"를 단계별로 (2026-06 현행)</p>
+
+<h2 class="sec" id="intro">1. 개요 · 핵심 개념</h2>
+<p>METIS.AI는 AI 에이전트를 <b>통제(거버넌스)</b>하고 <b>성과(공수 절감·ROI)</b>를 증명하는 플랫폼입니다. 먼저 4개 핵심 개념을 이해하면 모든 화면이 쉬워집니다.</p>
+<table>
+<tr><th>개념</th><th>의미</th><th>현실 비유</th></tr>
+<tr><td><b>Main Agent (워크플로우)</b></td><td>하나의 업무를 수행하는 에이전트. 예: "SR 영향도 분석 Agent"</td><td>담당 직원 1명</td></tr>
+<tr><td><b>Sub Agent (노드)</b></td><td>워크플로우를 구성하는 단계. 예: 요구분석→영향산출</td><td>그 직원이 하는 세부 작업들</td></tr>
+<tr><td><b>4게이트 평가</b></td><td>실행마다 자동 채점: ①정확도 ②환각 ③보안 ④정책</td><td>품질검사 검문소</td></tr>
+<tr><td><b>효과성(성과)</b></td><td>수작업 대비 절감 공수·ROI·MTTD/MTTR</td><td>"이 직원이 月 몇 MM을 아꼈나"</td></tr>
+</table>
+<div class="note">💡 모든 에이전트는 화면에서 <b>코드 · 이름</b>으로 표시됩니다(예: <code>DEV-003 · Dev Agent</code>). 코드는 분류용 식별자입니다.</div>
+
+<h2 class="sec" id="start">2. 설치 · 로그인 · 권한</h2>
+<h3>2.1 서버 실행 (관리자/개발자)</h3>
+<ol class="steps">
+<li>Docker Desktop을 먼저 실행합니다(PostgreSQL·Redis 컨테이너에 필요).</li>
+<li>프로젝트 폴더의 <code>start-metis.bat</code>를 더블클릭합니다. (자동으로 ①사전점검 ②환경변수 ③Docker ④의존성 ⑤DB push/seed ⑥빌드 ⑦서버 3개 기동)</li>
+<li>브라우저에서 <code>http://localhost:3000</code> 접속 → 로그인 화면.</li>
+</ol>
+<div class="warn">⚠ <b>EPERM(파일 잠금) 오류</b>가 나면: 떠 있는 Metis 창을 모두 닫고 → 새 명령창에서 <code>taskkill /F /IM node.exe</code> → bat 재실행. 폴더가 OneDrive 동기화 폴더면 동기화를 일시중지하거나 저장소를 <code>C:\dev\</code> 같은 비동기 경로로 옮기세요.</div>
+
+<h3>2.2 로그인 & 첫 화면</h3>
+<ol class="steps">
+<li>이메일·비밀번호 입력 후 로그인 → 자동으로 <b>홈 대시보드(/home)</b>로 이동합니다.</li>
+<li>세션은 자동 갱신됩니다. 15분 이상 작업해도 로그아웃되지 않으며, 리프레시 실패 시에만 로그인 화면으로 돌아갑니다.</li>
+</ol>
+<h3>2.3 권한(역할)별 할 수 있는 일</h3>
+<table><tr><th>역할</th><th>할 수 있는 일</th></tr>
+<tr><td>PLATFORM_ADMIN</td><td>플랫폼 전체·테넌트 관리</td></tr>
+<tr><td>TENANT_ADMIN</td><td>정책 등록, Agent 기준/시스템 편집, 수집 키 발급, 사용자 관리</td></tr>
+<tr><td>OPERATOR</td><td>알람 조치(완료·에스컬레이션·차단), 에이전트 실행</td></tr>
+<tr><td>DEVELOPER</td><td>워크플로우/에이전트 설계·실행</td></tr>
+<tr><td>AUDITOR</td><td>거버넌스·감사 조회(읽기)</td></tr>
+<tr><td>VIEWER</td><td>읽기 전용</td></tr></table>
+
+<h2 class="sec" id="home">3. 홈 대시보드 사용법</h2>
+<p class="crumb">메뉴: 좌측 "대시보드" 또는 상단바 "대시보드" → /home</p>
+<p>홈은 운영 현황을 한 화면에 보여줍니다. 위에서 아래로 ①요약 ②효과성 ③활용 ④추이 ⑤APM ⑥Agent 현황 ⑦런처 순입니다.</p>
+
+<h3 id="h-quick">3.1 기간 선택 · 빠른실행</h3>
+<ol class="steps">
+<li>우측 상단 <b>7/30/90/180일</b> 버튼으로 집계 기간을 바꿉니다 → 모든 수치가 즉시 재계산됩니다.</li>
+<li>그 왼쪽 <b>빠른실행 버튼</b>(최근 1개·인기 2개)을 누르면 자주 쓰는 에이전트를 바로 실행할 수 있습니다.</li>
+<li>⟳(새로고침)으로 최신 데이터를 다시 불러옵니다.</li>
+</ol>
+
+<h3 id="h-kpi">3.2 요약 카드 6종 — 클릭하면 무엇이 나오나</h3>
+<table><tr><th>카드</th><th>의미</th><th>클릭 시</th></tr>
+<tr><td>Agent 총 수행</td><td>기간 내 총 실행 건수</td><td>전체 실행 이력 팝업</td></tr>
+<tr><td>수행 성공률</td><td>성공 비율</td><td>성공 이력 팝업</td></tr>
+<tr><td>평균 속도</td><td>평균 응답 지연(ms)</td><td>실행 이력</td></tr>
+<tr><td>토큰 비용</td><td>기간 토큰 비용($)</td><td>비용 이력</td></tr>
+<tr><td>이상 감지</td><td>이상 탐지 건수(빨강 강조)</td><td>실패/이상 이력</td></tr>
+<tr><td>활용 시스템 <span class="tag new">신규</span></td><td>활용 중 시스템 수</td><td><b>시스템별 사용 Agent 팝업</b> — 어느 시스템에서 어떤 에이전트가 몇 회 쓰였는지</td></tr></table>
+<div class="sc"><b>활용 예:</b> "활용 시스템 6개"를 누르면 "SR/ITSM 시스템: OPS-004·EXT-002·EXT-003 (총 1,850회)"처럼 시스템 단위로 어떤 에이전트가 얼마나 쓰이는지 즉시 파악 → 시스템별 AI 도입 현황 보고에 활용.</div>
+
+<h3 id="h-eff">3.3 효과성 요약 — 공수·ROI 읽는 법</h3>
+<ol class="steps">
+<li><b>총 절감 공수</b>는 <b>MM(맨먼스, 1MM=160시간)</b> 단위입니다. 예 "3.2 MM" = 사람 3.2명이 한 달 할 일을 에이전트가 대체.</li>
+<li>카드를 <b>클릭</b>하면 <b>Agent별 절감 효과</b> 팝업이 열립니다(에이전트·시스템·절감 공수 MM·절감률·순가치 $).</li>
+<li><b>ROI</b>는 인건비 환산 대비 비용 배수입니다. 금액은 천단위로 표기됩니다.</li>
+<li><b>품질 평균 증감</b> 카드를 클릭하면 <b>Agent별 품질 증감</b> 팝업(이전 기간 대비 ▲▼)이 나옵니다.</li>
+</ol>
+<div class="tip">📈 절감률 계산 원리: <code>(수작업 분 − AI 분) ÷ 수작업 분</code>. 예) SR 영향도 분석이 사람 30분 → AI 10분이면 66.6% 절감. 이 "수작업 분" 기준은 4.3에서 직접 입력합니다.</div>
+
+<h3 id="h-util">3.4 활용 랭킹 (Top3 / 미활용 Top3)</h3>
+<ol class="steps">
+<li>가장 많이/적게 쓰는 에이전트 3개씩 표시됩니다(0회 = 미사용, 노랑 강조).</li>
+<li>에이전트 행을 <b>클릭</b>하면 <b>사용 상세 팝업</b>: 어느 시스템에서·몇 회·성공률·점수·절감 공수.</li>
+</ol>
+<div class="sc"><b>활용 예:</b> 미활용 Top3에 "EXT-003 · SR 영향도(편의) 0회"가 보이면 → 도입했지만 안 쓰이는 에이전트 발견 → 폐기 또는 활성화 의사결정.</div>
+
+<h3 id="h-chart">3.5 성과·품질 추이</h3>
+<ul>
+<li><b>성과 추이</b>: 막대=실행량(건), 선=성공률(%). 가로축=날짜, 세로축=0~100.</li>
+<li><b>품질 추이</b>: 선=종합점수(0~100), 막대=이상(건).</li>
+<li>"상세 ▾"=드릴다운 팝업, "분석 →"=성과/품질 전용 분석 페이지로 이동.</li>
+</ul>
+
+<h3 id="h-apm">3.6 APM X-View — 느린/실패 수행 찾기 <span class="tag new">신규</span></h3>
+<p>제니퍼 모니터링 스타일. <b>가로축=하루 24시간(시각), 세로축=호출 소요시간(ms)</b>, 점=개별 수행(성공=초록/실패=빨강/실행중=노랑).</p>
+<ol class="steps">
+<li>화면 위쪽(=느린 수행)이나 특정 시간대에 점이 몰린 곳을 찾습니다.</li>
+<li>마우스로 그 영역을 <b>드래그(사각형 선택)</b>합니다.</li>
+<li>선택된 수행들의 상세 팝업(건수·평균 소요·실패 수·주요 Agent·목록)이 열립니다 → 어떤 에이전트가 언제 느렸는지 원인 추적.</li>
+</ol>
+<div class="sc"><b>활용 예:</b> "오후 2시경 상단(지연 2초+)에 빨간 점이 몰림"을 드래그 → "OPS-005 이벤트 대응 Agent가 8건 실패, 평균 3,100ms" 확인 → 해당 에이전트 점검.</div>
+
+<h3 id="h-agents">3.7 Agent 현황 · 런처</h3>
+<ol class="steps">
+<li><b>Agent 현황(Main Agent별)</b>: 상위 10개가 한눈에, 나머지는 스크롤. 막대=평균점수, 색=상태, 우측=품질추이·실행수·이상.</li>
+<li>행을 <b>클릭</b>하면 상세 팝업: 효과성 블록(수작업→AI분·절감률·절감 공수 MM·순가치) + <b>Sub Agent(노드)별</b> 점수/이상/비용/지연/보안 표 + "워크플로우 빌더 열기".</li>
+<li>하단 <b>Agent 목록</b>에서 "▶ 실행"으로 즉시 실행, <b>최근 사용</b>에서 바로가기.</li>
+</ol>
+<h2 class="sec" id="agent">4. Agent 운영·관리</h2>
+<h3>4.1 카테고리별 Agent 목록 · 실행 이력 상세</h3>
+<p class="crumb">메뉴: 운영 Agent / 개발 Agent / 품질·공통 Agent / 편의 Agent</p>
+<ol class="steps">
+<li>카테고리 메뉴를 열면 해당 에이전트 카드 목록이 보입니다.</li>
+<li>에이전트를 선택하면 <b>실행 이력</b>이 열리고, 각 실행을 펼치면 7개 측면을 확인합니다: <b>품질·보안·비용·오류사항·관련 지식·수행시간·정책</b>.</li>
+<li>품질 탭: 종합점수·정확도·환각률·등급(A~F). 보안 탭: 위험도·입력위협·출력유출. 오류 탭: 발생 오류와 자동 수집된 패턴.</li>
+</ol>
+<h3>4.2 Agent 실행 테스트</h3>
+<p class="crumb">메뉴: AGENT &gt; Agent 실행 테스트</p>
+<ol class="steps">
+<li>실행할 에이전트(워크플로우)를 선택합니다.</li>
+<li>입력값(질문/대상)을 넣고 "실행"을 누릅니다.</li>
+<li>실행이 끝나면 결과와 함께 <b>4게이트 평가 결과</b>(점수·보안위험·이상)가 자동으로 표시됩니다. 별도 평가 호출이 필요 없습니다(엔진이 자동 채점).</li>
+</ol>
+
+<h3 id="a-baseline">4.3 ⭐ Agent 기준/시스템 편집 (효과성의 출발점)</h3>
+<p class="crumb">메뉴: 상단바 "Agent 관리/통제" &gt; 📐 Agent 기준/시스템 탭 · 권한: TENANT_ADMIN/OPERATOR</p>
+<p>효과성(절감 공수·ROI)이 계산되려면 <b>"사람이 직접 하면 몇 분 걸리는지"</b> 기준을 먼저 입력해야 합니다. 여기가 그 입력 화면입니다.</p>
+<ol class="steps">
+<li>"Agent 관리/통제" 화면 상단 탭에서 <b>📐 Agent 기준/시스템</b>을 선택합니다.</li>
+<li>에이전트별 행에서 다음을 입력/수정합니다:
+  <ul>
+  <li><b>시스템명</b>: 이 에이전트가 쓰이는 시스템(예: "SR/ITSM 시스템") — 시스템별 분석의 기준이 됩니다.</li>
+  <li><b>수작업 분/회</b>: 사람이 직접 하면 걸리는 시간(예: 30) — 절감률 계산 기준.</li>
+  <li><b>가치 라벨</b>(예: "영향도 분석 시간 절감"), <b>도메인</b>, <b>MTTD 목표(%)</b>, <b>커버리지 목표(x)</b>.</li>
+  </ul></li>
+<li>행별 "저장" 또는 상단 "전체 저장"을 누릅니다. 저장 성공 배너가 뜨면 반영 완료.</li>
+<li>이후 실행부터 홈 효과성·성과/효과성 화면에 절감 공수·절감률·ROI가 이 기준으로 계산되어 나타납니다.</li>
+</ol>
+<div class="sc"><b>활용 예:</b> "SR 영향도 분석 Agent" 시스템명="SR/ITSM 시스템", 수작업 분/회=30 입력 → 에이전트 실제 평균 10분 → 자동으로 66.6% 절감·MM·순가치 계산되어 대시보드에 표시.</div>
+<div class="warn">⚠ "수작업 분/회"를 입력하지 않으면 절감이 0으로 계산됩니다. 효과성을 보려면 반드시 먼저 설정하세요.</div>
+
+<h2 class="sec" id="gov">5. 거버넌스</h2>
+<h3>5.1 정책코드 엔진 — 정책 만들기</h3>
+<p class="crumb">메뉴: 거버넌스 &gt; 정책코드 엔진</p>
+<ol class="steps">
+<li>"정책 생성"을 누릅니다.</li>
+<li>정책 키·설명·조건(예: 보안 위험도 high 이상 차단, 종합점수 70 미만 경고)을 입력합니다.</li>
+<li>"저장"하면 정책이 활성화되어, 이후 모든 평가가 이 정책을 함께 검사합니다(위반 시 알람 발생).</li>
+</ol>
+<h3>5.2 평가 Gate 설정 — 4게이트 임계값</h3>
+<p class="crumb">메뉴: 거버넌스 &gt; 평가 Gate 설정</p>
+<ol class="steps">
+<li>정확도·환각·보안·정책 게이트별 <b>통과 임계값</b>을 조정합니다(예: 종합점수 하드게이트 70).</li>
+<li>LLM 심사 샘플링 비율을 설정합니다(전수 평가는 비용↑ → 일부만 LLM 심사).</li>
+<li>저장하면 즉시 평가 기준에 반영됩니다.</li>
+</ol>
+<h3>5.3 정책 제안 — 자동 제안 검토</h3>
+<ol class="steps">
+<li>시스템이 실행 패턴을 분석해 정책을 자동 제안합니다.</li>
+<li>"정책 제안" 화면에서 제안을 검토하고 <b>승인/거절</b>합니다.</li>
+<li>승인하면 정책코드 엔진에 등록됩니다.</li>
+</ol>
+<h3>5.4 Evidence Pack — 규제 증거 묶음</h3>
+<p>감사 로그·평가 기록·정책 적용 내역을 묶어 규제 대응(AI 기본법 등) 증거로 내보냅니다. 화면에서 기간·대상을 선택해 생성합니다.</p>
+
+<h3 id="orb">5.5 ORB 심사 — 에이전트 게시 승인 절차</h3>
+<p class="crumb">메뉴: 거버넌스 &gt; ORB 심사</p>
+<p>새 에이전트를 운영에 정식 게시하기 전 심사하는 보드입니다.</p>
+<ol class="steps">
+<li><b>심사요청(임시등록)</b>을 누르고 폼에 Agent Key·이름·버전·요청자·팀을 입력합니다. (입력은 연속으로 정상 동작합니다.)</li>
+<li>제출하면 심사 대기 목록에 올라가고, <b>자동채점(5영역)</b> 결과가 표시됩니다.</li>
+<li>심사위원이 5영역을 검토(자동/수동 배지로 구분)하고 필요 시 "재채점"을 실행합니다.</li>
+<li><b>승인</b>하면 해당 워크플로우가 게시(lifecycle)되어 운영에 노출됩니다.</li>
+</ol>
+<h3>5.6 AI 활동 로그 · KPI 대시보드</h3>
+<p>AI 활동 로그=감사 추적(누가·무엇을·언제). KPI 대시보드=실행 메트릭·성공률·정책 위반·ROI 요약.</p>
+
+<h2 class="sec" id="eff">6. 성과/효과성 분석 — 의사결정용</h2>
+<p class="crumb">메뉴: 거버넌스 &gt; 성과/효과성</p>
+<p>요약 / 에이전트별 / 시스템별 3단으로, "AI가 만든 가치"와 "어디가 문제인지"를 동시에 봅니다.</p>
+<h4>읽는 법</h4>
+<table><tr><th>지표</th><th>해석 · 활용</th></tr>
+<tr><td>시간 절감 / 순가치</td><td>에이전트별 절감 공수·금액. <b>예산 정당화·확대 근거.</b></td></tr>
+<tr><td>MTTD</td><td>평균 탐지 시간. 원천신호(11장) 수집 시 실측, 없으면 "근사" 표기.</td></tr>
+<tr><td>MTTR</td><td>평균 복구 시간(FDS 알람 생성→해결 실측).</td></tr>
+<tr><td>커버리지</td><td>테스트 커버리지(실측 또는 목표).</td></tr>
+<tr><td><b>시스템별 롤업</b></td><td>시스템 단위 <b>활용(실행·성공률)·오류(실패·오류율)·보안(이슈·critical)</b> → "어느 시스템이 오류·보안이 많은가"로 개선 우선순위 결정.</td></tr></table>
+<ol class="steps">
+<li>기간(7/30/90)을 선택합니다.</li>
+<li>요약 카드로 전체 절감·ROI·평균 MTTR을 확인합니다.</li>
+<li>에이전트별 표에서 절감률 낮은/오류 많은 에이전트를 식별합니다.</li>
+<li>시스템별 롤업에서 오류율·보안 이슈가 높은 시스템을 찾아 개선 대상으로 정합니다.</li>
+</ol>
+
+<h2 class="sec" id="know">7. 지식관리 — 오류를 자산으로</h2>
+<p class="crumb">메뉴: 지식관리 (Registry / Artifact / 오류 패턴 / Pipeline)</p>
+<h4>자동 학습 루프</h4>
+<p>실행 중 오류 발생 → <b>오류 패턴 자동 수집</b> → 지식으로 정리 → 반복 시 <b>정책으로 승격</b> → 다음 실행 때 그 지식이 주입되어 같은 실수 방지.</p>
+<ol class="steps">
+<li><b>오류 패턴 관리</b>: 자동 수집된 오류 패턴(발생 횟수·심각도)을 확인합니다.</li>
+<li>반복되는 패턴을 <b>지식(Artifact)으로 등록</b>하거나 정책 승격 후보로 표시합니다.</li>
+<li><b>Knowledge Pipeline</b>에서 지식이 얼마나 활용되는지(활용/미활용)를 보고, 미활용 지식은 정리합니다.</li>
+</ol>
+
+<h2 class="sec" id="orch">8. 오케스트레이션 — 워크플로우 만들기</h2>
+<p class="crumb">메뉴: 오케스트레이션 (워크플로우 빌더 / 템플릿 마켓 / 실행 모니터링 / 커넥터 관리)</p>
+<h3>8.1 워크플로우 빌더로 에이전트 만들기</h3>
+<ol class="steps">
+<li><b>워크플로우 빌더</b>를 열고 새 워크플로우를 생성합니다(또는 템플릿 마켓에서 시작).</li>
+<li>캔버스에 <b>노드(sub agent)</b>를 추가합니다(데이터 수집·AI 처리·조건·알림·커넥터 등).</li>
+<li>노드를 <b>연결</b>해 실행 순서를 만들고, 각 노드의 설정(모델·프롬프트·커넥터)을 지정합니다.</li>
+<li>저장 후 실행하면 ExecutionSession이 생성되고 각 노드가 자동 평가됩니다.</li>
+</ol>
+<h3>8.2 템플릿 마켓 · 실행 모니터링 · 커넥터 관리</h3>
+<ul>
+<li><b>템플릿 마켓</b>: 미리 만든 스타터 워크플로우를 가져와 빠르게 시작.</li>
+<li><b>실행 모니터링</b>: 진행/완료/실패 현황과 이력.</li>
+<li><b>커넥터 관리</b>: 외부 시스템 연결(노드)과 거버넌스(서킷·SSRF 차단 등).</li>
+</ul>
+
+<h2 class="sec" id="insight">9. 인사이트 · FinOps</h2>
+<h3>9.1 FinOps · FinOps 데모 — 비용 절감 확인</h3>
+<p class="crumb">메뉴: 인사이트 &gt; FinOps / FinOps 데모</p>
+<ol class="steps">
+<li>FinOps 데모에서 프롬프트를 입력하고 "최적화 실행"을 누릅니다.</li>
+<li><b>Gate1 캐시</b>: 의미가 비슷한 이전 요청이 있으면 HIT(유사도 % 표시) → 비용 100% 절감. 예) "테트리스 개발해줘" 후 "테트리스 게임 개발해줘"도 의미 유사도로 HIT.</li>
+<li><b>Gate2 라우팅</b>: 난이도에 맞는 저비용 모델로 라우팅. <b>Gate3 패커</b>: 프롬프트 압축. 결과로 절감액·캐시 적중률을 확인합니다.</li>
+</ol>
+<h3>9.2 Agent Evaluator</h3>
+<p>4게이트 품질 엔진의 결과 모음: 등급 분포·환각률·에이전트별 품질. 품질 저하 에이전트를 찾는 화면.</p>
+<h3>9.3 Anomalies (이상 감지)</h3>
+<ol class="steps">
+<li>기간·심각도·유형(지연추세/정확도드리프트/토큰급증/오류급증/보안패턴)으로 필터합니다.</li>
+<li>요약·히트맵·목록으로 언제·어떤 이상이 났는지 파악합니다.</li>
+</ol>
+<h3>9.4 Risk 워크스페이스 — 알람 조치</h3>
+<p class="crumb">메뉴: 인사이트 &gt; Risk 워크스페이스 · 권한: OPERATOR</p>
+<ol class="steps">
+<li>카테고리(보안/품질/이상/비용)·심각도·에이전트별로 리스크 알람을 봅니다.</li>
+<li>알람을 선택해 상세(연관 알람 포함)를 확인합니다.</li>
+<li><b>조치완료 / 에스컬레이션 / 차단 / 무시</b> 중 하나를 실행합니다 → 상태가 갱신되고 MTTR(복구 시간)에 반영됩니다.</li>
+</ol>
+
+<h2 class="sec" id="ingest">10. 외부 Agent 연동 — 수집 SDK <span class="tag new">신규</span></h2>
+<p class="crumb">대상: METIS 밖(LangChain·자체 서비스 등)에서 이미 운영 중인 에이전트</p>
+<p>METIS에서 만들지 않은 외부 에이전트도 평가·거버넌스·성과 체계에 편입할 수 있습니다.</p>
+<ol class="steps">
+<li><b>키 발급</b>(TENANT_ADMIN): <code>POST /v1/ingest/keys</code> 또는 설정 화면에서 발급 → <code>mts_live_…</code>(1회만 표시되니 복사).</li>
+<li><b>설치</b>: <code>pip install</code>로 SDK 설치(저장소 <code>sdks/python</code>).</li>
+<li><b>연동</b>: 에이전트 함수에 데코레이터 한 줄을 붙입니다.</li>
+</ol>
+<pre>from metis import Metis
+metis = Metis(api_key="mts_live_…", base_url="https://app.metis.ai")
+
+@metis.eval(agent="sr-impact-analyzer", system="SR/ITSM 시스템")
+def run_agent(question):
+    return llm.invoke(question)   # 반환값 자동 파싱 → 비동기 적재·평가</pre>
+<ol class="steps" start="4"><li style="counter-reset:s 3">실행 후 홈 <b>Agent Execution·효과성·Anomalies</b>에 외부 에이전트가 내부와 동일하게 평가되어 나타납니다.</li></ol>
+<div class="note">검증 완료: 정상/환각/프롬프트인젝션/시크릿유출 4종 시나리오가 동일 엔진으로 평가됨(품질·보안·이상 차등 채점).</div>
+
+<h2 class="sec" id="signal">11. 효과성 원천 수집 — MTTD/커버리지 실측</h2>
+<p>MTTD·커버리지를 "목표"가 아닌 "실측"으로 채우려면 원천신호를 보냅니다.</p>
+<pre># 탐지 시간(MTTD): 문제 발생→탐지 시각
+POST /v1/metrics/effectiveness-signal
+{ "workflowKey":"ops-service-monitoring", "kind":"DETECTION",
+  "occurredAt":"2026-06-04T01:00:00Z", "detectedAt":"2026-06-04T01:03:30Z" }
+
+# 커버리지: 테스트 결과
+{ "workflowKey":"dev-test-agent", "kind":"COVERAGE",
+  "testsTotal":200, "testsPassed":188, "coveragePct":86 }</pre>
+<p>신호가 쌓이면 성과/효과성 화면의 MTTD·커버리지가 "실측"으로 전환됩니다(없으면 근사/목표 표기).</p>
+
+<h2 class="sec" id="e2e">12. 실전 End-to-End 시나리오</h2>
+<h3>시나리오 A — 신규 운영 에이전트 도입부터 성과 증명까지</h3>
+<ol class="steps">
+<li><b>만들기</b>: 워크플로우 빌더(8장)로 "SR 영향도 분석" 워크플로우를 노드로 설계·저장.</li>
+<li><b>심사</b>: ORB 심사(5.5)에서 임시등록→자동채점→승인→게시.</li>
+<li><b>기준 설정</b>: Agent 기준/시스템(4.3)에서 시스템명="SR/ITSM", 수작업 분/회=30 입력.</li>
+<li><b>실행</b>: Agent 실행 테스트(4.2) 또는 운영에서 실제 수행 → 4게이트 자동 평가.</li>
+<li><b>성과 확인</b>: 홈 효과성(3.3)·성과/효과성(6장)에서 절감 공수(MM)·ROI·품질 확인.</li>
+<li><b>리스크 관리</b>: 이상/위반 발생 시 Risk 워크스페이스(9.4)에서 조치 → MTTR 개선.</li>
+<li><b>거버넌스 보고</b>: Evidence Pack(5.4)으로 규제 증거 내보내기.</li>
+</ol>
+<h3>시나리오 B — 기존 외부(LangChain) 에이전트를 METIS로</h3>
+<ol class="steps">
+<li>수집 키 발급(10장) → SDK 설치 → <code>@metis.eval</code> 1줄 적용.</li>
+<li>기준/시스템(4.3)에서 해당 에이전트의 수작업 분·시스템명 입력.</li>
+<li>홈·효과성에서 외부 에이전트의 품질·절감·이상이 내부와 함께 집계되는지 확인.</li>
+</ol>
+<h3>시나리오 C — 비용 급증 대응</h3>
+<ol class="steps">
+<li>홈 "토큰 비용" 급증 확인 → APM X-View(3.6)로 비용·지연 큰 수행 구간 드래그 선택.</li>
+<li>FinOps(9.1)에서 캐시 적중률·라우팅 확인, 평가 Gate(5.2)에서 LLM 심사 샘플링 조정.</li>
+<li>성과/효과성 시스템별 롤업으로 비용 집중 시스템 식별.</li>
+</ol>
+
+<h2 class="sec" id="faq">13. 문제해결 · 변경이력</h2>
+<table><tr><th>증상</th><th>원인 / 해결</th></tr>
+<tr><td>작업 중 로그인 화면으로 튕김</td><td>해결됨(세션 자동 갱신). 그래도 발생 시 한 번 로그아웃→재로그인.</td></tr>
+<tr><td>prisma generate EPERM</td><td>실행 중 node 종료(<code>taskkill /F /IM node.exe</code>) 후 재시도. OneDrive 동기화 폴더면 동기화 중지/이동.</td></tr>
+<tr><td>효과성이 0/—</td><td>Agent 기준(4.3)에 "수작업 분/회" 미입력. 입력 후 재실행.</td></tr>
+<tr><td>MTTD/커버리지가 "목표"</td><td>원천신호(11장) 미수집. 신호 전송 시 실측 전환.</td></tr>
+<tr><td>대시보드 비어 있음</td><td>최초 실행 시 <code>pnpm db:seed</code> 필요.</td></tr>
+<tr><td>ORB 임시등록 입력 한 글자만</td><td>해결됨(연속 입력 정상).</td></tr></table>
+<h4>주요 변경 이력(v4 기준)</h4>
+<ul>
+<li>홈 다크모드·저채도 팔레트, APM 24시간 X-View(드래그 선택), 빠른실행, 상위10 스크롤·압축</li>
+<li>요약 라벨 정비, 활용 시스템/효과성/활용랭킹 클릭 팝업, 절감 공수 MM, 코드·이름 표기, 차트 축</li>
+<li>성과/효과성(절감%·MTTD·MTTR 실측·시스템별 활용/오류/보안), Agent 기준/시스템 편집</li>
+<li>FinOps 의미 캐시, FDS 리스크·Anomalies 재설계, ORB 입력 버그·세션 자동갱신·로그인 진입(/home) 수정</li>
+<li>외부 Agent 수집 SDK + 효과성 원천 수집 API</li>
+</ul>
+<p class="crumb" style="margin-top:22px">© METIS.AI 사용자 매뉴얼 v4 (2026-06). 현재 구현 기준 상세 활용 가이드.</p>
+</main></div></body></html>

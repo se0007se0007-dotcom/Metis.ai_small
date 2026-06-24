@@ -1,0 +1,32 @@
+{{- if .Values.migrate.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: metis-migrate-{{ .Release.Revision }}
+  labels: {app: metis-migrate}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata: {labels: {app: metis-migrate}}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.registry }}/metis-migrate:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+            - configMapRef: {name: metis-config}
+            - secretRef: {name: {{ include "metis.secretName" . }}}
+          command: ["sh","-lc"]
+          args:
+            - >
+              pnpm db:push
+              {{- if .Values.migrate.seed }} && pnpm db:seed {{- end }}
+{{- end }}

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Metis.ai">
+  <defs>
+    <linearGradient id="metisHexG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a4068"/>
+      <stop offset="1" stop-color="#13223a"/>
+    </linearGradient>
+  </defs>
+  <polygon points="60,8 105,34 105,86 60,112 15,86 15,34" fill="url(#metisHexG)" stroke="#3c5680" stroke-width="2"/>
+  <polygon points="60,17 97,38 97,82 60,103 23,82 23,38" fill="none" stroke="#3c5680" stroke-width="1.4" opacity="0.65"/>
+  <polyline points="26,48 43,38 60,48 77,38 94,48" fill="none" stroke="#93b4d6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="44" cy="66" r="15" fill="#eaf2fb" stroke="#74c2dd" stroke-width="3"/>
+  <circle cx="44" cy="67" r="7.5" fill="#15263f"/>
+  <circle cx="41" cy="63" r="2.4" fill="#ffffff"/>
+  <circle cx="76" cy="66" r="15" fill="#eaf2fb" stroke="#74c2dd" stroke-width="3"/>
+  <circle cx="76" cy="67" r="7.5" fill="#15263f"/>
+  <circle cx="73" cy="63" r="2.4" fill="#ffffff"/>
+  <polygon points="54,79 66,79 60,89" fill="#18b6c4"/>
+  <g stroke="#557aa6" stroke-width="1.5" fill="none">
+    <path d="M60,89 L34,100"/>
+    <path d="M60,89 L60,106"/>
+    <path d="M60,89 L86,100"/>
+  </g>
+  <g fill="#7fb6d8" stroke="#13223a" stroke-width="1">
+    <circle cx="34" cy="100" r="3.4"/>
+    <circle cx="60" cy="106" r="3.4"/>
+    <circle cx="86" cy="100" r="3.4"/>
+  </g>
+</svg>

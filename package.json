@@ -1,0 +1,47 @@
+{
+  "name": "metis-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Metis.AI — Multi-tenant AgentOps Governance SaaS",
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "db:generate": "prisma generate --schema=prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
+    "db:push": "prisma db push --schema=prisma/schema.prisma --accept-data-loss",
+    "db:seed": "pnpm --filter @metis/database seed",
+    "db:studio": "prisma studio --schema=prisma/schema.prisma",
+    "docker:up": "docker compose -f infra/compose/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infra/compose/docker-compose.yml down",
+    "docker:reset": "docker compose -f infra/compose/docker-compose.yml down -v && docker compose -f infra/compose/docker-compose.yml up -d",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "2.4.6",
+    "@types/node": "22.19.17",
+    "bcryptjs": "2.4.3",
+    "prettier": "3.8.3",
+    "prisma": "6.19.3",
+    "tsx": "4.21.0",
+    "turbo": "2.9.18"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "dependencies": {
+    "@prisma/client": "6.19.3"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

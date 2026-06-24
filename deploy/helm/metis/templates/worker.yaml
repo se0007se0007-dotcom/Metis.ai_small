@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metis-worker
+  labels: {app: metis-worker}
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector: {matchLabels: {app: metis-worker}}
+  template:
+    metadata: {labels: {app: metis-worker}}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: "{{ .Values.image.registry }}/metis-worker:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+            - configMapRef: {name: metis-config}
+            - secretRef: {name: {{ include "metis.secretName" . }}}
+          resources: {{ toYaml .Values.worker.resources | nindent 12 }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - {name: data, mountPath: {{ .Values.persistence.mountPath }}}
+          {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: metis-data}
+      {{- end }}

@@ -1,0 +1,2057 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metis.AI — Architecture Document v1.0</title>
+    <style>
+      :root {
+        --primary: #2563eb;
+        --primary-dark: #1d4ed8;
+        --accent: #7c3aed;
+        --success: #059669;
+        --warning: #d97706;
+        --danger: #dc2626;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --text: #1e293b;
+        --text-secondary: #64748b;
+        --border: #e2e8f0;
+        --code-bg: #1e293b;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          'Pretendard',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.7;
+        font-size: 15px;
+      }
+
+      /* ── Cover ── */
+      .cover {
+        background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 50%, #7c3aed 100%);
+        color: white;
+        padding: 80px 40px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .cover::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+        background-size: 30px 30px;
+      }
+      .cover h1 {
+        font-size: 3rem;
+        font-weight: 800;
+        margin-bottom: 12px;
+        position: relative;
+      }
+      .cover .subtitle {
+        font-size: 1.25rem;
+        opacity: 0.9;
+        margin-bottom: 24px;
+        position: relative;
+      }
+      .cover .meta {
+        font-size: 0.85rem;
+        opacity: 0.7;
+        position: relative;
+      }
+      .cover .badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 6px 16px;
+        font-size: 0.8rem;
+        margin: 4px;
+        backdrop-filter: blur(4px);
+        position: relative;
+      }
+
+      /* ── Navigation ── */
+      .toc-container {
+        max-width: 1200px;
+        margin: -40px auto 0;
+        padding: 0 24px;
+        position: relative;
+        z-index: 10;
+      }
+      .toc {
+        background: var(--card);
+        border-radius: 16px;
+        padding: 32px 40px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid var(--border);
+      }
+      .toc h2 {
+        font-size: 1.1rem;
+        color: var(--primary);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .toc-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 8px;
+      }
+      .toc a {
+        display: block;
+        padding: 8px 12px;
+        color: var(--text);
+        text-decoration: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        transition: all 0.15s;
+      }
+      .toc a:hover {
+        background: #eff6ff;
+        color: var(--primary);
+      }
+      .toc a .num {
+        color: var(--primary);
+        font-weight: 700;
+        margin-right: 6px;
+      }
+
+      /* ── Main Content ── */
+      .content {
+        max-width: 1200px;
+        margin: 40px auto;
+        padding: 0 24px;
+      }
+
+      .section {
+        background: var(--card);
+        border-radius: 16px;
+        padding: 36px 40px;
+        margin-bottom: 28px;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
+        border: 1px solid var(--border);
+      }
+
+      h2.section-title {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: var(--text);
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 3px solid var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      h2.section-title .icon {
+        font-size: 1.4rem;
+      }
+
+      h3 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 24px 0 12px;
+      }
+      h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin: 16px 0 8px;
+      }
+
+      p {
+        margin-bottom: 12px;
+      }
+
+      /* ── Diagram / Architecture Boxes ── */
+      .arch-diagram {
+        background: linear-gradient(135deg, #f0f9ff, #eff6ff);
+        border: 2px solid #bfdbfe;
+        border-radius: 12px;
+        padding: 28px;
+        margin: 20px 0;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        font-size: 0.82rem;
+        line-height: 1.5;
+        overflow-x: auto;
+        white-space: pre;
+        color: #1e40af;
+      }
+
+      /* ── Cards Grid ── */
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+        margin: 16px 0;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.2s;
+        background: var(--card);
+      }
+      .card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        transform: translateY(-1px);
+      }
+      .card .card-icon {
+        font-size: 1.8rem;
+        margin-bottom: 8px;
+      }
+      .card .card-title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        margin-bottom: 6px;
+        color: var(--text);
+      }
+      .card .card-desc {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+
+      /* ── Tables ── */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 16px 0;
+        font-size: 0.88rem;
+      }
+      thead th {
+        background: #f1f5f9;
+        padding: 10px 14px;
+        text-align: left;
+        font-weight: 700;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
+        border-bottom: 2px solid var(--border);
+      }
+      tbody td {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      tbody tr:hover {
+        background: #f8fafc;
+      }
+
+      /* ── Code blocks ── */
+      code {
+        background: #f1f5f9;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Cascadia Code', 'Fira Code', monospace;
+        font-size: 0.88em;
+        color: #be185d;
+      }
+      pre {
+        background: var(--code-bg);
+        color: #e2e8f0;
+        padding: 20px 24px;
+        border-radius: 10px;
+        overflow-x: auto;
+        font-size: 0.85rem;
+        line-height: 1.6;
+        margin: 12px 0;
+      }
+      pre code {
+        background: none;
+        color: inherit;
+        padding: 0;
+      }
+
+      /* ── Tags / Badges ── */
+      .tag {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin: 2px 2px;
+      }
+      .tag-blue {
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+      .tag-green {
+        background: #d1fae5;
+        color: #047857;
+      }
+      .tag-purple {
+        background: #ede9fe;
+        color: #6d28d9;
+      }
+      .tag-orange {
+        background: #ffedd5;
+        color: #c2410c;
+      }
+      .tag-red {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+      .tag-gray {
+        background: #f1f5f9;
+        color: #475569;
+      }
+
+      /* ── Flow ── */
+      .flow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 12px 0;
+      }
+      .flow-step {
+        background: linear-gradient(135deg, #eff6ff, #dbeafe);
+        border: 1px solid #93c5fd;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1e40af;
+        white-space: nowrap;
+      }
+      .flow-arrow {
+        color: #93c5fd;
+        font-size: 1.2rem;
+        font-weight: 700;
+      }
+
+      /* ── Stat boxes ── */
+      .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+        margin: 16px 0;
+      }
+      .stat-box {
+        text-align: center;
+        padding: 16px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+      }
+      .stat-box .stat-num {
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 4px;
+      }
+      .stat-box .stat-label {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      /* ── Layer Diagram ── */
+      .layer-stack {
+        margin: 20px 0;
+      }
+      .layer {
+        padding: 14px 20px;
+        border-radius: 8px;
+        margin-bottom: 4px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .layer .layer-tech {
+        font-weight: 400;
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }
+
+      /* ── Print ── */
+      @media print {
+        .cover {
+          padding: 40px 20px;
+        }
+        .section {
+          break-inside: avoid;
+          box-shadow: none;
+        }
+        body {
+          font-size: 12px;
+        }
+      }
+
+      /* ── Responsive ── */
+      @media (max-width: 768px) {
+        .cover h1 {
+          font-size: 2rem;
+        }
+        .section {
+          padding: 24px 20px;
+        }
+        .toc-grid {
+          grid-template-columns: 1fr;
+        }
+        .card-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ═══════════════════════ COVER ═══════════════════════ -->
+    <div class="cover">
+      <h1>Metis.AI</h1>
+      <div class="subtitle">Multi-tenant AgentOps Governance SaaS Platform</div>
+      <div style="margin: 20px 0">
+        <span class="badge">Turborepo + pnpm Monorepo</span>
+        <span class="badge">NestJS 10 + Next.js 15</span>
+        <span class="badge">PostgreSQL 16 + Redis 7</span>
+        <span class="badge">Prisma ORM</span>
+      </div>
+      <div class="meta">
+        Architecture Document v1.0 &nbsp;|&nbsp; 2026-04-21 &nbsp;|&nbsp; Confidential
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ TOC ═══════════════════════ -->
+    <div class="toc-container">
+      <div class="toc">
+        <h2>&#128218; Table of Contents</h2>
+        <div class="toc-grid">
+          <a href="#overview"><span class="num">01</span> System Overview</a>
+          <a href="#tech-stack"><span class="num">02</span> Technology Stack</a>
+          <a href="#project-structure"><span class="num">03</span> Project Structure</a>
+          <a href="#backend"><span class="num">04</span> Backend Architecture (NestJS API)</a>
+          <a href="#frontend"><span class="num">05</span> Frontend Architecture (Next.js)</a>
+          <a href="#database"><span class="num">06</span> Database Schema (Prisma)</a>
+          <a href="#auth"><span class="num">07</span> Authentication &amp; Authorization</a>
+          <a href="#workflow-builder"><span class="num">08</span> Workflow Builder</a>
+          <a href="#execution"><span class="num">09</span> Workflow Execution Engine</a>
+          <a href="#finops"><span class="num">10</span> FinOps Token Optimizer</a>
+          <a href="#release"><span class="num">11</span> Release Engineering</a>
+          <a href="#agent-kernel"><span class="num">12</span> Agent Kernel (A2A)</a>
+          <a href="#fds"><span class="num">13</span> Fraud Detection System</a>
+          <a href="#infra"><span class="num">14</span> Infrastructure &amp; DevOps</a>
+          <a href="#integration"><span class="num">15</span> Integration Points</a>
+          <a href="#security"><span class="num">16</span> Security &amp; Governance</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- ═══════════════════════ 01. OVERVIEW ═══════════════════════ -->
+      <div class="section" id="overview">
+        <h2 class="section-title"><span class="icon">&#127919;</span> 01. System Overview</h2>
+
+        <p>
+          <strong>Metis.AI</strong>는 엔터프라이즈 환경에서 AI Agent 운영을 위한 통합 거버넌스 SaaS
+          플랫폼입니다. 자연어 기반 워크플로우 빌더, 다중 에이전트 협업 커널, FinOps 비용 최적화,
+          릴리스 엔지니어링, 이상 탐지(FDS) 등 AI 운영에 필요한 전 주기를 하나의 플랫폼에서
+          관리합니다.
+        </p>
+
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-num" style="color: var(--primary)">22+</div>
+            <div class="stat-label">Backend Modules</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color: var(--accent)">38+</div>
+            <div class="stat-label">Frontend Pages</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color: var(--success)">85</div>
+            <div class="stat-label">Database Tables</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color: var(--warning)">13</div>
+            <div class="stat-label">Node Executors</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color: var(--danger)">6</div>
+            <div class="stat-label">RBAC Roles</div>
+          </div>
+        </div>
+
+        <h3>Core Capabilities</h3>
+        <div class="card-grid">
+          <div class="card">
+            <div class="card-icon">&#127754;</div>
+            <div class="card-title">Metis.flo Workflow Builder</div>
+            <div class="card-desc">
+              자연어 프롬프트로 워크플로우를 자동 생성하고, 13종의 노드 실행기로 파이프라인을
+              실행합니다.
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#129302;</div>
+            <div class="card-title">Multi-Agent Kernel (A2A)</div>
+            <div class="card-desc">
+              에이전트 간 미션 할당, 핸드오프, 자율 운영(Self-Healing)을 지원하는 협업
+              프레임워크입니다.
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128176;</div>
+            <div class="card-title">FinOps Token Optimizer</div>
+            <div class="card-desc">
+              3-Gate 아키텍처(시맨틱 캐시, 모델 라우터, 스킬 패커)로 AI 비용을 최적화합니다.
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128640;</div>
+            <div class="card-title">Release Engineering</div>
+            <div class="card-desc">
+              Canary 배포, Shadow Traffic, Replay 테스트로 안전한 AI 모델 버전 관리를 수행합니다.
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128737;</div>
+            <div class="card-title">Fraud Detection (FDS)</div>
+            <div class="card-desc">
+              규칙 기반 + 이상 탐지 엔진으로 AI 남용 및 비정상 행위를 실시간 모니터링합니다.
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128220;</div>
+            <div class="card-title">Governance &amp; Audit</div>
+            <div class="card-desc">
+              RBAC, 정책 엔진, 전수 감사 로그로 엔터프라이즈급 거버넌스를 보장합니다.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════ 02. TECH STACK ═══════════════════════ -->
+      <div class="section" id="tech-stack">
+        <h2 class="section-title"><span class="icon">&#128736;</span> 02. Technology Stack</h2>
+
+        <div class="layer-stack">
+          <div class="layer" style="background: #dbeafe; color: #1e40af">
+            Frontend &mdash; Presentation Layer
+            <span class="layer-tech"
+              >Next.js 15 &middot; React 19 &middot; Tailwind CSS 3.4 &middot; Zustand &middot;
+              TanStack Query v5</span
+            >
+          </div>
+          <div class="layer" style="background: #c7d2fe; color: #3730a3">
+            API Gateway &mdash; Application Layer
+            <span class="layer-tech"
+              >NestJS 10.4 &middot; Passport JWT &middot; Class-Validator &middot; Swagger</span
+            >
+          </div>
+          <div class="layer" style="background: #a5b4fc; color: #312e81">
+            Business Logic &mdash; Domain Layer
+            <span class="layer-tech"
+              >22 Domain Modules &middot; 13 Node Executors &middot; Policy Engine &middot; Agent
+              Kernel</span
+            >
+          </div>
+          <div class="layer" style="background: #818cf8; color: white">
+            Data Access &mdash; Persistence Layer
+            <span class="layer-tech"
+              >Prisma ORM 6.19 &middot; PostgreSQL 16 &middot; Redis 7 (Cache + Queue)</span
+            >
+          </div>
+          <div class="layer" style="background: #6366f1; color: white">
+            Background Jobs &mdash; Worker Layer
+            <span class="layer-tech">BullMQ &middot; Redis Queue &middot; Concurrency: 5</span>
+          </div>
+          <div class="layer" style="background: #4f46e5; color: white">
+            Infrastructure
+            <span class="layer-tech"
+              >Docker Compose &middot; OTEL Observability &middot; Turborepo Build System</span
+            >
+          </div>
+        </div>
+
+        <h3>Key Dependencies</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Technology</th>
+              <th>Version</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Runtime</td>
+              <td>Node.js</td>
+              <td>22+</td>
+              <td>Server runtime</td>
+            </tr>
+            <tr>
+              <td>Language</td>
+              <td>TypeScript</td>
+              <td>5.7+</td>
+              <td>Type-safe development</td>
+            </tr>
+            <tr>
+              <td>Backend Framework</td>
+              <td>NestJS</td>
+              <td>10.4</td>
+              <td>Modular backend architecture</td>
+            </tr>
+            <tr>
+              <td>Frontend Framework</td>
+              <td>Next.js (App Router)</td>
+              <td>15.1</td>
+              <td>SSR + RSC rendering</td>
+            </tr>
+            <tr>
+              <td>UI Library</td>
+              <td>React</td>
+              <td>19</td>
+              <td>Component-based UI</td>
+            </tr>
+            <tr>
+              <td>ORM</td>
+              <td>Prisma</td>
+              <td>6.19</td>
+              <td>Type-safe database access</td>
+            </tr>
+            <tr>
+              <td>Database</td>
+              <td>PostgreSQL</td>
+              <td>16-alpine</td>
+              <td>Primary data store</td>
+            </tr>
+            <tr>
+              <td>Cache / Queue</td>
+              <td>Redis</td>
+              <td>7-alpine</td>
+              <td>Caching + BullMQ job queue</td>
+            </tr>
+            <tr>
+              <td>Build System</td>
+              <td>Turborepo</td>
+              <td>latest</td>
+              <td>Monorepo orchestration</td>
+            </tr>
+            <tr>
+              <td>Package Manager</td>
+              <td>pnpm</td>
+              <td>9.15</td>
+              <td>Workspace management</td>
+            </tr>
+            <tr>
+              <td>Auth</td>
+              <td>Passport.js + JWT</td>
+              <td>-</td>
+              <td>HS256 token auth</td>
+            </tr>
+            <tr>
+              <td>Styling</td>
+              <td>Tailwind CSS</td>
+              <td>3.4</td>
+              <td>Utility-first CSS</td>
+            </tr>
+            <tr>
+              <td>State Management</td>
+              <td>Zustand + TanStack Query</td>
+              <td>v5</td>
+              <td>Client + Server state</td>
+            </tr>
+            <tr>
+              <td>AI Models</td>
+              <td>Claude / GPT / Gemini</td>
+              <td>-</td>
+              <td>Multi-model AI processing</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ═══════════════════════ 03. PROJECT STRUCTURE ═══════════════════════ -->
+      <div class="section" id="project-structure">
+        <h2 class="section-title"><span class="icon">&#128193;</span> 03. Project Structure</h2>
+
+        <div class="arch-diagram">
+          metis-ai/ # Turborepo + pnpm Monorepo Root &#9500;&#9472;&#9472; apps/ &#9474;
+          &#9500;&#9472;&#9472; api/ # NestJS Backend (port 4000) &#9474; &#9474;
+          &#9500;&#9472;&#9472; src/ &#9474; &#9474; &#9474; &#9500;&#9472;&#9472; modules/ # 22
+          Domain Modules &#9474; &#9474; &#9474; &#9500;&#9472;&#9472; common/ # Guards,
+          Interceptors, Decorators &#9474; &#9474; &#9474; &#9492;&#9472;&#9472; app.module.ts #
+          Root Module Registration &#9474; &#9474; &#9492;&#9472;&#9472; package.json &#9474;
+          &#9500;&#9472;&#9472; web/ # Next.js 15 Frontend (port 3000) &#9474; &#9474;
+          &#9500;&#9472;&#9472; src/ &#9474; &#9474; &#9474; &#9500;&#9472;&#9472; app/ # App Router
+          Pages (38+) &#9474; &#9474; &#9474; &#9500;&#9472;&#9472; components/ # React Components
+          &#9474; &#9474; &#9474; &#9500;&#9472;&#9472; lib/ # Utilities &amp; API Hooks &#9474;
+          &#9474; &#9474; &#9492;&#9472;&#9472; stores/ # Zustand Stores &#9474; &#9474;
+          &#9492;&#9472;&#9472; package.json &#9474; &#9492;&#9472;&#9472; worker/ # BullMQ Job
+          Processor &#9474; &#9492;&#9472;&#9472; src/ &#9500;&#9472;&#9472; packages/ &#9474;
+          &#9500;&#9472;&#9472; database/ # @metis/database (Prisma Client) &#9474;
+          &#9500;&#9472;&#9472; types/ # @metis/types (Shared Interfaces) &#9474;
+          &#9500;&#9472;&#9472; config/ # @metis/config &#9474; &#9492;&#9472;&#9472; ui/ #
+          @metis/ui (Shared Components) &#9500;&#9472;&#9472; prisma/ &#9474; &#9500;&#9472;&#9472;
+          schema.prisma # Database Schema (1545 lines, 85 models) &#9474; &#9500;&#9472;&#9472;
+          migrations/ # Prisma Migrations &#9474; &#9492;&#9472;&#9472; seed.ts # Seed Script
+          &#9500;&#9472;&#9472; infra/ &#9474; &#9500;&#9472;&#9472; compose/ # Docker Compose
+          (PostgreSQL + Redis) &#9474; &#9500;&#9472;&#9472; docker/ # Dockerfiles &#9474;
+          &#9492;&#9472;&#9472; observability/ # OpenTelemetry Config &#9500;&#9472;&#9472; docs/ #
+          Design Documents &amp; API Specs &#9500;&#9472;&#9472; scripts/ # Utility Scripts
+          &#9500;&#9472;&#9472; turbo.json # Turborepo Pipeline Config &#9492;&#9472;&#9472;
+          pnpm-workspace.yaml # pnpm Workspace Definition
+        </div>
+
+        <h3>Shared Packages</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Package</th>
+              <th>Name</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>packages/database</code></td>
+              <td>@metis/database</td>
+              <td>Prisma Client singleton + schema types export</td>
+            </tr>
+            <tr>
+              <td><code>packages/types</code></td>
+              <td>@metis/types</td>
+              <td>
+                Shared TypeScript interfaces (builder-harness, capability, pack-domain,
+                release-engineering)
+              </td>
+            </tr>
+            <tr>
+              <td><code>packages/config</code></td>
+              <td>@metis/config</td>
+              <td>Environment &amp; configuration management</td>
+            </tr>
+            <tr>
+              <td><code>packages/ui</code></td>
+              <td>@metis/ui</td>
+              <td>Tailwind-based shared UI components</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ═══════════════════════ 04. BACKEND ═══════════════════════ -->
+      <div class="section" id="backend">
+        <h2 class="section-title">
+          <span class="icon">&#9881;</span> 04. Backend Architecture (NestJS API)
+        </h2>
+
+        <p>
+          API 서버는 NestJS 10 기반이며, <code>/v1</code> prefix로 RESTful API를 제공합니다. 모든
+          요청에 JWT 인증 + RBAC 인가가 적용되며, Correlation ID 기반 추적과 전수 감사 로깅이
+          동작합니다.
+        </p>
+
+        <h3>Module Architecture (22 Core Modules)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>Purpose</th>
+              <th>Key Services</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag tag-blue">auth</span></td>
+              <td>JWT 인증, 로그인/리프레시</td>
+              <td>AuthService, JwtStrategy</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-blue">tenant</span></td>
+              <td>멀티테넌트 격리, CRUD</td>
+              <td>TenantService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-green">workflow</span></td>
+              <td>워크플로우 영속성 (CRUD + OCC)</td>
+              <td>WorkflowPersistenceService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-green">workflow-nodes</span></td>
+              <td>13종 노드 실행기</td>
+              <td>NodeRouterService, 13 Executors</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-green">execution</span></td>
+              <td>워크플로우 실행 엔진</td>
+              <td>WorkflowRunnerService, NodeRouterService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-green">builder</span></td>
+              <td>빌더 Harness (계획+검증+평가)</td>
+              <td>PlannerService, ValidationService, EvalService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-purple">pack</span></td>
+              <td>워크플로우 팩/템플릿 관리</td>
+              <td>PackService, CertificationService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-purple">connector</span></td>
+              <td>외부 시스템 연동</td>
+              <td>ConnectorService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-orange">finops</span></td>
+              <td>FinOps 토큰 최적화</td>
+              <td>TokenOptimizerService, FinOpsService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-orange">governance</span></td>
+              <td>정책 엔진, 컴플라이언스</td>
+              <td>GovernanceService, PolicyService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-red">fds</span></td>
+              <td>이상 탐지 시스템</td>
+              <td>RuleEngine, AnomalyService, AlertService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-red">agent-kernel</span></td>
+              <td>다중 에이전트 협업 (A2A)</td>
+              <td>MissionService, HandoffService, DispatcherService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-red">autonomous-ops</span></td>
+              <td>자율 운영 / Self-Healing</td>
+              <td>AutonomousOpsService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-purple">release</span></td>
+              <td>Canary/Shadow/Replay</td>
+              <td>CanaryService, ReplayService, ShadowService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-purple">capability-registry</span></td>
+              <td>에이전트/어댑터 레지스트리</td>
+              <td>CapabilityRegistryService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">ap-agent</span></td>
+              <td>AP (매입채무) 에이전트</td>
+              <td>APAgentService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">knowledge</span></td>
+              <td>지식 관리</td>
+              <td>KnowledgeService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">email</span></td>
+              <td>이메일 발송 (SMTP)</td>
+              <td>EmailService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">notification</span></td>
+              <td>이벤트 알림</td>
+              <td>NotificationService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">events</span></td>
+              <td>SSE + Redis 이벤트 브릿지</td>
+              <td>EventsGateway, RedisBridgeService</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">health</span></td>
+              <td>헬스 체크</td>
+              <td>HealthController</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">database</span></td>
+              <td>Prisma ORM DI</td>
+              <td>PRISMA_TOKEN provider</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Cross-Cutting Concerns</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>CorrelationInterceptor</code></td>
+              <td>Global Interceptor</td>
+              <td>모든 요청에 고유 correlationId 부여 (추적용)</td>
+            </tr>
+            <tr>
+              <td><code>AuditInterceptor</code></td>
+              <td>Global Interceptor</td>
+              <td>상태 변경 작업 전수 감사 로깅</td>
+            </tr>
+            <tr>
+              <td><code>HttpExceptionFilter</code></td>
+              <td>Global Filter</td>
+              <td>표준화된 에러 응답 포맷</td>
+            </tr>
+            <tr>
+              <td><code>JwtAuthGuard</code></td>
+              <td>Guard</td>
+              <td>JWT 토큰 검증 + 클레임 추출</td>
+            </tr>
+            <tr>
+              <td><code>RolesGuard</code></td>
+              <td>Guard</td>
+              <td>RBAC 역할 기반 접근 제어</td>
+            </tr>
+            <tr>
+              <td><code>ThrottleGuard</code></td>
+              <td>Guard</td>
+              <td>사용자/테넌트별 Rate Limiting</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ═══════════════════════ 05. FRONTEND ═══════════════════════ -->
+      <div class="section" id="frontend">
+        <h2 class="section-title">
+          <span class="icon">&#127912;</span> 05. Frontend Architecture (Next.js)
+        </h2>
+
+        <p>
+          Next.js 15 App Router를 사용하며, React 19 기반의 SPA입니다. 서버 상태는 TanStack Query
+          v5로, 클라이언트 상태는 Zustand로 관리합니다.
+        </p>
+
+        <h3>Route Map (38+ Pages)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Domain</th>
+              <th>Routes</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag tag-green">Orchestration</span></td>
+              <td>
+                <code>/orchestration/builder</code><br /><code>/orchestration/market</code
+                ><br /><code>/orchestration/connectors</code><br /><code
+                  >/orchestration/monitor</code
+                >
+              </td>
+              <td>워크플로우 빌더, 템플릿 마켓, 커넥터 관리, 실행 모니터링</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-purple">Release</span></td>
+              <td>
+                <code>/release/canary</code><br /><code>/release/replay</code><br /><code
+                  >/release/shadow</code
+                ><br /><code>/platform/release</code>
+              </td>
+              <td>Canary 배포, Replay 테스트, Shadow Traffic, 릴리스 타임라인</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-blue">Agent</span></td>
+              <td>
+                <code>/platform/agents</code><br /><code>/agent/operations</code><br /><code
+                  >/agent/development</code
+                ><br /><code>/agent/qa</code><br /><code>/agent-control</code>
+              </td>
+              <td>에이전트 레지스트리, 역할별 워크벤치, 오케스트레이션 제어</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-orange">Governance</span></td>
+              <td>
+                <code>/governance/policies</code><br /><code>/governance/audit</code><br /><code
+                  >/governance/evidence</code
+                ><br /><code>/governance/monitoring</code><br /><code>/governance/kpi</code>
+              </td>
+              <td>정책 관리, 감사 로그, 증적 수집, 컴플라이언스, KPI 대시보드</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-orange">FinOps</span></td>
+              <td><code>/insights/finops</code><br /><code>/insights/anomalies</code></td>
+              <td>비용 최적화 대시보드, 이상 탐지</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">Knowledge</span></td>
+              <td>
+                <code>/knowledge/artifacts</code><br /><code>/knowledge/registry</code><br /><code
+                  >/knowledge/patterns</code
+                ><br /><code>/knowledge/pipeline</code>
+              </td>
+              <td>지식 베이스, 스킬/역량 레지스트리, 패턴 라이브러리</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">Workspaces</span></td>
+              <td>
+                <code>/workspaces/ops</code><br /><code>/workspaces/dev</code><br /><code
+                  >/workspaces/ap</code
+                ><br /><code>/workspaces/risk</code>
+              </td>
+              <td>팀별 워크스페이스 (운영, 개발, AP, 리스크)</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">Missions</span></td>
+              <td><code>/missions</code><br /><code>/missions/[id]</code></td>
+              <td>다중 에이전트 미션 목록 및 상세</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Core Frontend Libraries</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Size</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>lib/starter-workflows.ts</code></td>
+              <td>58KB</td>
+              <td>사전 구축 워크플로우 템플릿 + 의도 분류기</td>
+            </tr>
+            <tr>
+              <td><code>lib/builder-harness.ts</code></td>
+              <td>32KB</td>
+              <td>빌더 Harness 로직 (계획, 검증, 평가, 수리)</td>
+            </tr>
+            <tr>
+              <td><code>lib/api-hooks.ts</code></td>
+              <td>32KB</td>
+              <td>React Query 기반 API hooks (전체 엔드포인트)</td>
+            </tr>
+            <tr>
+              <td><code>lib/report-utils.ts</code></td>
+              <td>31KB</td>
+              <td>보고서 생성 (HTML, Word, 파싱, 차트)</td>
+            </tr>
+            <tr>
+              <td><code>lib/workflow-api.ts</code></td>
+              <td>7KB</td>
+              <td>워크플로우 CRUD API 클라이언트</td>
+            </tr>
+            <tr>
+              <td><code>lib/workflow-executor.ts</code></td>
+              <td>-</td>
+              <td>클라이언트 사이드 파이프라인 실행기</td>
+            </tr>
+            <tr>
+              <td><code>lib/sanitize.ts</code></td>
+              <td>-</td>
+              <td>XSS 방지 HTML 새니타이징</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ═══════════════════════ 06. DATABASE ═══════════════════════ -->
+      <div class="section" id="database">
+        <h2 class="section-title">
+          <span class="icon">&#128450;</span> 06. Database Schema (Prisma)
+        </h2>
+
+        <p>
+          PostgreSQL 16에 Prisma ORM 6.19으로 접근합니다. 총 <strong>85개 모델</strong>이 6개 도메인
+          그룹으로 구성됩니다.
+        </p>
+
+        <h3>Domain Model Groups</h3>
+
+        <h4>Core Multi-Tenancy (3 models)</h4>
+        <div class="flow">
+          <span class="flow-step">Tenant</span>
+          <span class="flow-arrow">&harr;</span>
+          <span class="flow-step">Membership (Role)</span>
+          <span class="flow-arrow">&harr;</span>
+          <span class="flow-step">User</span>
+        </div>
+
+        <h4>Workflow &amp; Execution (7 models)</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Workflow</code></td>
+              <td>워크플로우 정의 (DRAFT &rarr; PUBLISHED &rarr; ARCHIVED)</td>
+            </tr>
+            <tr>
+              <td><code>WorkflowVersion</code></td>
+              <td>불변 버전 스냅샷 (OCC 기반)</td>
+            </tr>
+            <tr>
+              <td><code>WorkflowNodeDef</code></td>
+              <td>노드 정의 (nodeKey, uiType, config, dependsOn)</td>
+            </tr>
+            <tr>
+              <td><code>WorkflowEdgeDef</code></td>
+              <td>노드 간 연결 (from &rarr; to, condition)</td>
+            </tr>
+            <tr>
+              <td><code>ExecutionSession</code></td>
+              <td>실행 세션</td>
+            </tr>
+            <tr>
+              <td><code>ExecutionStep</code></td>
+              <td>개별 노드 실행 결과</td>
+            </tr>
+            <tr>
+              <td><code>ExecutionTrace</code></td>
+              <td>상세 실행 추적 로그</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4>Pack Management (4 models)</h4>
+        <div class="flow">
+          <span class="flow-step">Pack</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">PackVersion</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Certification</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">PackInstallation</span>
+        </div>
+        <p>
+          버전 생명주기: <span class="tag tag-gray">DRAFT</span>
+          <span class="tag tag-blue">IMPORTED</span> <span class="tag tag-orange">VALIDATED</span>
+          <span class="tag tag-purple">CERTIFIED</span>
+          <span class="tag tag-green">PUBLISHED</span> <span class="tag tag-red">DEPRECATED</span>
+        </p>
+
+        <h4>Release Engineering (8 models)</h4>
+        <p>
+          <code>ReplayDataset</code>, <code>ReplayCase</code>, <code>ReplayRun</code>,
+          <code>ReplayCaseResult</code>, <code>ShadowConfig</code>, <code>ShadowPair</code>,
+          <code>CanaryDeployment</code>, <code>CanaryGate</code>, <code>CanaryMetricSnapshot</code>,
+          <code>VersionPromotion</code>
+        </p>
+
+        <h4>FinOps (5 models)</h4>
+        <p>
+          <code>FinOpsConfig</code>, <code>FinOpsAgentConfig</code>, <code>FinOpsSkill</code>,
+          <code>FinOpsNamespace</code>, <code>FinOpsTokenLog</code>
+        </p>
+
+        <h4>Agent Kernel &amp; FDS (7 models)</h4>
+        <p>
+          <code>Mission</code>, <code>AgentMessage</code>, <code>AgentHandoff</code>,
+          <code>AutoAction</code>, <code>FDSRule</code>, <code>FDSAlert</code>,
+          <code>APInvoice</code>
+        </p>
+
+        <h4>Builder Harness (7 models)</h4>
+        <p>
+          <code>BuilderRequest</code>, <code>BuilderPlan</code>, <code>BuilderParamSet</code>,
+          <code>BuilderConnectorGap</code>, <code>BuilderValidationResult</code>,
+          <code>BuilderEvalResult</code>, <code>BuilderRepairAction</code>
+        </p>
+
+        <h4>Capability Registry (3 models)</h4>
+        <p>
+          <code>AgentDefinition</code>, <code>AdapterRegistration</code>,
+          <code>CapabilityBinding</code>
+        </p>
+
+        <h4>Supporting Models</h4>
+        <p>
+          <code>Policy</code>, <code>PolicyEvaluation</code>, <code>Connector</code>,
+          <code>KnowledgeArtifact</code>, <code>AuditLog</code>
+        </p>
+      </div>
+
+      <!-- ═══════════════════════ 07. AUTH ═══════════════════════ -->
+      <div class="section" id="auth">
+        <h2 class="section-title">
+          <span class="icon">&#128274;</span> 07. Authentication &amp; Authorization
+        </h2>
+
+        <h3>Authentication Flow</h3>
+        <div class="flow">
+          <span class="flow-step">Login (email + password)</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">bcrypt verify</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">JWT (HS256) issued</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Access Token + Refresh Token</span>
+        </div>
+
+        <h3>RBAC Role Hierarchy (6 Roles)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Scope</th>
+              <th>Permissions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag tag-red">PLATFORM_ADMIN</span></td>
+              <td>System-wide</td>
+              <td>Full access to all tenants, system config, user management</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-orange">TENANT_ADMIN</span></td>
+              <td>Tenant</td>
+              <td>Tenant settings, member management, all tenant operations</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-blue">OPERATOR</span></td>
+              <td>Tenant</td>
+              <td>Execute workflows, approve actions, monitor operations</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-purple">DEVELOPER</span></td>
+              <td>Tenant</td>
+              <td>Build workflows, create/edit packs, API access</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-green">AUDITOR</span></td>
+              <td>Tenant</td>
+              <td>Read-only audit access, compliance reports, evidence</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-gray">VIEWER</span></td>
+              <td>Tenant</td>
+              <td>Read-only dashboard access</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Multi-Tenant Isolation</h3>
+        <div class="card-grid" style="grid-template-columns: repeat(3, 1fr)">
+          <div class="card" style="text-align: center">
+            <div class="card-icon">&#128451;</div>
+            <div class="card-title">Database Level</div>
+            <div class="card-desc">
+              모든 쿼리에 <code>tenantId</code> 자동 필터링 (Prisma middleware)
+            </div>
+          </div>
+          <div class="card" style="text-align: center">
+            <div class="card-icon">&#128272;</div>
+            <div class="card-title">API Level</div>
+            <div class="card-desc"><code>@Roles()</code> 데코레이터로 엔드포인트별 역할 제한</div>
+          </div>
+          <div class="card" style="text-align: center">
+            <div class="card-icon">&#127919;</div>
+            <div class="card-title">Token Level</div>
+            <div class="card-desc">JWT에 tenantId 포함, 요청마다 테넌트 격리 검증</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════ 08. WORKFLOW BUILDER ═══════════════════════ -->
+      <div class="section" id="workflow-builder">
+        <h2 class="section-title">
+          <span class="icon">&#127754;</span> 08. Workflow Builder (Metis.flo)
+        </h2>
+
+        <p>
+          자연어 프롬프트를 입력하면 AI가 워크플로우 노드 파이프라인을 자동 생성합니다. 5-Axis
+          Harness 검증 시스템으로 실행 전 품질을 보장합니다.
+        </p>
+
+        <h3>Builder Pipeline</h3>
+        <div class="flow">
+          <span class="flow-step">&#128172; NL Prompt</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">&#127919; Intent Classifier</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">&#128203; Step Extractor</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">&#9881; Node Generator</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">&#9989; Harness Validation</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">&#128190; Save/Execute</span>
+        </div>
+
+        <h3>13 Node Executor Types</h3>
+        <div class="card-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr))">
+          <div class="card">
+            <div class="card-icon">&#9200;</div>
+            <div class="card-title">Schedule Trigger</div>
+            <div class="card-desc">Cron, 즉시 실행, 예약</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128269;</div>
+            <div class="card-title">Web Search</div>
+            <div class="card-desc">Google/Bing 검색</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#129302;</div>
+            <div class="card-title">AI Processing</div>
+            <div class="card-desc">Claude/GPT/Gemini 분석</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128231;</div>
+            <div class="card-title">Email Send</div>
+            <div class="card-desc">SMTP 이메일 발송</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128172;</div>
+            <div class="card-title">Slack Message</div>
+            <div class="card-desc">Slack 채널 메시징</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128190;</div>
+            <div class="card-title">Data Storage</div>
+            <div class="card-desc">DB 저장/감사 로그</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#127760;</div>
+            <div class="card-title">API Call</div>
+            <div class="card-desc">REST API 호출</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128260;</div>
+            <div class="card-title">Data Transform</div>
+            <div class="card-desc">JSON/CSV 변환</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#9889;</div>
+            <div class="card-title">Condition/Filter</div>
+            <div class="card-desc">조건부 분기</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#9203;</div>
+            <div class="card-title">Wait/Approval</div>
+            <div class="card-desc">대기/승인 게이트</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128221;</div>
+            <div class="card-title">Document Gen</div>
+            <div class="card-desc">HTML/Word/PDF 보고서</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128301;</div>
+            <div class="card-title">Pentest Scanner</div>
+            <div class="card-desc">보안 취약점 스캔</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128193;</div>
+            <div class="card-title">File Operation</div>
+            <div class="card-desc">파일 업로드/처리</div>
+          </div>
+        </div>
+
+        <h3>5-Axis Harness Evaluation</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Axis</th>
+              <th>Weight</th>
+              <th>Checks</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Execution Readiness</td>
+              <td>30%</td>
+              <td>모든 필수 파라미터 설정, 노드 타입 유효성</td>
+            </tr>
+            <tr>
+              <td>Connector Availability</td>
+              <td>25%</td>
+              <td>외부 시스템 연결 상태, 인증 정보 확인</td>
+            </tr>
+            <tr>
+              <td>Policy Compliance</td>
+              <td>20%</td>
+              <td>거버넌스 정책 위반 검사</td>
+            </tr>
+            <tr>
+              <td>Usability</td>
+              <td>15%</td>
+              <td>노드 이름 명확성, 설정 완성도</td>
+            </tr>
+            <tr>
+              <td>Monitoring</td>
+              <td>10%</td>
+              <td>감사 로그 노드 존재 여부, 알림 설정</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ═══════════════════════ 09. EXECUTION ═══════════════════════ -->
+      <div class="section" id="execution">
+        <h2 class="section-title">
+          <span class="icon">&#9654;</span> 09. Workflow Execution Engine
+        </h2>
+
+        <h3>Execution Flow</h3>
+        <div class="arch-diagram">
+          Client Request &#9474; &#9660;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; ExecutionController (/v1/executions) &#9474;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9474; &#9660;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; WorkflowRunnerService &#9474; &#9474;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; &#9474; &#9474; For each node (ordered): &#9474; &#9474; &#9474; &#9474; 1.
+          Resolve dependencies &#9474; &#9474; &#9474; &#9474; 2. Route to executor &#9474; &#9474;
+          &#9474; &#9474; 3. Execute with timeout &#9474; &#9474; &#9474; &#9474; 4. Store result +
+          trace &#9474; &#9474; &#9474; &#9474; 5. Emit progress event (SSE) &#9474; &#9474; &#9474;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9474;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9474;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9524;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; NodeRouter &#9474;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9474;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9524;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; &#9474; &#9660; &#9660;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; AI Proc &#9474; &#9474; Pentest &#9474; &#9474; DocGen &#9474; ...
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+        </div>
+
+        <h3>Two Execution Paths</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Path</th>
+              <th>Trigger</th>
+              <th>Processing</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Simulation</strong></td>
+              <td>Frontend "실행" button (no server)</td>
+              <td>Client-side <code>simulateNodeExecution()</code> with structured mock data</td>
+            </tr>
+            <tr>
+              <td><strong>Real Execution</strong></td>
+              <td>Server API call</td>
+              <td>
+                Backend <code>WorkflowRunner</code> &rarr; <code>NodeRouter</code> &rarr; Executor,
+                results via SSE
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Report Generation Pipeline</h3>
+        <div class="flow">
+          <span class="flow-step">Node Results</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">collectPipelineData()</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">parseFindings() (3-tier)</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">HTML / Word Report</span>
+        </div>
+        <p>
+          파서 우선순위: <span class="tag tag-green">Pentest Format [PT-001]</span> &rarr;
+          <span class="tag tag-blue">Markdown ##/###</span> &rarr;
+          <span class="tag tag-gray">Paragraph Fallback</span>
+        </p>
+      </div>
+
+      <!-- ═══════════════════════ 10. FINOPS ═══════════════════════ -->
+      <div class="section" id="finops">
+        <h2 class="section-title">
+          <span class="icon">&#128176;</span> 10. FinOps Token Optimizer
+        </h2>
+
+        <p>
+          3-Gate 아키텍처로 AI API 호출 비용을 최적화합니다. 각 게이트를 순차적으로 통과하며, 조기
+          반환이 가능합니다.
+        </p>
+
+        <div class="arch-diagram">
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          Request &#9472;&#9472;&#9472;&#9472;&#9658; &#9474; Gate 1: Cache &#9474; &#9472;&#9472;
+          Hit &#9472;&#9472;&#9658; Return cached result &#9474; (Semantic Match) &#9474;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9474; Miss &#9660;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; Gate 2: Router &#9474; &#9472;&#9472; Route to cheapest capable model &#9474;
+          (Tier Selection) &#9474; Tier-1 (Haiku/Flash) $0.25/M
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          Tier-2 (Sonnet/4o) $3/M &#9474; Tier-3 (Opus/O3) $15/M &#9660;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; Gate 3: Packer &#9474; &#9472;&#9472; Compress prompt + context &#9474; (Skill
+          Compress) &#9474; into reusable skills
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+        </div>
+
+        <h3>Model Tier Configuration</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>Models</th>
+              <th>Cost</th>
+              <th>Use Case</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag tag-green">Tier 1</span></td>
+              <td>Claude Haiku, Gemini Flash, GPT-4o Mini</td>
+              <td>~$0.25/M tokens</td>
+              <td>Simple queries, classification, formatting</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-blue">Tier 2</span></td>
+              <td>Claude Sonnet, GPT-4o, Gemini Pro</td>
+              <td>~$3/M tokens</td>
+              <td>Complex analysis, multi-step reasoning</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-purple">Tier 3</span></td>
+              <td>Claude Opus, O3, GPT-5</td>
+              <td>~$15/M tokens</td>
+              <td>Critical decisions, expert-level tasks</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Tracking Metrics</h3>
+        <p>
+          모든 토큰 사용은 <code>FinOpsTokenLog</code>에 기록됩니다: cache hit 여부, routed tier,
+          원가 vs 최적화 비용, 응답 지연 시간 등을 추적하여 비용 절감 효과를 정량화합니다.
+        </p>
+      </div>
+
+      <!-- ═══════════════════════ 11. RELEASE ═══════════════════════ -->
+      <div class="section" id="release">
+        <h2 class="section-title"><span class="icon">&#128640;</span> 11. Release Engineering</h2>
+
+        <p>AI 모델/워크플로우 버전 변경을 안전하게 배포하기 위한 3단계 검증 체계입니다.</p>
+
+        <div class="card-grid" style="grid-template-columns: repeat(3, 1fr)">
+          <div class="card">
+            <div class="card-icon">&#128257;</div>
+            <div class="card-title">Replay Testing</div>
+            <div class="card-desc">
+              과거 실행 데이터셋을 새 버전에 재실행하여 회귀 검증<br />
+              <span class="tag tag-green">PASS</span>
+              <span class="tag tag-red">FAIL</span>
+              <span class="tag tag-orange">REGRESSION</span>
+              <span class="tag tag-blue">IMPROVEMENT</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128065;</div>
+            <div class="card-title">Shadow Traffic</div>
+            <div class="card-desc">
+              프로덕션 트래픽을 후보 버전에 병렬 전송 (side-effect 없음)<br />
+              Control vs. Candidate 결과 비교 분석
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128038;</div>
+            <div class="card-title">Canary Deployment</div>
+            <div class="card-desc">
+              5% &rarr; 25% &rarr; 50% &rarr; 100% 단계적 트래픽 이동<br />
+              Gate 평가: 성공률, 지연, 비용, 정책 위반
+            </div>
+          </div>
+        </div>
+
+        <h3>Promotion Decision Flow</h3>
+        <div class="flow">
+          <span class="flow-step">Replay Pass</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Shadow OK</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Canary Gates Pass</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step" style="background: #d1fae5; border-color: #34d399; color: #065f46"
+            >PROMOTE</span
+          >
+        </div>
+        <div class="flow">
+          <span class="flow-step">Any Gate Fail</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step" style="background: #fee2e2; border-color: #f87171; color: #991b1b"
+            >ROLLBACK</span
+          >
+        </div>
+      </div>
+
+      <!-- ═══════════════════════ 12. AGENT KERNEL ═══════════════════════ -->
+      <div class="section" id="agent-kernel">
+        <h2 class="section-title">
+          <span class="icon">&#129302;</span> 12. Agent Kernel (A2A Collaboration)
+        </h2>
+
+        <h3>Multi-Agent Architecture</h3>
+        <div class="arch-diagram">
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; Mission Control &#9474; &#9474;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; &#9474; &#9474; Dispatcher &#9474; &#9474; Handoff &#9474; &#9474; Mission &#9474;
+          &#9474; &#9474; &#9474; Service &#9474; &#9474; Service &#9474; &#9474; Service &#9474;
+          &#9474; &#9474;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9474;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9474; &#9474; &#9474; &#9660; &#9660; &#9660;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+          &#9474; Ops Agent &#9474; &#9474; Dev Agent &#9474; &#9474; QA Agent &#9474;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+        </div>
+
+        <h3>Agent Kernel Types</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Kernel Type</th>
+              <th>Description</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag tag-blue">MCP</span></td>
+              <td>Model Context Protocol 서버</td>
+              <td>Claude MCP Tool Server</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-green">REST</span></td>
+              <td>RESTful API 에이전트</td>
+              <td>External API Service</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-purple">LOCAL</span></td>
+              <td>로컬 실행 에이전트</td>
+              <td>Built-in Executors</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-orange">EXTERNAL</span></td>
+              <td>외부 에이전트 시스템</td>
+              <td>Third-party Agent Platform</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Self-Healing (Autonomous Ops)</h3>
+        <p>
+          <code>AutoAction</code> 모델로 자동 복구 작업을 관리합니다:
+          <span class="tag tag-green">REMEDIATION</span>
+          <span class="tag tag-blue">ROLLBACK</span>
+          <span class="tag tag-orange">ESCALATION</span>
+          <span class="tag tag-red">QUARANTINE</span>
+          <span class="tag tag-gray">RATE_ADJUST</span>
+        </p>
+        <p>Human override window: 600초 (자동 실행 전 수동 개입 가능)</p>
+      </div>
+
+      <!-- ═══════════════════════ 13. FDS ═══════════════════════ -->
+      <div class="section" id="fds">
+        <h2 class="section-title">
+          <span class="icon">&#128737;</span> 13. Fraud Detection System (FDS)
+        </h2>
+
+        <h3>Rule Engine</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Operator</th>
+              <th>Description</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>eq</code></td>
+              <td>Equal</td>
+              <td><code>user.role == "admin"</code></td>
+            </tr>
+            <tr>
+              <td><code>gt / lt</code></td>
+              <td>Greater / Less than</td>
+              <td><code>request.tokenCount > 50000</code></td>
+            </tr>
+            <tr>
+              <td><code>in / not_in</code></td>
+              <td>Set membership</td>
+              <td><code>source.country in ["KP", "IR"]</code></td>
+            </tr>
+            <tr>
+              <td><code>contains</code></td>
+              <td>String contains</td>
+              <td><code>prompt.text contains "bypass"</code></td>
+            </tr>
+            <tr>
+              <td><code>regex</code></td>
+              <td>Pattern match</td>
+              <td><code>input matches /rm -rf/</code></td>
+            </tr>
+            <tr>
+              <td><code>velocity_gt</code></td>
+              <td>Rate check</td>
+              <td><code>requests per 5min > 100</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Alert Lifecycle</h3>
+        <div class="flow">
+          <span class="flow-step" style="background: #fee2e2; border-color: #f87171; color: #991b1b"
+            >OPEN</span
+          >
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step" style="background: #fef3c7; border-color: #fbbf24; color: #92400e"
+            >INVESTIGATING</span
+          >
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step" style="background: #d1fae5; border-color: #34d399; color: #065f46"
+            >RESOLVED</span
+          >
+        </div>
+        <p>
+          분기: <span class="tag tag-red">BLOCKED</span>
+          <span class="tag tag-orange">ESCALATED</span> <span class="tag tag-gray">DISMISSED</span>
+        </p>
+      </div>
+
+      <!-- ═══════════════════════ 14. INFRA ═══════════════════════ -->
+      <div class="section" id="infra">
+        <h2 class="section-title">
+          <span class="icon">&#128187;</span> 14. Infrastructure &amp; DevOps
+        </h2>
+
+        <h3>Docker Compose Services</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Image</th>
+              <th>Port</th>
+              <th>Config</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>PostgreSQL</td>
+              <td><code>postgres:16-alpine</code></td>
+              <td>5432</td>
+              <td>DB: metis_dev, User: metis, Persistent volume</td>
+            </tr>
+            <tr>
+              <td>Redis</td>
+              <td><code>redis:7-alpine</code></td>
+              <td>6379</td>
+              <td>Cache + BullMQ queue backend</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Environment Variables</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th>Default</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>DATABASE_URL</code></td>
+              <td><code>postgresql://metis:metis_secret@localhost:5432/metis_dev</code></td>
+              <td>PostgreSQL 연결 문자열</td>
+            </tr>
+            <tr>
+              <td><code>REDIS_URL</code></td>
+              <td><code>redis://localhost:6379</code></td>
+              <td>Redis 연결</td>
+            </tr>
+            <tr>
+              <td><code>AUTH_SECRET</code></td>
+              <td>(change-me)</td>
+              <td>JWT 서명 키</td>
+            </tr>
+            <tr>
+              <td><code>API_PORT</code></td>
+              <td>4000</td>
+              <td>API 서버 포트</td>
+            </tr>
+            <tr>
+              <td><code>API_PREFIX</code></td>
+              <td>/v1</td>
+              <td>API 버전 prefix</td>
+            </tr>
+            <tr>
+              <td><code>CORS_ORIGIN</code></td>
+              <td>http://localhost:3000</td>
+              <td>프론트엔드 CORS 허용</td>
+            </tr>
+            <tr>
+              <td><code>WORKER_CONCURRENCY</code></td>
+              <td>5</td>
+              <td>BullMQ 병렬 처리 수</td>
+            </tr>
+            <tr>
+              <td><code>OTEL_SERVICE_NAME</code></td>
+              <td>metis-api</td>
+              <td>OpenTelemetry 서비스명</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Development Commands</h3>
+        <pre><code># Infrastructure
+pnpm docker:up              # PostgreSQL + Redis 시작
+pnpm docker:down            # 서비스 중지
+pnpm docker:reset           # 전체 초기화 + 재시작
+
+# Database
+pnpm db:generate            # Prisma Client 코드 생성
+pnpm db:migrate             # 마이그레이션 실행
+pnpm db:push                # 스키마를 DB에 직접 반영
+pnpm db:seed                # 샘플 데이터 시딩
+pnpm db:studio              # Prisma Studio GUI
+
+# Development
+pnpm dev                    # 모든 앱 동시 실행 (API + Web + Worker)
+pnpm build                  # 전체 빌드
+pnpm lint                   # 린트 검사</code></pre>
+      </div>
+
+      <!-- ═══════════════════════ 15. INTEGRATION ═══════════════════════ -->
+      <div class="section" id="integration">
+        <h2 class="section-title"><span class="icon">&#128279;</span> 15. Integration Points</h2>
+
+        <h3>AI Model Integrations</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Provider</th>
+              <th>Models</th>
+              <th>Usage</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Anthropic</td>
+              <td>Claude Opus, Sonnet, Haiku</td>
+              <td>Primary AI processing, workflow planning, security analysis</td>
+            </tr>
+            <tr>
+              <td>OpenAI</td>
+              <td>GPT-4o, GPT-4o Mini, O3</td>
+              <td>Fallback AI, model routing tier</td>
+            </tr>
+            <tr>
+              <td>Google</td>
+              <td>Gemini Pro, Gemini Flash</td>
+              <td>Cost-optimized tier routing</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>External Service Connectors</h3>
+        <div class="card-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr))">
+          <div class="card">
+            <div class="card-icon">&#128231;</div>
+            <div class="card-title">SMTP Email</div>
+            <div class="card-desc">Gmail, 커스텀 SMTP</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128172;</div>
+            <div class="card-title">Slack API</div>
+            <div class="card-desc">채널 메시징, 알림</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#127760;</div>
+            <div class="card-title">REST APIs</div>
+            <div class="card-desc">범용 HTTP 호출</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128187;</div>
+            <div class="card-title">GitHub</div>
+            <div class="card-desc">팩 소스 저장소</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#128301;</div>
+            <div class="card-title">Nmap / Shodan</div>
+            <div class="card-desc">보안 스캐닝</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">&#129302;</div>
+            <div class="card-title">MCP Servers</div>
+            <div class="card-desc">Model Context Protocol</div>
+          </div>
+        </div>
+
+        <h3>Event Streaming</h3>
+        <p>
+          <strong>Redis Pub/Sub</strong>를 기반으로 실시간 이벤트를 처리합니다. 프론트엔드는
+          <strong>Server-Sent Events (SSE)</strong>로 실행 진행 상황, 감사 이벤트, 알림을
+          수신합니다. 모든 이벤트는 <code>correlationId</code>로 연결되어 End-to-End 추적이
+          가능합니다.
+        </p>
+      </div>
+
+      <!-- ═══════════════════════ 16. SECURITY ═══════════════════════ -->
+      <div class="section" id="security">
+        <h2 class="section-title">
+          <span class="icon">&#128737;</span> 16. Security &amp; Governance
+        </h2>
+
+        <h3>Security Layers</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Mechanism</th>
+              <th>Implementation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Authentication</td>
+              <td>JWT (HS256) + bcrypt</td>
+              <td>Access token + Refresh token rotation</td>
+            </tr>
+            <tr>
+              <td>Authorization</td>
+              <td>RBAC (6 roles)</td>
+              <td><code>@Roles()</code> decorator + RolesGuard</td>
+            </tr>
+            <tr>
+              <td>Tenant Isolation</td>
+              <td>Database-level filtering</td>
+              <td>Prisma middleware <code>withTenantIsolation</code></td>
+            </tr>
+            <tr>
+              <td>Rate Limiting</td>
+              <td>Per-user/tenant throttle</td>
+              <td>ThrottleGuard</td>
+            </tr>
+            <tr>
+              <td>Input Sanitization</td>
+              <td>XSS prevention</td>
+              <td><code>sanitizeInput()</code>, <code>sanitizeNodeName()</code></td>
+            </tr>
+            <tr>
+              <td>CSRF Protection</td>
+              <td>Token-based</td>
+              <td><code>X-CSRF-Token</code> header validation</td>
+            </tr>
+            <tr>
+              <td>Audit Trail</td>
+              <td>Full operation logging</td>
+              <td>AuditInterceptor &rarr; AuditLog table</td>
+            </tr>
+            <tr>
+              <td>Correlation Tracking</td>
+              <td>Request tracing</td>
+              <td>CorrelationInterceptor &rarr; unique ID per request</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Governance Framework</h3>
+        <div class="card-grid" style="grid-template-columns: repeat(3, 1fr)">
+          <div class="card" style="text-align: center">
+            <div class="card-icon">&#128220;</div>
+            <div class="card-title">Policy Engine</div>
+            <div class="card-desc">
+              YAML 기반 정책 정의 + 자동 평가<br /><code>Policy</code> &rarr;
+              <code>PolicyEvaluation</code>
+            </div>
+          </div>
+          <div class="card" style="text-align: center">
+            <div class="card-icon">&#128269;</div>
+            <div class="card-title">Audit System</div>
+            <div class="card-desc">
+              전수 감사 로깅 + Correlation ID 추적<br />Actor, Target, Result, Metadata
+            </div>
+          </div>
+          <div class="card" style="text-align: center">
+            <div class="card-icon">&#128202;</div>
+            <div class="card-title">Compliance Dashboard</div>
+            <div class="card-desc">KPI 모니터링 + 증적 수집<br />정책 준수율, 위반 현황</div>
+          </div>
+        </div>
+
+        <h3>Audit Log Schema</h3>
+        <pre><code>model AuditLog {
+  id            String   @id @default(uuid())
+  tenantId      String   // Multi-tenant isolation
+  actorUserId   String   // Who performed the action
+  action        String   // CREATE, UPDATE, DELETE, EXECUTE, PUBLISH...
+  targetType    String   // Workflow, Pack, Execution, Agent...
+  targetId      String   // Target entity ID
+  policyResult  String?  // PASS / FAIL / WARN
+  correlationId String   // End-to-end tracing
+  metadataJson  Json?    // Additional context
+  createdAt     DateTime @default(now())
+}</code></pre>
+      </div>
+
+      <!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+      <div
+        style="
+          text-align: center;
+          padding: 40px 20px;
+          color: var(--text-secondary);
+          font-size: 0.85rem;
+        "
+      >
+        <p><strong>Metis.AI Architecture Document v1.0</strong></p>
+        <p>Generated 2026-04-21 &nbsp;|&nbsp; Confidential &mdash; Internal Use Only</p>
+        <p style="margin-top: 8px; font-size: 0.75rem; opacity: 0.6">
+          NestJS 10 &middot; Next.js 15 &middot; React 19 &middot; PostgreSQL 16 &middot; Redis 7
+          &middot; Prisma 6.19 &middot; Turborepo &middot; pnpm
+        </p>
+      </div>
+    </div>
+    <!-- .content -->
+  </body>
+</html>

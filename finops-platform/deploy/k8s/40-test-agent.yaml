@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-agent
+  namespace: metis-finops
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: test-agent }
+  template:
+    metadata:
+      labels: { app: test-agent }
+    spec:
+      containers:
+        - name: test-agent
+          image: __REGISTRY__/metis-finops/test-agent:1.0.0
+          ports: [{ containerPort: 8600 }]
+          env:
+            - { name: GATEWAY_URL, value: http://gateway:8400 }
+            - { name: LEDGER_URL, value: http://control-plane:8500 }
+            - { name: TEST_AGENT_MODEL, value: claude-sonnet-4-6 }
+          resources:
+            requests: { cpu: 300m, memory: 512Mi }
+            limits: { cpu: "2", memory: 1Gi }   # javac/gcc 컴파일 여유
+          readinessProbe:
+            httpGet: { path: /health, port: 8600 }
+            initialDelaySeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-agent
+  namespace: metis-finops
+spec:
+  selector: { app: test-agent }
+  ports: [{ port: 8600, targetPort: 8600 }]

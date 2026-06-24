@@ -1,0 +1,25 @@
+# 데모 트래픽 생성기 — 운영 배포 시에는 replicas: 0 으로 끄거나 이 파일을 적용하지 않음
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+  namespace: metis-finops
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: simulator }
+  template:
+    metadata:
+      labels: { app: simulator }
+    spec:
+      containers:
+        - name: simulator
+          image: __REGISTRY__/metis-finops/simulator:1.0.0
+          env:
+            - { name: GATEWAY_URL, value: http://gateway:8400 }
+            - { name: LEDGER_URL, value: http://control-plane:8500 }
+            - { name: SIM_RPS, value: "0.8" }
+            - { name: SIM_USE_REAL_API, value: "0" }   # 반드시 0 유지 (실 API 비용 방지)
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }

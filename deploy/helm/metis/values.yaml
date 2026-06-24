@@ -1,0 +1,82 @@
+# ───────── METIS Helm values (사내망/AKS) ─────────
+image:
+  # ACR를 안 쓰는 경우(자체 CI/CD): 사내 레지스트리 호스트로 교체하세요.
+  #   예: harbor.intra.example.com/metis  또는  nexus.intra:5000/metis
+  registry: myacr.azurecr.io   # Azure Container Registry (또는 사내 레지스트리)
+  tag: "1.1.0"
+  pullPolicy: IfNotPresent
+# 사내 레지스트리에 인증이 필요하면 docker-registry Secret을 만들어 여기에 지정:
+#   kubectl create secret docker-registry regcred --docker-server=... --docker-username=... --docker-password=...
+imagePullSecrets: []            # ACR-AKS attach 시 불필요 / 사내 레지스트리는 [{name: regcred}]
+
+api:
+  replicas: 2
+  hpa: { enabled: false, min: 2, max: 6, cpu: 70 }
+  resources:
+    requests: { cpu: "250m", memory: "512Mi" }
+    limits:   { cpu: "1",    memory: "1Gi" }
+web:
+  replicas: 2
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "500m", memory: "512Mi" }
+worker:
+  replicas: 1
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "500m", memory: "512Mi" }
+
+# 업로드/산출물 영구볼륨 (다중 파드 → ReadWriteMany = Azure Files)
+persistence:
+  enabled: true
+  storageClass: azurefile-csi
+  size: 10Gi
+  mountPath: /data
+
+ingress:
+  enabled: true
+  className: nginx           # 또는 azure application gateway(agic)
+  host: metis.intra.example.com
+  tls:
+    enabled: true
+    secretName: metis-tls
+
+# 비밀이 아닌 설정 (ConfigMap)
+config:
+  NODE_ENV: production
+  API_PORT: "4000"
+  API_PREFIX: v1
+  CORS_ORIGIN: https://metis.intra.example.com
+  NEXT_PUBLIC_API_URL: http://metis-api:4000/v1
+  UPLOAD_DIR: /data/uploads
+  OUTPUT_DIR: /data/outputs
+  RATE_LIMIT: "100"
+  RATE_LIMIT_WINDOW_MS: "60000"
+  LOG_LEVEL: info
+  OTEL_SERVICE_NAME: metis-api
+  # HTTP 전용 사내망(HTTPS 종단 없음)이면 "false" 필수 — 안 그러면 쿠키 미전송으로 로그인 실패
+  COOKIE_SECURE: "false"
+  # LLM 엔드포인트 오버라이드(소스 수정 불필요). 비우면 공개 API 기본값 사용.
+  #   자체 qwen3.5(OpenAI 호환): OPENAI_BASE_URL/OPENAI_MODEL/EVALUATOR_JUDGE_MODEL 설정
+  # OPENAI_BASE_URL: "http://qwen-gateway.intra:8000/v1"
+  # ANTHROPIC_BASE_URL: "https://anthropic-proxy.intra"
+  # OPENAI_MODEL: "qwen2.5-72b-instruct"
+  # OPENAI_EMBED_MODEL: "text-embedding-3-small"
+  # EVALUATOR_JUDGE_MODEL: "qwen2.5-72b-instruct"
+
+# 비밀값 (Secret). 운영은 existingSecret(=Key Vault CSI 동기화) 권장.
+secret:
+  create: true              # false면 existingSecret 사용
+  existingSecret: ""        # 예: metis-secrets (create=false일 때)
+  data:
+    DATABASE_URL: ""
+    REDIS_URL: ""
+    AUTH_SECRET: ""
+    METIS_SECRET_KEY: ""
+    ANTHROPIC_API_KEY: ""
+    OPENAI_API_KEY: ""
+
+# 설치/업그레이드 시 DB 스키마 반영 + 시드 (Helm hook Job)
+migrate:
+  enabled: true
+  seed: true                # 데모 데이터 시드. 운영 클린 설치면 false

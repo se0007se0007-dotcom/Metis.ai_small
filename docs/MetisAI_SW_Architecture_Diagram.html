@@ -1,0 +1,4097 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metis.AI - SW &amp; Technical Architecture</title>
+    <style>
+      :root {
+        --bg: #f8f9fc;
+        --card: #ffffff;
+        --card-border: rgba(0, 0, 0, 0.08);
+        --text: #1f2937;
+        --text-muted: #6b7280;
+        --cyan: #0284c7;
+        --green: #059669;
+        --gold: #d97706;
+        --red: #dc2626;
+        --purple: #7c3aed;
+        --orange: #ea580c;
+        --pink: #db2777;
+        --blue: #2563eb;
+        --teal: #0d9488;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          'Segoe UI',
+          -apple-system,
+          sans-serif;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 30px 40px;
+      }
+
+      /* Header */
+      .header {
+        text-align: center;
+        padding: 50px 0 40px;
+        border-bottom: 1px solid var(--card-border);
+        margin-bottom: 40px;
+      }
+      .header h1 {
+        font-size: 2.4em;
+        color: var(--cyan);
+        font-weight: 800;
+        letter-spacing: -0.5px;
+      }
+      .header .subtitle {
+        color: var(--text-muted);
+        font-size: 1.1em;
+        margin-top: 8px;
+      }
+      .header .meta {
+        display: flex;
+        gap: 30px;
+        justify-content: center;
+        margin-top: 20px;
+        font-size: 0.85em;
+        color: var(--text-muted);
+      }
+      .header .meta span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      /* TOC */
+      .toc {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 30px;
+        margin-bottom: 40px;
+      }
+      .toc h2 {
+        color: var(--gold);
+        font-size: 1.3em;
+        margin-bottom: 15px;
+      }
+      .toc-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px 30px;
+      }
+      .toc a {
+        color: var(--cyan);
+        text-decoration: none;
+        font-size: 0.9em;
+        padding: 4px 0;
+        display: block;
+        transition: color 0.2s;
+      }
+      .toc a:hover {
+        color: var(--gold);
+      }
+      .toc a .num {
+        color: var(--text-muted);
+        margin-right: 6px;
+        font-size: 0.85em;
+      }
+
+      /* Section */
+      .section {
+        margin-bottom: 50px;
+      }
+      .section-title {
+        font-size: 1.6em;
+        color: var(--cyan);
+        font-weight: 700;
+        border-bottom: 2px solid rgba(2, 132, 199, 0.3);
+        padding-bottom: 10px;
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .section-title .icon {
+        font-size: 1.2em;
+      }
+
+      /* Cards */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+      .card h3 {
+        color: var(--gold);
+        font-size: 1.15em;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .card p,
+      .card li {
+        color: var(--text-muted);
+        font-size: 0.92em;
+      }
+
+      /* Diagram boxes */
+      .arch-diagram {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 20px;
+      }
+      .arch-row {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .arch-box {
+        background: rgba(2, 132, 199, 0.08);
+        border: 1px solid rgba(2, 132, 199, 0.25);
+        border-radius: 10px;
+        padding: 14px 20px;
+        text-align: center;
+        min-width: 140px;
+        flex: 1;
+        max-width: 220px;
+      }
+      .arch-box.highlight {
+        background: rgba(217, 119, 6, 0.1);
+        border-color: rgba(217, 119, 6, 0.35);
+      }
+      .arch-box.green {
+        background: rgba(5, 150, 105, 0.08);
+        border-color: rgba(5, 150, 105, 0.25);
+      }
+      .arch-box.purple {
+        background: rgba(124, 58, 237, 0.08);
+        border-color: rgba(124, 58, 237, 0.25);
+      }
+      .arch-box.red {
+        background: rgba(220, 38, 38, 0.08);
+        border-color: rgba(220, 38, 38, 0.25);
+      }
+      .arch-box.orange {
+        background: rgba(234, 88, 12, 0.08);
+        border-color: rgba(234, 88, 12, 0.25);
+      }
+      .arch-box.teal {
+        background: rgba(13, 148, 136, 0.08);
+        border-color: rgba(13, 148, 136, 0.25);
+      }
+      .arch-box .title {
+        font-weight: 700;
+        font-size: 0.88em;
+        color: var(--text);
+      }
+      .arch-box .sub {
+        font-size: 0.78em;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+      .arch-arrow {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 1.4em;
+      }
+      .arch-label {
+        text-align: center;
+        font-size: 0.8em;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        padding: 6px;
+        background: rgba(0, 0, 0, 0.03);
+        border-radius: 6px;
+      }
+
+      /* Module grid */
+      .module-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+      }
+      .module-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        padding: 18px;
+        transition: border-color 0.2s;
+      }
+      .module-card:hover {
+        border-color: rgba(2, 132, 199, 0.3);
+      }
+      .module-card .name {
+        font-weight: 700;
+        font-size: 0.95em;
+        color: var(--cyan);
+        margin-bottom: 6px;
+      }
+      .module-card .desc {
+        font-size: 0.83em;
+        color: var(--text-muted);
+      }
+      .module-card .files {
+        font-size: 0.78em;
+        color: var(--gold);
+        margin-top: 8px;
+        font-family: 'Consolas', monospace;
+      }
+
+      /* Tech stack badges */
+      .badge-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 10px 0;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 600;
+      }
+      .badge.cyan {
+        background: rgba(2, 132, 199, 0.12);
+        color: var(--cyan);
+      }
+      .badge.green {
+        background: rgba(5, 150, 105, 0.12);
+        color: var(--green);
+      }
+      .badge.gold {
+        background: rgba(217, 119, 6, 0.12);
+        color: var(--gold);
+      }
+      .badge.purple {
+        background: rgba(124, 58, 237, 0.12);
+        color: var(--purple);
+      }
+      .badge.red {
+        background: rgba(220, 38, 38, 0.12);
+        color: var(--red);
+      }
+      .badge.orange {
+        background: rgba(234, 88, 12, 0.12);
+        color: var(--orange);
+      }
+      .badge.blue {
+        background: rgba(37, 99, 235, 0.12);
+        color: var(--blue);
+      }
+      .badge.teal {
+        background: rgba(13, 148, 136, 0.12);
+        color: var(--teal);
+      }
+
+      /* Table */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+      }
+      th {
+        background: rgba(2, 132, 199, 0.08);
+        color: var(--cyan);
+        text-align: left;
+        padding: 10px 14px;
+        font-size: 0.85em;
+        font-weight: 700;
+        border-bottom: 1px solid var(--card-border);
+      }
+      td {
+        padding: 10px 14px;
+        font-size: 0.85em;
+        color: var(--text-muted);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      }
+      tr:hover td {
+        background: rgba(0, 0, 0, 0.02);
+      }
+      code {
+        font-family: 'Consolas', 'Courier New', monospace;
+        background: rgba(2, 132, 199, 0.08);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.88em;
+        color: var(--cyan);
+      }
+
+      /* Flow diagram */
+      .flow-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 15px 0;
+        justify-content: center;
+      }
+      .flow-step {
+        background: rgba(2, 132, 199, 0.1);
+        border: 1px solid rgba(2, 132, 199, 0.25);
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-size: 0.82em;
+        font-weight: 600;
+        text-align: center;
+        min-width: 100px;
+      }
+      .flow-step.gold {
+        background: rgba(217, 119, 6, 0.1);
+        border-color: rgba(217, 119, 6, 0.3);
+        color: var(--gold);
+      }
+      .flow-step.green {
+        background: rgba(5, 150, 105, 0.1);
+        border-color: rgba(5, 150, 105, 0.3);
+        color: var(--green);
+      }
+      .flow-step.red {
+        background: rgba(220, 38, 38, 0.1);
+        border-color: rgba(220, 38, 38, 0.3);
+        color: var(--red);
+      }
+      .flow-step.purple {
+        background: rgba(124, 58, 237, 0.1);
+        border-color: rgba(124, 58, 237, 0.3);
+        color: var(--purple);
+      }
+      .flow-arrow {
+        color: var(--text-muted);
+        font-size: 1.2em;
+      }
+
+      /* Highlight box */
+      .highlight-box {
+        background: rgba(217, 119, 6, 0.06);
+        border-left: 4px solid var(--gold);
+        padding: 16px 20px;
+        border-radius: 0 8px 8px 0;
+        margin: 15px 0;
+      }
+      .highlight-box.info {
+        background: rgba(2, 132, 199, 0.06);
+        border-color: var(--cyan);
+      }
+      .highlight-box.warn {
+        background: rgba(220, 38, 38, 0.06);
+        border-color: var(--red);
+      }
+
+      /* Stats row */
+      .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin: 20px 0;
+      }
+      .stat-item {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        padding: 18px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+      .stat-item .value {
+        font-size: 2em;
+        font-weight: 800;
+        color: var(--cyan);
+      }
+      .stat-item .label {
+        font-size: 0.78em;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+
+      /* ERD-like model display */
+      .model-group {
+        margin-bottom: 20px;
+      }
+      .model-group-title {
+        font-size: 1em;
+        font-weight: 700;
+        color: var(--green);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .model-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 8px;
+      }
+      .model-chip {
+        background: rgba(5, 150, 105, 0.06);
+        border: 1px solid rgba(5, 150, 105, 0.15);
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 0.82em;
+        color: var(--text-muted);
+        font-family: 'Consolas', monospace;
+      }
+
+      /* UI Mockup Styles */
+      .ui-mockup {
+        background: #f0f4f8;
+        border: 2px solid rgba(2, 132, 199, 0.2);
+        border-radius: 12px;
+        padding: 0;
+        margin: 20px 0;
+        overflow: hidden;
+      }
+      .ui-mockup-header {
+        background: rgba(2, 132, 199, 0.06);
+        border-bottom: 1px solid rgba(2, 132, 199, 0.15);
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .ui-mockup-header .title {
+        font-size: 0.82em;
+        font-weight: 700;
+        color: var(--cyan);
+      }
+      .ui-mockup-header .label {
+        font-size: 0.7em;
+        padding: 2px 8px;
+        background: rgba(217, 119, 6, 0.15);
+        color: var(--gold);
+        border-radius: 4px;
+      }
+      .ui-mockup-body {
+        padding: 16px;
+      }
+      .ui-mockup-label {
+        text-align: center;
+        font-size: 0.72em;
+        color: var(--text-muted);
+        margin-top: 8px;
+        font-style: italic;
+      }
+
+      .mock-stat-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .mock-stat {
+        background: rgba(0, 0, 0, 0.02);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+      }
+      .mock-stat .val {
+        font-size: 1.4em;
+        font-weight: 800;
+      }
+      .mock-stat .val.cyan {
+        color: var(--cyan);
+      }
+      .mock-stat .val.green {
+        color: var(--green);
+      }
+      .mock-stat .val.gold {
+        color: var(--gold);
+      }
+      .mock-stat .val.red {
+        color: var(--red);
+      }
+      .mock-stat .lbl {
+        font-size: 0.72em;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+
+      .mock-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8em;
+      }
+      .mock-table th {
+        background: rgba(0, 0, 0, 0.03);
+        color: var(--text-muted);
+        text-align: left;
+        padding: 8px 10px;
+        font-size: 0.85em;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      }
+      .mock-table td {
+        padding: 8px 10px;
+        color: var(--text-muted);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      }
+      .mock-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.78em;
+        font-weight: 600;
+      }
+      .mock-badge.success {
+        background: rgba(5, 150, 105, 0.15);
+        color: var(--green);
+      }
+      .mock-badge.warning {
+        background: rgba(217, 119, 6, 0.15);
+        color: var(--gold);
+      }
+      .mock-badge.danger {
+        background: rgba(220, 38, 38, 0.15);
+        color: var(--red);
+      }
+      .mock-badge.info {
+        background: rgba(2, 132, 199, 0.15);
+        color: var(--cyan);
+      }
+
+      /* Node pipeline mockup */
+      .mock-pipeline {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+      .mock-node {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(0, 0, 0, 0.02);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: 8px;
+        padding: 10px 16px;
+        width: 260px;
+      }
+      .mock-node .icon {
+        font-size: 1.2em;
+      }
+      .mock-node .info {
+        flex: 1;
+      }
+      .mock-node .info .name {
+        font-size: 0.82em;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .mock-node .info .type {
+        font-size: 0.7em;
+        color: var(--text-muted);
+      }
+      .mock-connector {
+        color: var(--text-muted);
+        font-size: 0.9em;
+      }
+
+      /* Agent meeting mockup */
+      .mock-meeting {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+      }
+      .mock-agent-row {
+        display: flex;
+        gap: 16px;
+      }
+      .mock-agent {
+        text-align: center;
+      }
+      .mock-agent .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1em;
+        margin: 0 auto 4px;
+      }
+      .mock-agent .name {
+        font-size: 0.65em;
+        color: var(--text-muted);
+      }
+      .mock-table-center {
+        width: 160px;
+        height: 24px;
+        background: linear-gradient(90deg, rgba(217, 119, 6, 0.1), rgba(217, 119, 6, 0.05));
+        border: 1px solid rgba(217, 119, 6, 0.2);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6em;
+        color: var(--gold);
+        letter-spacing: 1px;
+      }
+
+      /* Tab mockup */
+      .mock-tabs {
+        display: flex;
+        gap: 1px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        margin-bottom: 12px;
+      }
+      .mock-tab {
+        padding: 6px 14px;
+        font-size: 0.78em;
+        color: var(--text-muted);
+        border-bottom: 2px solid transparent;
+      }
+      .mock-tab.active {
+        color: var(--cyan);
+        border-bottom-color: var(--cyan);
+        font-weight: 600;
+      }
+
+      /* Builder layout mockup */
+      .mock-builder-layout {
+        display: grid;
+        grid-template-columns: 1fr 280px 200px;
+        gap: 12px;
+      }
+      .mock-panel {
+        background: rgba(0, 0, 0, 0.02);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: 8px;
+        padding: 12px;
+      }
+      .mock-panel-title {
+        font-size: 0.75em;
+        font-weight: 700;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      /* What-if simulator mockup */
+      .mock-slider-group {
+        margin: 8px 0;
+      }
+      .mock-slider-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.78em;
+        margin-bottom: 4px;
+      }
+      .mock-slider-label .name {
+        color: var(--text-muted);
+      }
+      .mock-slider-label .value {
+        color: var(--cyan);
+        font-weight: 600;
+      }
+      .mock-slider-bar {
+        height: 6px;
+        background: rgba(0, 0, 0, 0.06);
+        border-radius: 3px;
+        position: relative;
+      }
+      .mock-slider-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--cyan);
+      }
+      .mock-slider-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--cyan);
+        border: 2px solid var(--bg);
+        position: absolute;
+        top: -4px;
+      }
+
+      /* Search toolbar mockup */
+      .mock-search-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .mock-input {
+        flex: 1;
+        background: rgba(0, 0, 0, 0.02);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 0.8em;
+        color: var(--text-muted);
+      }
+      .mock-select {
+        background: rgba(0, 0, 0, 0.02);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 0.8em;
+        color: var(--text-muted);
+        min-width: 120px;
+      }
+
+      /* Feed mockup */
+      .mock-feed-item {
+        display: flex;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      }
+      .mock-feed-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-top: 4px;
+        flex-shrink: 0;
+      }
+      .mock-feed-text {
+        font-size: 0.78em;
+        color: var(--text-muted);
+      }
+      .mock-feed-time {
+        font-size: 0.7em;
+        color: rgba(0, 0, 0, 0.35);
+      }
+
+      /* Sub-engine card */
+      .sub-engine-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 16px;
+        border-left: 4px solid var(--cyan);
+      }
+      .sub-engine-card.bh1 {
+        border-left-color: var(--cyan);
+      }
+      .sub-engine-card.bh2 {
+        border-left-color: var(--green);
+      }
+      .sub-engine-card.bh3 {
+        border-left-color: var(--red);
+      }
+      .sub-engine-card.bh4 {
+        border-left-color: var(--gold);
+      }
+      .sub-engine-card.bh5 {
+        border-left-color: var(--purple);
+      }
+      .sub-engine-card.bh6 {
+        border-left-color: var(--orange);
+      }
+      .sub-engine-card.bh7 {
+        border-left-color: var(--teal);
+      }
+      .sub-engine-card h4 {
+        color: var(--cyan);
+        font-size: 1.05em;
+        margin-bottom: 10px;
+      }
+      .sub-engine-card.bh2 h4 {
+        color: var(--green);
+      }
+      .sub-engine-card.bh3 h4 {
+        color: var(--red);
+      }
+      .sub-engine-card.bh4 h4 {
+        color: var(--gold);
+      }
+      .sub-engine-card.bh5 h4 {
+        color: var(--purple);
+      }
+      .sub-engine-card.bh6 h4 {
+        color: var(--orange);
+      }
+      .sub-engine-card.bh7 h4 {
+        color: var(--teal);
+      }
+
+      @media (max-width: 768px) {
+        .toc-grid {
+          grid-template-columns: 1fr;
+        }
+        .module-grid {
+          grid-template-columns: 1fr;
+        }
+        .arch-row {
+          flex-direction: column;
+          align-items: center;
+        }
+        .stats-row {
+          grid-template-columns: 1fr 1fr;
+        }
+        .container {
+          padding: 15px 20px;
+        }
+        .mock-builder-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- ========== HEADER ========== -->
+      <div class="header">
+        <h1>Metis.AI</h1>
+        <div class="subtitle">
+          Enterprise Multi-Tenant AgentOps Platform &mdash; SW &amp; Technical Architecture
+        </div>
+        <div class="meta">
+          <span>Version 1.2</span>
+          <span>2026-05-27</span>
+          <span>Total Source Files: 180+</span>
+          <span>DB Models: 40+</span>
+        </div>
+      </div>
+
+      <!-- ========== STATS ========== -->
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="value">22</div>
+          <div class="label">Backend Modules</div>
+        </div>
+        <div class="stat-item">
+          <div class="value">38+</div>
+          <div class="label">Frontend Pages</div>
+        </div>
+        <div class="stat-item">
+          <div class="value">12</div>
+          <div class="label">Node Executors</div>
+        </div>
+        <div class="stat-item">
+          <div class="value">40+</div>
+          <div class="label">DB Models</div>
+        </div>
+        <div class="stat-item">
+          <div class="value">6</div>
+          <div class="label">RBAC Roles</div>
+        </div>
+        <div class="stat-item">
+          <div class="value">3</div>
+          <div class="label">AI Model Tiers</div>
+        </div>
+        <div class="stat-item">
+          <div class="value">7</div>
+          <div class="label">Harness Sub-Engines (BH-1~7)</div>
+        </div>
+      </div>
+
+      <!-- ========== TOC ========== -->
+      <div class="toc">
+        <h2>Table of Contents</h2>
+        <div class="toc-grid">
+          <a href="#s1"><span class="num">01</span> System Overview &amp; Architecture</a>
+          <a href="#s2"><span class="num">02</span> Technology Stack</a>
+          <a href="#s3"><span class="num">03</span> Monorepo Project Structure</a>
+          <a href="#s4"><span class="num">04</span> Backend Modules (NestJS)</a>
+          <a href="#s5"><span class="num">05</span> Frontend Pages &amp; Components</a>
+          <a href="#s6"><span class="num">06</span> Workflow Builder &amp; NL Parser</a>
+          <a href="#s7"><span class="num">07</span> Workflow Execution Engine</a>
+          <a href="#s8"><span class="num">08</span> AI Model Integration &amp; FinOps</a>
+          <a href="#s9"><span class="num">09</span> Database Schema (Prisma)</a>
+          <a href="#s10"><span class="num">10</span> Authentication &amp; RBAC</a>
+          <a href="#s11"><span class="num">11</span> Agent Kernel &amp; MCP</a>
+          <a href="#s12"><span class="num">12</span> Release Engineering</a>
+          <a href="#s13"><span class="num">13</span> Fraud Detection (FDS)</a>
+          <a href="#s14"><span class="num">14</span> Infrastructure &amp; DevOps</a>
+          <a href="#s15"><span class="num">15</span> Security &amp; Governance</a>
+          <a href="#s16"><span class="num">16</span> API Endpoints Summary</a>
+          <a href="#s17"><span class="num">17</span> Data Flow Diagrams</a>
+          <a href="#s18"><span class="num">18</span> Deployment Architecture</a>
+          <a href="#s19"><span class="num">19</span> Builder Harness Engine (BH-1~7)</a>
+        </div>
+      </div>
+
+      <!-- ========== S1: SYSTEM OVERVIEW ========== -->
+      <div class="section" id="s1">
+        <div class="section-title">
+          <span class="icon">1.</span> System Overview &amp; Architecture
+        </div>
+
+        <div class="card">
+          <h3>High-Level System Architecture</h3>
+          <div class="arch-diagram">
+            <div class="arch-label">CLIENT LAYER</div>
+            <div class="arch-row">
+              <div class="arch-box highlight">
+                <div class="title">Next.js 15 SPA</div>
+                <div class="sub">React 19 + Tailwind</div>
+              </div>
+              <div class="arch-box highlight">
+                <div class="title">Workflow Builder</div>
+                <div class="sub">NL Parser + Canvas</div>
+              </div>
+              <div class="arch-box highlight">
+                <div class="title">Template Market</div>
+                <div class="sub">CRUD + localStorage</div>
+              </div>
+            </div>
+            <div class="arch-arrow">&#x25BC;</div>
+            <div class="arch-label">API GATEWAY (Next.js Rewrite Proxy)</div>
+            <div class="arch-arrow">&#x25BC;</div>
+            <div class="arch-label">BACKEND LAYER</div>
+            <div class="arch-row">
+              <div class="arch-box green">
+                <div class="title">Auth Module</div>
+                <div class="sub">JWT + RBAC</div>
+              </div>
+              <div class="arch-box green">
+                <div class="title">Workflow Module</div>
+                <div class="sub">CRUD + Versioning</div>
+              </div>
+              <div class="arch-box green">
+                <div class="title">Execution Engine</div>
+                <div class="sub">Pipeline + Executors</div>
+              </div>
+              <div class="arch-box green">
+                <div class="title">Builder Module</div>
+                <div class="sub">Planner + Validation</div>
+              </div>
+            </div>
+            <div class="arch-row">
+              <div class="arch-box purple">
+                <div class="title">Agent Kernel</div>
+                <div class="sub">Mission + Handoff</div>
+              </div>
+              <div class="arch-box purple">
+                <div class="title">FinOps</div>
+                <div class="sub">Token Optimizer</div>
+              </div>
+              <div class="arch-box purple">
+                <div class="title">Governance</div>
+                <div class="sub">Policy + Audit</div>
+              </div>
+              <div class="arch-box purple">
+                <div class="title">Knowledge</div>
+                <div class="sub">Registry + Pipeline</div>
+              </div>
+            </div>
+            <div class="arch-row">
+              <div class="arch-box orange">
+                <div class="title">FDS</div>
+                <div class="sub">Fraud Detection</div>
+              </div>
+              <div class="arch-box orange">
+                <div class="title">Release</div>
+                <div class="sub">Canary + Shadow</div>
+              </div>
+              <div class="arch-box orange">
+                <div class="title">Pack</div>
+                <div class="sub">Marketplace</div>
+              </div>
+              <div class="arch-box orange">
+                <div class="title">Connector</div>
+                <div class="sub">Integration Hub</div>
+              </div>
+            </div>
+            <div class="arch-arrow">&#x25BC;</div>
+            <div class="arch-label">DATA &amp; INFRASTRUCTURE LAYER</div>
+            <div class="arch-row">
+              <div class="arch-box red">
+                <div class="title">PostgreSQL</div>
+                <div class="sub">Prisma ORM</div>
+              </div>
+              <div class="arch-box red">
+                <div class="title">Redis</div>
+                <div class="sub">Cache + Queue</div>
+              </div>
+              <div class="arch-box red">
+                <div class="title">BullMQ</div>
+                <div class="sub">Job Processing</div>
+              </div>
+              <div class="arch-box red">
+                <div class="title">File Storage</div>
+                <div class="sub">Uploads + Reports</div>
+              </div>
+            </div>
+            <div class="arch-arrow">&#x25BC;</div>
+            <div class="arch-label">EXTERNAL SERVICES</div>
+            <div class="arch-row">
+              <div class="arch-box teal">
+                <div class="title">Anthropic API</div>
+                <div class="sub">Claude Sonnet/Opus</div>
+              </div>
+              <div class="arch-box teal">
+                <div class="title">OpenAI API</div>
+                <div class="sub">GPT-4o / o3</div>
+              </div>
+              <div class="arch-box teal">
+                <div class="title">SMTP</div>
+                <div class="sub">Email Delivery</div>
+              </div>
+              <div class="arch-box teal">
+                <div class="title">Slack API</div>
+                <div class="sub">Notifications</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S2: TECH STACK ========== -->
+      <div class="section" id="s2">
+        <div class="section-title"><span class="icon">2.</span> Technology Stack</div>
+        <div class="card">
+          <h3>Core Technologies</h3>
+          <table>
+            <tr>
+              <th>Layer</th>
+              <th>Technology</th>
+              <th>Version</th>
+              <th>Purpose</th>
+            </tr>
+            <tr>
+              <td>Monorepo</td>
+              <td><code>Turborepo + pnpm</code></td>
+              <td>latest</td>
+              <td>Build orchestration &amp; workspace management</td>
+            </tr>
+            <tr>
+              <td>Backend</td>
+              <td><code>NestJS</code></td>
+              <td>10.x</td>
+              <td>Modular REST API framework</td>
+            </tr>
+            <tr>
+              <td>Frontend</td>
+              <td><code>Next.js (App Router)</code></td>
+              <td>15.x</td>
+              <td>SSR/CSR hybrid SPA</td>
+            </tr>
+            <tr>
+              <td>UI</td>
+              <td><code>React</code></td>
+              <td>19.x</td>
+              <td>Component-based UI</td>
+            </tr>
+            <tr>
+              <td>Styling</td>
+              <td><code>Tailwind CSS</code></td>
+              <td>3.x</td>
+              <td>Utility-first CSS</td>
+            </tr>
+            <tr>
+              <td>State</td>
+              <td><code>Zustand + TanStack Query</code></td>
+              <td>latest</td>
+              <td>Client state + server cache</td>
+            </tr>
+            <tr>
+              <td>ORM</td>
+              <td><code>Prisma</code></td>
+              <td>6.x</td>
+              <td>Type-safe PostgreSQL access</td>
+            </tr>
+            <tr>
+              <td>Database</td>
+              <td><code>PostgreSQL</code></td>
+              <td>16</td>
+              <td>Primary RDBMS</td>
+            </tr>
+            <tr>
+              <td>Cache/Queue</td>
+              <td><code>Redis + BullMQ</code></td>
+              <td>7.x</td>
+              <td>Caching, job queues</td>
+            </tr>
+            <tr>
+              <td>Container</td>
+              <td><code>Docker Compose</code></td>
+              <td>latest</td>
+              <td>Local dev orchestration</td>
+            </tr>
+            <tr>
+              <td>AI Primary</td>
+              <td><code>Anthropic Claude</code></td>
+              <td>Sonnet 4.6</td>
+              <td>AI analysis, code review, pentest</td>
+            </tr>
+            <tr>
+              <td>AI Fallback</td>
+              <td><code>OpenAI GPT</code></td>
+              <td>GPT-4o</td>
+              <td>Fallback provider</td>
+            </tr>
+            <tr>
+              <td>Language</td>
+              <td><code>TypeScript</code></td>
+              <td>5.x</td>
+              <td>Full-stack type safety</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== S3: PROJECT STRUCTURE ========== -->
+      <div class="section" id="s3">
+        <div class="section-title"><span class="icon">3.</span> Monorepo Project Structure</div>
+        <div class="card">
+          <h3>Directory Layout</h3>
+          <table>
+            <tr>
+              <th>Path</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+            <tr>
+              <td><code>apps/api/</code></td>
+              <td>NestJS App</td>
+              <td>Backend REST API (port 4000, prefix /v1)</td>
+            </tr>
+            <tr>
+              <td><code>apps/web/</code></td>
+              <td>Next.js App</td>
+              <td>Frontend SPA (port 3000)</td>
+            </tr>
+            <tr>
+              <td><code>apps/worker/</code></td>
+              <td>BullMQ Worker</td>
+              <td>Background job processor</td>
+            </tr>
+            <tr>
+              <td><code>packages/database/</code></td>
+              <td>Shared</td>
+              <td>Prisma client + tenant middleware</td>
+            </tr>
+            <tr>
+              <td><code>packages/types/</code></td>
+              <td>Shared</td>
+              <td>Cross-package TypeScript types</td>
+            </tr>
+            <tr>
+              <td><code>packages/config/</code></td>
+              <td>Shared</td>
+              <td>Shared tsconfig presets</td>
+            </tr>
+            <tr>
+              <td><code>prisma/</code></td>
+              <td>Schema</td>
+              <td>schema.prisma + seed.ts</td>
+            </tr>
+            <tr>
+              <td><code>docs/</code></td>
+              <td>Documentation</td>
+              <td>Architecture &amp; User Manual HTML</td>
+            </tr>
+          </table>
+          <div class="highlight-box info">
+            <strong>API Proxy:</strong> Next.js rewrites <code>/api/*</code> to
+            <code>http://localhost:4000/v1/*</code> to avoid CORS. Frontend never calls the NestJS
+            server directly.
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S4: BACKEND MODULES ========== -->
+      <div class="section" id="s4">
+        <div class="section-title">
+          <span class="icon">4.</span> Backend Modules (NestJS) &mdash; 22 Modules
+        </div>
+        <div class="module-grid">
+          <div class="module-card">
+            <div class="name">AuthModule</div>
+            <div class="desc">JWT 발급/검증, 로그인/로그아웃, 사용자 세션 관리</div>
+            <div class="files">auth.controller.ts, auth.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">TenantModule</div>
+            <div class="desc">멀티테넌트 CRUD, 테넌트별 데이터 격리</div>
+            <div class="files">tenant.controller.ts, tenant.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">WorkflowModule</div>
+            <div class="desc">워크플로우 CRUD, 버전 관리, 발행/아카이브, 복제</div>
+            <div class="files">workflow.controller.ts, workflow-persistence.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">WorkflowNodesModule</div>
+            <div class="desc">노드 실행 엔진, Executor Registry, Pipeline Engine</div>
+            <div class="files">pipeline-engine.ts, node-executor-registry.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">ExecutionModule</div>
+            <div class="desc">워크플로우 실행 세션, 노드 라우팅, 스키마 검증</div>
+            <div class="files">execution.service.ts, node-router.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">BuilderModule</div>
+            <div class="desc">NL 프롬프트 &rarr; 워크플로우 변환, Capability Planner</div>
+            <div class="files">builder-planner.service.ts, heuristic-planner-adapter.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">GovernanceModule</div>
+            <div class="desc">정책 엔진, 감사 로그, 컴플라이언스 평가</div>
+            <div class="files">governance.service.ts, policy.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">FinOpsModule</div>
+            <div class="desc">토큰 최적화, 비용 추적, 예측 분석, 모델 라우팅</div>
+            <div class="files">token-optimizer.service.ts, finops.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">AgentKernelModule</div>
+            <div class="desc">미션 관리, 에이전트 디스패치, 핸드오프, 이벤트 버스</div>
+            <div class="files">mission.service.ts, dispatcher.service.ts, handoff.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">PackModule</div>
+            <div class="desc">Pack 마켓플레이스, 인증, 설치/업그레이드 관리</div>
+            <div class="files">pack.service.ts, certification.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">ConnectorModule</div>
+            <div class="desc">외부 시스템 통합, MCP/REST/Webhook 커넥터</div>
+            <div class="files">connector.service.ts, connector-runtime.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">KnowledgeModule</div>
+            <div class="desc">운영 지식 레지스트리, 아티팩트/패턴 관리</div>
+            <div class="files">knowledge.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">ReleaseModule</div>
+            <div class="desc">카나리 배포, 섀도우 테스팅, 리플레이 검증, 프로모션</div>
+            <div class="files">canary.service.ts, shadow.service.ts, replay.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">FdsModule</div>
+            <div class="desc">이상 거래 탐지(FDS), 규칙 엔진, ML 어댑터, 알림</div>
+            <div class="files">rule-engine.service.ts, anomaly.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">APAgentModule</div>
+            <div class="desc">매입채무(AP) 자동화, OCR, 3-Way Matching</div>
+            <div class="files">ap-agent.service.ts, tesseract-adapter.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">AutonomousOpsModule</div>
+            <div class="desc">자율운영 제어, 자동 액션, 큐 처리</div>
+            <div class="files">autonomous-ops.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">CapabilityRegistryModule</div>
+            <div class="desc">에이전트 능력 레지스트리, 어댑터 호출, 바인딩 관리</div>
+            <div class="files">capability-registry.service.ts, agent-registry.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">EmailModule</div>
+            <div class="desc">SMTP 메일 발송, 템플릿 렌더링</div>
+            <div class="files">email.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">NotificationModule</div>
+            <div class="desc">멀티채널 알림 (Email, Slack, Webhook)</div>
+            <div class="files">notification.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">EventsModule</div>
+            <div class="desc">SSE 실시간 이벤트 스트림, Redis 브릿지</div>
+            <div class="files">events.gateway.service.ts, redis-bridge.service.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">HealthModule</div>
+            <div class="desc">시스템 헬스체크 엔드포인트</div>
+            <div class="files">health.controller.ts</div>
+          </div>
+          <div class="module-card">
+            <div class="name">DatabaseModule</div>
+            <div class="desc">Prisma 클라이언트 초기화, 테넌트 미들웨어</div>
+            <div class="files">database.module.ts</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px">
+          <h3>Global Middleware &amp; Guards</h3>
+          <table>
+            <tr>
+              <th>Component</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+            <tr>
+              <td><code>CorrelationInterceptor</code></td>
+              <td>Interceptor</td>
+              <td>모든 요청에 correlationId 부여 (추적용)</td>
+            </tr>
+            <tr>
+              <td><code>AuditInterceptor</code></td>
+              <td>Interceptor</td>
+              <td>상태 변경 작업 자동 감사 로그 기록</td>
+            </tr>
+            <tr>
+              <td><code>ThrottleGuard</code></td>
+              <td>Guard</td>
+              <td>전역 Rate Limiting</td>
+            </tr>
+            <tr>
+              <td><code>JwtAuthGuard</code></td>
+              <td>Guard</td>
+              <td>JWT 토큰 인증</td>
+            </tr>
+            <tr>
+              <td><code>RolesGuard</code></td>
+              <td>Guard</td>
+              <td>RBAC 역할 기반 접근 제어</td>
+            </tr>
+            <tr>
+              <td><code>HttpExceptionFilter</code></td>
+              <td>Filter</td>
+              <td>전역 오류 응답 표준화</td>
+            </tr>
+            <tr>
+              <td><code>CsrfMiddleware</code></td>
+              <td>Middleware</td>
+              <td>CSRF 토큰 검증</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== S5: FRONTEND ========== -->
+      <div class="section" id="s5">
+        <div class="section-title">
+          <span class="icon">5.</span> Frontend Pages &amp; Components
+        </div>
+        <div class="card">
+          <h3>Navigation Structure (SideNav)</h3>
+          <table>
+            <tr>
+              <th>Section</th>
+              <th>Pages</th>
+              <th>Path</th>
+            </tr>
+            <tr>
+              <td>Home</td>
+              <td>Dashboard</td>
+              <td><code>/home</code></td>
+            </tr>
+            <tr>
+              <td rowspan="4">Agent Execution</td>
+              <td>Operations Agent</td>
+              <td><code>/workspaces/ops</code></td>
+            </tr>
+            <tr>
+              <td>Development Agent</td>
+              <td><code>/workspaces/dev</code></td>
+            </tr>
+            <tr>
+              <td>QA/Common Agent</td>
+              <td><code>/platform/agents</code></td>
+            </tr>
+            <tr>
+              <td>Utility Agent</td>
+              <td><code>/workspaces/ap</code></td>
+            </tr>
+            <tr>
+              <td rowspan="2">Missions</td>
+              <td>Active Missions</td>
+              <td><code>/missions</code></td>
+            </tr>
+            <tr>
+              <td>Mission History</td>
+              <td><code>/missions/history</code></td>
+            </tr>
+            <tr>
+              <td rowspan="4">Governance</td>
+              <td>AI Activity Log</td>
+              <td><code>/governance/audit</code></td>
+            </tr>
+            <tr>
+              <td>Policy Engine</td>
+              <td><code>/governance/policies</code></td>
+            </tr>
+            <tr>
+              <td>Evidence Pack</td>
+              <td><code>/governance/evidence</code></td>
+            </tr>
+            <tr>
+              <td>KPI Dashboard</td>
+              <td><code>/governance/kpi</code></td>
+            </tr>
+            <tr>
+              <td rowspan="4">Knowledge</td>
+              <td>Knowledge Registry</td>
+              <td><code>/knowledge/registry</code></td>
+            </tr>
+            <tr>
+              <td>Artifact Management</td>
+              <td><code>/knowledge/artifacts</code></td>
+            </tr>
+            <tr>
+              <td>Error Pattern Management</td>
+              <td><code>/knowledge/patterns</code></td>
+            </tr>
+            <tr>
+              <td>Knowledge Pipeline</td>
+              <td><code>/knowledge/pipeline</code></td>
+            </tr>
+            <tr>
+              <td rowspan="4">Orchestration</td>
+              <td>Workflow Builder</td>
+              <td><code>/orchestration/builder</code></td>
+            </tr>
+            <tr>
+              <td>Template Market</td>
+              <td><code>/orchestration/market</code></td>
+            </tr>
+            <tr>
+              <td>Execution Monitor</td>
+              <td><code>/orchestration/monitor</code></td>
+            </tr>
+            <tr>
+              <td>Connector Management</td>
+              <td><code>/orchestration/connectors</code></td>
+            </tr>
+            <tr>
+              <td rowspan="3">Insights</td>
+              <td>FinOps</td>
+              <td><code>/insights/finops</code></td>
+            </tr>
+            <tr>
+              <td>Anomalies</td>
+              <td><code>/insights/anomalies</code></td>
+            </tr>
+            <tr>
+              <td>Risk Workspace</td>
+              <td><code>/workspaces/risk</code></td>
+            </tr>
+            <tr>
+              <td>Release</td>
+              <td>Release Hub</td>
+              <td><code>/platform/release</code></td>
+            </tr>
+            <tr>
+              <td>System</td>
+              <td>User Management</td>
+              <td><code>/admin/users</code></td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="card">
+          <h3>Shared Components (20+)</h3>
+          <div class="badge-row">
+            <span class="badge cyan">AppShell</span>
+            <span class="badge cyan">SideNav</span>
+            <span class="badge cyan">TopNav</span>
+            <span class="badge cyan">RightInspector</span>
+            <span class="badge green">DataTable</span>
+            <span class="badge green">StatCard</span>
+            <span class="badge green">StatusBadge</span>
+            <span class="badge green">PageHeader</span>
+            <span class="badge green">SearchToolbar</span>
+            <span class="badge gold">AIInsightCard</span>
+            <span class="badge gold">CommandPalette</span>
+            <span class="badge gold">EventFeed</span>
+            <span class="badge gold">LiveHarnessPanel</span>
+            <span class="badge purple">AgentTimeline</span>
+            <span class="badge purple">SideBySideDiff</span>
+            <span class="badge purple">InspectorPanel</span>
+            <span class="badge purple">ErrorBoundary</span>
+            <span class="badge orange">NodeSettingsPanels</span>
+            <span class="badge orange">ActionQueue</span>
+            <span class="badge orange">Timeline</span>
+          </div>
+        </div>
+
+        <!-- Dashboard UI Mockup -->
+        <div class="card">
+          <h3>실제 개발 화면 &mdash; Dashboard (<code>/home</code>)</h3>
+          <div class="ui-mockup">
+            <div class="ui-mockup-header">
+              <span class="title">Metis.AI &mdash; Dashboard</span>
+              <span class="label">실제 개발 화면</span>
+            </div>
+            <div class="ui-mockup-body">
+              <!-- KPI Stat Cards -->
+              <div class="mock-stat-row">
+                <div class="mock-stat">
+                  <div class="val cyan">1,247</div>
+                  <div class="lbl">총 실행</div>
+                </div>
+                <div class="mock-stat">
+                  <div class="val green">98.3%</div>
+                  <div class="lbl">성공률</div>
+                </div>
+                <div class="mock-stat">
+                  <div class="val gold">2.4s</div>
+                  <div class="lbl">평균 지연</div>
+                </div>
+                <div class="mock-stat">
+                  <div class="val cyan">$4,521</div>
+                  <div class="lbl">월 비용</div>
+                </div>
+                <div class="mock-stat">
+                  <div class="val red">3</div>
+                  <div class="lbl">이상 탐지</div>
+                </div>
+                <div class="mock-stat">
+                  <div class="val green">12</div>
+                  <div class="lbl">자동 조치</div>
+                </div>
+              </div>
+
+              <!-- 대기 큐 -->
+              <div style="margin-bottom: 16px">
+                <div
+                  style="
+                    font-size: 0.85em;
+                    font-weight: 700;
+                    color: var(--gold);
+                    margin-bottom: 8px;
+                  "
+                >
+                  대기 큐
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 10px;
+                      background: rgba(0, 0, 0, 0.02);
+                      border: 1px solid rgba(0, 0, 0, 0.06);
+                      border-radius: 6px;
+                      padding: 8px 12px;
+                    "
+                  >
+                    <span class="mock-badge info">미션</span>
+                    <span style="font-size: 0.8em; color: var(--text-muted); flex: 1"
+                      >보안 취약점 스캔 &mdash; payment-service v3.2</span
+                    >
+                    <span style="font-size: 0.72em; color: rgba(0, 0, 0, 0.35)">2분 전</span>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 10px;
+                      background: rgba(0, 0, 0, 0.02);
+                      border: 1px solid rgba(0, 0, 0, 0.06);
+                      border-radius: 6px;
+                      padding: 8px 12px;
+                    "
+                  >
+                    <span class="mock-badge warning">AP결재</span>
+                    <span style="font-size: 0.8em; color: var(--text-muted); flex: 1"
+                      >인보이스 #INV-20260527-003 3-Way Matching 대기</span
+                    >
+                    <span style="font-size: 0.72em; color: rgba(0, 0, 0, 0.35)">5분 전</span>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 10px;
+                      background: rgba(0, 0, 0, 0.02);
+                      border: 1px solid rgba(0, 0, 0, 0.06);
+                      border-radius: 6px;
+                      padding: 8px 12px;
+                    "
+                  >
+                    <span class="mock-badge danger">Risk알림</span>
+                    <span style="font-size: 0.8em; color: var(--text-muted); flex: 1"
+                      >FDS Rule #R-042 트리거 &mdash; 비정상 API 호출 패턴</span
+                    >
+                    <span style="font-size: 0.72em; color: rgba(0, 0, 0, 0.35)">8분 전</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Agent 활동 피드 -->
+              <div>
+                <div
+                  style="
+                    font-size: 0.85em;
+                    font-weight: 700;
+                    color: var(--cyan);
+                    margin-bottom: 8px;
+                  "
+                >
+                  Agent 활동 피드
+                </div>
+                <div class="mock-feed-item">
+                  <div class="mock-feed-dot" style="background: var(--green)"></div>
+                  <div style="flex: 1">
+                    <div class="mock-feed-text">
+                      DevAgent &mdash; SAST 분석 완료 (취약점 4건, 위험 1건)
+                    </div>
+                    <div class="mock-feed-time">14:32:05</div>
+                  </div>
+                </div>
+                <div class="mock-feed-item">
+                  <div class="mock-feed-dot" style="background: var(--cyan)"></div>
+                  <div style="flex: 1">
+                    <div class="mock-feed-text">
+                      OpsAgent &mdash; 카나리 배포 5% 트래픽 이동 완료
+                    </div>
+                    <div class="mock-feed-time">14:28:41</div>
+                  </div>
+                </div>
+                <div class="mock-feed-item">
+                  <div class="mock-feed-dot" style="background: var(--gold)"></div>
+                  <div style="flex: 1">
+                    <div class="mock-feed-text">
+                      QAAgent &mdash; 리플레이 테스트 92/100 통과 (8건 diverged)
+                    </div>
+                    <div class="mock-feed-time">14:25:12</div>
+                  </div>
+                </div>
+                <div class="mock-feed-item">
+                  <div class="mock-feed-dot" style="background: var(--red)"></div>
+                  <div style="flex: 1">
+                    <div class="mock-feed-text">
+                      GovernanceAgent &mdash; 정책 위반 탐지: 미승인 외부 API 호출
+                    </div>
+                    <div class="mock-feed-time">14:22:33</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ui-mockup-label">
+            Dashboard 실제 개발 화면 &mdash; KPI 카드, 대기 큐, Agent 활동 피드
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S6: WORKFLOW BUILDER ========== -->
+      <div class="section" id="s6">
+        <div class="section-title">
+          <span class="icon">6.</span> Workflow Builder &amp; NL Parser
+        </div>
+        <div class="card">
+          <h3>Natural Language &rarr; Workflow Pipeline</h3>
+          <div class="flow-container">
+            <div class="flow-step">User Prompt<br /><small>(Korean NL)</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">
+              parsePromptIntent()<br /><small>Intent Detection</small>
+            </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">
+              splitIntoActionPhrases()<br /><small>Connector Split</small>
+            </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">phraseToStep()<br /><small>Node Mapping</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">
+              extractWorkflowSteps()<br /><small>Dedup + Merge</small>
+            </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">Canvas Render<br /><small>Vertical Layout</small></div>
+          </div>
+
+          <h3 style="margin-top: 20px">Korean NLP Strategies</h3>
+          <table>
+            <tr>
+              <th>Strategy</th>
+              <th>Trigger</th>
+              <th>Example</th>
+            </tr>
+            <tr>
+              <td>Sequential Split</td>
+              <td><code>해서, 하면, 한 후, 하고</code></td>
+              <td>"로딩<strong>하면</strong> 분석<strong>해서</strong> 보내줘" &rarr; 3 phrases</td>
+            </tr>
+            <tr>
+              <td>Strategy C (Domain Noun)</td>
+              <td><code>및, 과/와</code> + DOMAIN_NOUN_MAP</td>
+              <td>"보안취약점<strong>과</strong> 모의해킹" &rarr; 2 nodes</td>
+            </tr>
+            <tr>
+              <td>Strategy A (Verb Split)</td>
+              <td><code>및, 그리고</code> + all have verbs</td>
+              <td>"검색 <strong>및</strong> 분석" &rarr; 2 nodes</td>
+            </tr>
+            <tr>
+              <td>Strategy B (Shared Verb)</td>
+              <td><code>및</code> + trailing verb</td>
+              <td>"A 및 B를 <strong>점검</strong>" &rarr; "A 점검" + "B 점검"</td>
+            </tr>
+            <tr>
+              <td>Delivery Extraction</td>
+              <td>Domain noun + embedded verb</td>
+              <td>"취약점을 메일로 받을수" &rarr; node + email</td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 20px">ACTION_VERB_MAP (19 Categories)</h3>
+          <div class="badge-row">
+            <span class="badge cyan">input (로딩)</span>
+            <span class="badge cyan">search (검색)</span>
+            <span class="badge red">pentest (모의해킹)</span>
+            <span class="badge red">security (보안취약점)</span>
+            <span class="badge gold">inspection (점검)</span>
+            <span class="badge gold">analysis (분석)</span>
+            <span class="badge green">summarize (요약)</span>
+            <span class="badge green">transform (변환)</span>
+            <span class="badge purple">output (파일생성)</span>
+            <span class="badge purple">delivery (메일/Slack)</span>
+            <span class="badge orange">storage (저장)</span>
+            <span class="badge orange">monitor (모니터링)</span>
+            <span class="badge blue">deploy (배포)</span>
+            <span class="badge blue">ticket (Jira)</span>
+            <span class="badge teal">api (API호출)</span>
+            <span class="badge teal">approval (승인)</span>
+            <span class="badge teal">webhook</span>
+          </div>
+
+          <h3 style="margin-top: 20px">DOMAIN_NOUN_MAP (4 Domains)</h3>
+          <table>
+            <tr>
+              <th>Pattern</th>
+              <th>Node Type</th>
+              <th>Category</th>
+            </tr>
+            <tr>
+              <td><code>/모의해킹|pentest|침투테스트/</code></td>
+              <td>ai-processing</td>
+              <td>pentest</td>
+            </tr>
+            <tr>
+              <td><code>/보안취약점|보안취약|vulnerability/</code></td>
+              <td>ai-processing</td>
+              <td>security</td>
+            </tr>
+            <tr>
+              <td><code>/라이선스 점검|license check/</code></td>
+              <td>ai-processing</td>
+              <td>inspection</td>
+            </tr>
+            <tr>
+              <td><code>/코드 리뷰|code review/</code></td>
+              <td>ai-processing</td>
+              <td>analysis</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Builder UI Mockup -->
+        <div class="card">
+          <h3>실제 개발 화면 &mdash; Workflow Builder (<code>/orchestration/builder</code>)</h3>
+          <div class="ui-mockup">
+            <div class="ui-mockup-header">
+              <span class="title">Workflow Builder &mdash; NL &rarr; Pipeline</span>
+              <span class="label">실제 개발 화면</span>
+            </div>
+            <div class="ui-mockup-body">
+              <div class="mock-builder-layout">
+                <!-- Left: Prompt Input -->
+                <div class="mock-panel">
+                  <div class="mock-panel-title">Prompt Input</div>
+                  <div
+                    style="
+                      background: rgba(0, 0, 0, 0.02);
+                      border: 1px solid rgba(0, 0, 0, 0.06);
+                      border-radius: 8px;
+                      padding: 12px;
+                      margin-bottom: 10px;
+                    "
+                  >
+                    <div style="font-size: 0.8em; color: var(--text-muted); line-height: 1.5">
+                      "소스코드를 로딩해서 보안취약점 분석하고 모의해킹한 후 결과를 메일로 보내줘"
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 6px">
+                    <span class="mock-badge info">incident-response</span>
+                    <span class="mock-badge success">confidence: 0.85</span>
+                  </div>
+                </div>
+
+                <!-- Center: Node Pipeline -->
+                <div class="mock-panel">
+                  <div class="mock-panel-title">Node Pipeline</div>
+                  <div class="mock-pipeline">
+                    <div class="mock-node" style="border-left: 3px solid var(--cyan)">
+                      <div class="icon">&#128193;</div>
+                      <div class="info">
+                        <div class="name">소스코드 로딩</div>
+                        <div class="type">file-operation / input</div>
+                      </div>
+                    </div>
+                    <div class="mock-connector">&#9660;</div>
+                    <div class="mock-node" style="border-left: 3px solid var(--red)">
+                      <div class="icon">&#128737;</div>
+                      <div class="info">
+                        <div class="name">보안취약점 분석</div>
+                        <div class="type">ai-processing / security</div>
+                      </div>
+                    </div>
+                    <div class="mock-connector">&#9660;</div>
+                    <div class="mock-node" style="border-left: 3px solid var(--red)">
+                      <div class="icon">&#9888;</div>
+                      <div class="info">
+                        <div class="name">모의해킹</div>
+                        <div class="type">ai-processing / pentest</div>
+                      </div>
+                    </div>
+                    <div class="mock-connector">&#9660;</div>
+                    <div class="mock-node" style="border-left: 3px solid var(--green)">
+                      <div class="icon">&#128196;</div>
+                      <div class="info">
+                        <div class="name">보고서 생성</div>
+                        <div class="type">document-gen / output</div>
+                      </div>
+                    </div>
+                    <div class="mock-connector">&#9660;</div>
+                    <div class="mock-node" style="border-left: 3px solid var(--purple)">
+                      <div class="icon">&#9993;</div>
+                      <div class="info">
+                        <div class="name">메일 발송</div>
+                        <div class="type">email-send / delivery</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right: LiveHarnessPanel -->
+                <div class="mock-panel">
+                  <div class="mock-panel-title">Agent Meeting</div>
+                  <div class="mock-meeting">
+                    <div class="mock-agent-row">
+                      <div class="mock-agent">
+                        <div
+                          class="avatar"
+                          style="background: rgba(2, 132, 199, 0.2); color: var(--cyan)"
+                        >
+                          &#129302;
+                        </div>
+                        <div class="name">Intent</div>
+                      </div>
+                      <div class="mock-agent">
+                        <div
+                          class="avatar"
+                          style="background: rgba(217, 119, 6, 0.2); color: var(--gold)"
+                        >
+                          &#128230;
+                        </div>
+                        <div class="name">Template</div>
+                      </div>
+                      <div class="mock-agent">
+                        <div
+                          class="avatar"
+                          style="background: rgba(5, 150, 105, 0.2); color: var(--green)"
+                        >
+                          &#128268;
+                        </div>
+                        <div class="name">Connector</div>
+                      </div>
+                    </div>
+                    <div class="mock-table-center">DELIBERATING</div>
+                    <div class="mock-agent-row">
+                      <div class="mock-agent">
+                        <div
+                          class="avatar"
+                          style="background: rgba(220, 38, 38, 0.2); color: var(--red)"
+                        >
+                          &#128737;
+                        </div>
+                        <div class="name">Policy</div>
+                      </div>
+                      <div class="mock-agent">
+                        <div
+                          class="avatar"
+                          style="background: rgba(124, 58, 237, 0.2); color: var(--purple)"
+                        >
+                          &#9989;
+                        </div>
+                        <div class="name">Validator</div>
+                      </div>
+                      <div class="mock-agent">
+                        <div
+                          class="avatar"
+                          style="background: rgba(13, 148, 136, 0.2); color: var(--teal)"
+                        >
+                          &#128200;
+                        </div>
+                        <div class="name">Eval</div>
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        margin-top: 8px;
+                        background: rgba(2, 132, 199, 0.06);
+                        border: 1px solid rgba(2, 132, 199, 0.15);
+                        border-radius: 6px;
+                        padding: 6px 8px;
+                        font-size: 0.68em;
+                        color: var(--text-muted);
+                      "
+                    >
+                      &#128172; "email-send 노드에 승인 게이트 추가 필요"
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ui-mockup-label">
+            Workflow Builder 실제 개발 화면 &mdash; NL Prompt, Node Pipeline, Agent Meeting Panel
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S7: EXECUTION ENGINE ========== -->
+      <div class="section" id="s7">
+        <div class="section-title"><span class="icon">7.</span> Workflow Execution Engine</div>
+        <div class="card">
+          <h3>Node Executor Registry &mdash; 12 Executors</h3>
+          <table>
+            <tr>
+              <th>Executor</th>
+              <th>Node Types</th>
+              <th>Categories</th>
+              <th>Description</th>
+            </tr>
+            <tr>
+              <td><code>FileUploadExecutor</code></td>
+              <td>file-operation</td>
+              <td>input</td>
+              <td>파일 업로드, ZIP 압축 해제, 소스코드 추출</td>
+            </tr>
+            <tr>
+              <td><code>AIAnalysisExecutor</code></td>
+              <td>ai-processing</td>
+              <td>inspection, analysis, security, summarize</td>
+              <td>SAST, SCA, 코드리뷰, 요약 등 AI 분석</td>
+            </tr>
+            <tr>
+              <td><code>PentestExecutor</code></td>
+              <td>ai-processing</td>
+              <td>pentest</td>
+              <td>자동 공격벡터 선정, 모의침투 진단, CVSS 리포트</td>
+            </tr>
+            <tr>
+              <td><code>DocumentGenExecutor</code></td>
+              <td>document-gen, file-operation</td>
+              <td>output</td>
+              <td>HTML 보고서 생성 (보안, 분석, 종합 리포트)</td>
+            </tr>
+            <tr>
+              <td><code>EmailSendExecutor</code></td>
+              <td>email-send</td>
+              <td>delivery</td>
+              <td>SMTP 메일 발송 (보고서 첨부)</td>
+            </tr>
+            <tr>
+              <td><code>SlackExecutor</code></td>
+              <td>slack-message</td>
+              <td>delivery</td>
+              <td>Slack 웹훅 알림 발송</td>
+            </tr>
+            <tr>
+              <td><code>WebSearchExecutor</code></td>
+              <td>web-search</td>
+              <td>search</td>
+              <td>웹 검색 &amp; 크롤링</td>
+            </tr>
+            <tr>
+              <td><code>DataStorageExecutor</code></td>
+              <td>data-storage</td>
+              <td>storage</td>
+              <td>데이터 저장 (DB/파일)</td>
+            </tr>
+            <tr>
+              <td><code>LogMonitorExecutor</code></td>
+              <td>log-monitor</td>
+              <td>monitor</td>
+              <td>실행 감사 로그 기록</td>
+            </tr>
+            <tr>
+              <td><code>ScheduleExecutor</code></td>
+              <td>schedule</td>
+              <td>schedule, trigger</td>
+              <td>스케줄 트리거 (즉시/예약 실행)</td>
+            </tr>
+            <tr>
+              <td><code>PassthroughExecutor</code></td>
+              <td>*</td>
+              <td>*</td>
+              <td>미구현 노드 폴백 (데이터 통과)</td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 20px">Executor Resolution Order</h3>
+          <div class="flow-container">
+            <div class="flow-step">type:category<br /><small>Exact Match</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">type<br /><small>Type Only</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">category:category<br /><small>Category as Type</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">NODE_TYPE_ALIASES<br /><small>Static Mapping</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step red">Passthrough<br /><small>Fallback</small></div>
+          </div>
+
+          <h3 style="margin-top: 20px">Pipeline Execution Flow</h3>
+          <div class="flow-container">
+            <div class="flow-step">Trigger<br />(Schedule/Manual)</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">File Upload<br />&amp; Extract</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">AI Analysis<br />(per node)</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">Report Gen<br />(HTML)</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step purple">Delivery<br />(Email/Slack)</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">Audit Log</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S8: AI & FINOPS ========== -->
+      <div class="section" id="s8">
+        <div class="section-title">
+          <span class="icon">8.</span> AI Model Integration &amp; FinOps
+        </div>
+        <div class="card">
+          <h3>3-Tier Model Routing</h3>
+          <table>
+            <tr>
+              <th>Tier</th>
+              <th>Complexity</th>
+              <th>Models</th>
+              <th>Cost/1K tokens</th>
+              <th>Use Cases</th>
+            </tr>
+            <tr>
+              <td><span class="badge green">Tier 1</span></td>
+              <td>0 ~ 0.3</td>
+              <td>claude-haiku-4.5, gpt-4o-mini, gemini-3-flash</td>
+              <td>~$0.001</td>
+              <td>단순 분류, 데이터 정리</td>
+            </tr>
+            <tr>
+              <td><span class="badge cyan">Tier 2</span></td>
+              <td>0.3 ~ 0.7</td>
+              <td><strong>claude-sonnet-4.6</strong>, gpt-4o, gemini-3.1-pro</td>
+              <td>~$0.005</td>
+              <td>보안분석, 코드리뷰, 요약</td>
+            </tr>
+            <tr>
+              <td><span class="badge purple">Tier 3</span></td>
+              <td>0.7 ~ 1.0</td>
+              <td>claude-opus-4.6, o3, gpt-5</td>
+              <td>~$0.02</td>
+              <td>복합 추론, 아키텍처 분석</td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 20px">FinOps 3-Gate Optimization Pipeline</h3>
+          <div class="flow-container">
+            <div class="flow-step green">
+              Gate 1: Semantic Cache<br /><small>TTL 24h, exact match</small>
+            </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">
+              Gate 2: Model Router<br /><small>Complexity &rarr; Tier</small>
+            </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step purple">
+              Gate 3: Skill Packer<br /><small>Prompt Compression</small>
+            </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">API Call<br /><small>Optimized</small></div>
+          </div>
+
+          <h3 style="margin-top: 20px">Fallback Chain</h3>
+          <div class="flow-container">
+            <div class="flow-step">Primary: Anthropic<br /><small>claude-sonnet-4.6</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step red">Error?<br /><small>429/402/503</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">Fallback: OpenAI<br /><small>gpt-4o</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step red">Both Fail?<br /><small>Composite Error</small></div>
+          </div>
+        </div>
+
+        <!-- FinOps UI Mockup -->
+        <div class="card">
+          <h3>실제 개발 화면 &mdash; FinOps Dashboard (<code>/insights/finops</code>)</h3>
+          <div class="ui-mockup">
+            <div class="ui-mockup-header">
+              <span class="title">FinOps &mdash; AI 비용 최적화</span>
+              <span class="label">실제 개발 화면</span>
+            </div>
+            <div class="ui-mockup-body">
+              <!-- Tabs -->
+              <div class="mock-tabs">
+                <div class="mock-tab active">현황</div>
+                <div class="mock-tab">예측</div>
+                <div class="mock-tab">추천</div>
+                <div class="mock-tab">로그</div>
+              </div>
+
+              <!-- Stat Cards -->
+              <div class="mock-stat-row">
+                <div class="mock-stat">
+                  <div class="val cyan">$4,521</div>
+                  <div class="lbl">이번달 비용</div>
+                </div>
+                <div class="mock-stat">
+                  <div class="val green">-12.3%</div>
+                  <div class="lbl">전월대비</div>
+                </div>
+                <div class="mock-stat">
+                  <div class="val gold">73.2%</div>
+                  <div class="lbl">캐시Hit률</div>
+                </div>
+                <div class="mock-stat">
+                  <div class="val green">$621</div>
+                  <div class="lbl">절감액</div>
+                </div>
+              </div>
+
+              <!-- Agent별 비용 Table -->
+              <div style="margin-bottom: 16px">
+                <div
+                  style="
+                    font-size: 0.82em;
+                    font-weight: 700;
+                    color: var(--gold);
+                    margin-bottom: 8px;
+                  "
+                >
+                  Agent별 비용
+                </div>
+                <table class="mock-table">
+                  <tr>
+                    <th>Agent</th>
+                    <th>모델 Tier</th>
+                    <th>토큰 사용량</th>
+                    <th>비용</th>
+                    <th>추세</th>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text)">DevAgent</td>
+                    <td><span class="mock-badge info">Tier 2</span></td>
+                    <td>1.2M</td>
+                    <td>$1,842</td>
+                    <td style="color: var(--red)">&#9650; +8.2%</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text)">OpsAgent</td>
+                    <td><span class="mock-badge success">Tier 1</span></td>
+                    <td>890K</td>
+                    <td>$921</td>
+                    <td style="color: var(--green)">&#9660; -15.1%</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text)">QAAgent</td>
+                    <td><span class="mock-badge info">Tier 2</span></td>
+                    <td>650K</td>
+                    <td>$1,105</td>
+                    <td style="color: var(--green)">&#9660; -4.3%</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--text)">SecurityAgent</td>
+                    <td><span class="mock-badge warning">Tier 3</span></td>
+                    <td>320K</td>
+                    <td>$653</td>
+                    <td style="color: var(--red)">&#9650; +22.7%</td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- What-If Simulator -->
+              <div
+                style="
+                  background: rgba(0, 0, 0, 0.02);
+                  border: 1px solid rgba(0, 0, 0, 0.06);
+                  border-radius: 8px;
+                  padding: 12px;
+                "
+              >
+                <div
+                  style="
+                    font-size: 0.82em;
+                    font-weight: 700;
+                    color: var(--cyan);
+                    margin-bottom: 10px;
+                  "
+                >
+                  What-If Simulator
+                </div>
+                <div class="mock-slider-group">
+                  <div class="mock-slider-label">
+                    <span class="name">Cache TTL</span>
+                    <span class="value">24h</span>
+                  </div>
+                  <div class="mock-slider-bar">
+                    <div class="mock-slider-fill" style="width: 60%"></div>
+                    <div class="mock-slider-thumb" style="left: calc(60% - 7px)"></div>
+                  </div>
+                </div>
+                <div class="mock-slider-group">
+                  <div class="mock-slider-label">
+                    <span class="name">Model Tier</span>
+                    <span class="value">Tier 2 (Balanced)</span>
+                  </div>
+                  <div class="mock-slider-bar">
+                    <div class="mock-slider-fill" style="width: 50%; background: var(--gold)"></div>
+                    <div
+                      class="mock-slider-thumb"
+                      style="left: calc(50% - 7px); background: var(--gold)"
+                    ></div>
+                  </div>
+                </div>
+                <div class="mock-slider-group">
+                  <div class="mock-slider-label">
+                    <span class="name">Skill Budget</span>
+                    <span class="value">$5,000/월</span>
+                  </div>
+                  <div class="mock-slider-bar">
+                    <div
+                      class="mock-slider-fill"
+                      style="width: 90%; background: var(--green)"
+                    ></div>
+                    <div
+                      class="mock-slider-thumb"
+                      style="left: calc(90% - 7px); background: var(--green)"
+                    ></div>
+                  </div>
+                </div>
+                <div style="text-align: center; margin-top: 10px">
+                  <span class="mock-badge success" style="font-size: 0.82em"
+                    >예상 절감: $847/월 (-18.7%)</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ui-mockup-label">
+            FinOps Dashboard 실제 개발 화면 &mdash; 비용 현황, Agent별 비용, What-If Simulator
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S9: DATABASE ========== -->
+      <div class="section" id="s9">
+        <div class="section-title">
+          <span class="icon">9.</span> Database Schema (Prisma) &mdash; 40+ Models
+        </div>
+        <div class="card">
+          <div class="model-group">
+            <div class="model-group-title">Core (Multi-tenant)</div>
+            <div class="model-list">
+              <div class="model-chip">Tenant</div>
+              <div class="model-chip">User</div>
+              <div class="model-chip">Membership</div>
+              <div class="model-chip">AuditLog</div>
+            </div>
+          </div>
+          <div class="model-group">
+            <div class="model-group-title">Workflow &amp; Execution</div>
+            <div class="model-list">
+              <div class="model-chip">Workflow</div>
+              <div class="model-chip">WorkflowVersion</div>
+              <div class="model-chip">WorkflowNode</div>
+              <div class="model-chip">WorkflowEdge</div>
+              <div class="model-chip">ExecutionSession</div>
+              <div class="model-chip">ExecutionStep</div>
+              <div class="model-chip">ExecutionTrace</div>
+            </div>
+          </div>
+          <div class="model-group">
+            <div class="model-group-title">Pack Marketplace</div>
+            <div class="model-list">
+              <div class="model-chip">Pack</div>
+              <div class="model-chip">PackVersion</div>
+              <div class="model-chip">PackInstallation</div>
+              <div class="model-chip">Certification</div>
+            </div>
+          </div>
+          <div class="model-group">
+            <div class="model-group-title">Governance &amp; Policy</div>
+            <div class="model-list">
+              <div class="model-chip">Policy</div>
+              <div class="model-chip">PolicyEvaluation</div>
+              <div class="model-chip">Connector</div>
+              <div class="model-chip">KnowledgeArtifact</div>
+            </div>
+          </div>
+          <div class="model-group">
+            <div class="model-group-title">Release Engineering</div>
+            <div class="model-list">
+              <div class="model-chip">ReplayDataset</div>
+              <div class="model-chip">ReplayCase</div>
+              <div class="model-chip">ReplayRun</div>
+              <div class="model-chip">ReplayCaseResult</div>
+              <div class="model-chip">ShadowConfig</div>
+              <div class="model-chip">ShadowPair</div>
+              <div class="model-chip">CanaryDeployment</div>
+              <div class="model-chip">CanaryGateEvaluation</div>
+              <div class="model-chip">VersionPromotion</div>
+            </div>
+          </div>
+          <div class="model-group">
+            <div class="model-group-title">FinOps</div>
+            <div class="model-list">
+              <div class="model-chip">FinOpsConfig</div>
+              <div class="model-chip">FinOpsAgentConfig</div>
+              <div class="model-chip">FinOpsSkill</div>
+              <div class="model-chip">FinOpsNamespace</div>
+              <div class="model-chip">FinOpsTokenLog</div>
+            </div>
+          </div>
+          <div class="model-group">
+            <div class="model-group-title">Agent &amp; Mission</div>
+            <div class="model-list">
+              <div class="model-chip">Mission</div>
+              <div class="model-chip">AgentMessage</div>
+              <div class="model-chip">AgentHandoff</div>
+              <div class="model-chip">AgentDefinition</div>
+              <div class="model-chip">AdapterRegistration</div>
+              <div class="model-chip">CapabilityBinding</div>
+              <div class="model-chip">AutoAction</div>
+              <div class="model-chip">BuilderRequest</div>
+            </div>
+          </div>
+          <div class="model-group">
+            <div class="model-group-title">FDS &amp; AP</div>
+            <div class="model-list">
+              <div class="model-chip">FDSRule</div>
+              <div class="model-chip">FDSAlert</div>
+              <div class="model-chip">APInvoice</div>
+            </div>
+          </div>
+
+          <h3 style="margin-top: 20px">Key Enums</h3>
+          <div class="badge-row">
+            <span class="badge cyan">MembershipRole (6)</span>
+            <span class="badge green">PackStatus (7)</span>
+            <span class="badge gold">ExecutionStatus (6)</span>
+            <span class="badge purple">AuditAction (17)</span>
+            <span class="badge red">CanaryStatus (6)</span>
+            <span class="badge orange">ReplayRunStatus (5)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S10: AUTH & RBAC ========== -->
+      <div class="section" id="s10">
+        <div class="section-title"><span class="icon">10.</span> Authentication &amp; RBAC</div>
+        <div class="card">
+          <h3>6-Role RBAC Model</h3>
+          <table>
+            <tr>
+              <th>Role</th>
+              <th>Level</th>
+              <th>Permissions</th>
+            </tr>
+            <tr>
+              <td><span class="badge red">PLATFORM_ADMIN</span></td>
+              <td>Global</td>
+              <td>전체 플랫폼 관리, 테넌트 생성/삭제, 사용자 관리</td>
+            </tr>
+            <tr>
+              <td><span class="badge purple">TENANT_ADMIN</span></td>
+              <td>Tenant</td>
+              <td>테넌트 내 전체 관리, 정책 설정, 사용자 초대</td>
+            </tr>
+            <tr>
+              <td><span class="badge gold">OPERATOR</span></td>
+              <td>Tenant</td>
+              <td>워크플로우 실행, 에이전트 운영, 모니터링</td>
+            </tr>
+            <tr>
+              <td><span class="badge cyan">DEVELOPER</span></td>
+              <td>Tenant</td>
+              <td>워크플로우 빌더, Pack 개발, API 접근</td>
+            </tr>
+            <tr>
+              <td><span class="badge green">AUDITOR</span></td>
+              <td>Tenant</td>
+              <td>감사 로그 조회, Evidence Pack, 읽기 전용</td>
+            </tr>
+            <tr>
+              <td><span class="badge blue">VIEWER</span></td>
+              <td>Tenant</td>
+              <td>대시보드 조회 전용</td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 20px">Auth Flow</h3>
+          <div class="flow-container">
+            <div class="flow-step">Login Request<br /><small>email + password</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">JWT Issue<br /><small>Access + Refresh</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">Cookie Set<br /><small>HttpOnly + CSRF</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">localStorage<br /><small>metis_access_token</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step purple">API Request<br /><small>Bearer + CSRF</small></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S11: AGENT KERNEL ========== -->
+      <div class="section" id="s11">
+        <div class="section-title">
+          <span class="icon">11.</span> Agent Kernel &amp; MCP Integration
+        </div>
+        <div class="card">
+          <h3>Agent Architecture</h3>
+          <div class="arch-diagram">
+            <div class="arch-row">
+              <div class="arch-box highlight">
+                <div class="title">Mission Controller</div>
+                <div class="sub">Mission CRUD &amp; State</div>
+              </div>
+            </div>
+            <div class="arch-arrow">&#x25BC;</div>
+            <div class="arch-row">
+              <div class="arch-box green">
+                <div class="title">Dispatcher</div>
+                <div class="sub">Agent Selection</div>
+              </div>
+              <div class="arch-box green">
+                <div class="title">Bus Service</div>
+                <div class="sub">Event Routing</div>
+              </div>
+              <div class="arch-box green">
+                <div class="title">Handoff Service</div>
+                <div class="sub">Agent &rarr; Agent</div>
+              </div>
+            </div>
+            <div class="arch-arrow">&#x25BC;</div>
+            <div class="arch-row">
+              <div class="arch-box purple">
+                <div class="title">Local Agents</div>
+                <div class="sub">Dev, Ops, QA, AP</div>
+              </div>
+              <div class="arch-box purple">
+                <div class="title">Capability Registry</div>
+                <div class="sub">Adapter Binding</div>
+              </div>
+              <div class="arch-box purple">
+                <div class="title">Connector Runtime</div>
+                <div class="sub">MCP/REST/Webhook</div>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="margin-top: 20px">Connector Types</h3>
+          <div class="badge-row">
+            <span class="badge cyan">BUILT_IN</span>
+            <span class="badge green">MCP_SERVER</span>
+            <span class="badge gold">REST_API</span>
+            <span class="badge purple">WEBHOOK</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S12: RELEASE ========== -->
+      <div class="section" id="s12">
+        <div class="section-title"><span class="icon">12.</span> Release Engineering</div>
+        <div class="card">
+          <h3>3-Phase Release Pipeline</h3>
+          <div class="flow-container">
+            <div class="flow-step">Replay Testing<br /><small>Regression Check</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">Shadow Testing<br /><small>Dual Execution</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">Canary Deploy<br /><small>Staged Rollout</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step purple">Promotion<br /><small>Full Release</small></div>
+          </div>
+          <table style="margin-top: 15px">
+            <tr>
+              <th>Phase</th>
+              <th>Purpose</th>
+              <th>Key Metrics</th>
+            </tr>
+            <tr>
+              <td>Replay</td>
+              <td>과거 실행 데이터로 회귀 테스트</td>
+              <td>Pass/Fail rate, output diff, latency delta</td>
+            </tr>
+            <tr>
+              <td>Shadow</td>
+              <td>프로덕션 트래픽 이중 실행 (side-effect 없음)</td>
+              <td>Control vs Shadow 비교, MATCH/DIVERGED 판정</td>
+            </tr>
+            <tr>
+              <td>Canary</td>
+              <td>점진적 트래픽 이동 (5% &rarr; 100%)</td>
+              <td>Error rate, latency, cost, gate evaluation</td>
+            </tr>
+            <tr>
+              <td>Promotion</td>
+              <td>최종 버전 승격 또는 롤백</td>
+              <td>PROMOTE / ROLLBACK 판정</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== S13: FDS ========== -->
+      <div class="section" id="s13">
+        <div class="section-title"><span class="icon">13.</span> Fraud Detection System (FDS)</div>
+        <div class="card">
+          <div class="arch-diagram">
+            <div class="arch-row">
+              <div class="arch-box">
+                <div class="title">Rule Engine</div>
+                <div class="sub">규칙 기반 탐지</div>
+              </div>
+              <div class="arch-box green">
+                <div class="title">Anomaly Service</div>
+                <div class="sub">이상 패턴 분석</div>
+              </div>
+              <div class="arch-box purple">
+                <div class="title">ML Adapter</div>
+                <div class="sub">OpenAI / Heuristic</div>
+              </div>
+            </div>
+            <div class="arch-arrow">&#x25BC;</div>
+            <div class="arch-row">
+              <div class="arch-box red">
+                <div class="title">Alert Service</div>
+                <div class="sub">알림 발송 + 대시보드</div>
+              </div>
+            </div>
+          </div>
+          <p style="margin-top: 12px">
+            ML Adapters: <code>HeuristicAdapter</code> (규칙 기반),
+            <code>OpenAIAdapter</code> (GPT-4), <code>HttpModelAdapter</code> (외부 ML 서비스)
+          </p>
+        </div>
+      </div>
+
+      <!-- ========== S14: INFRASTRUCTURE ========== -->
+      <div class="section" id="s14">
+        <div class="section-title"><span class="icon">14.</span> Infrastructure &amp; DevOps</div>
+        <div class="card">
+          <h3>Docker Compose Services</h3>
+          <table>
+            <tr>
+              <th>Service</th>
+              <th>Image</th>
+              <th>Port</th>
+              <th>Purpose</th>
+            </tr>
+            <tr>
+              <td><code>postgres</code></td>
+              <td>postgres:16</td>
+              <td>5432</td>
+              <td>Primary database</td>
+            </tr>
+            <tr>
+              <td><code>redis</code></td>
+              <td>redis:7-alpine</td>
+              <td>6379</td>
+              <td>Cache + BullMQ broker</td>
+            </tr>
+            <tr>
+              <td><code>api</code></td>
+              <td>Node.js (NestJS)</td>
+              <td>4000</td>
+              <td>Backend REST API</td>
+            </tr>
+            <tr>
+              <td><code>web</code></td>
+              <td>Node.js (Next.js)</td>
+              <td>3000</td>
+              <td>Frontend SPA</td>
+            </tr>
+            <tr>
+              <td><code>worker</code></td>
+              <td>Node.js (BullMQ)</td>
+              <td>-</td>
+              <td>Background job processor</td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 20px">Startup Scripts</h3>
+          <div class="badge-row">
+            <span class="badge cyan">start-metis.bat</span>
+            <span class="badge red">stop-metis.bat</span>
+          </div>
+          <p>
+            <code>start-metis.bat</code>: Docker Compose up &rarr; Prisma migrate &rarr; Prisma
+            generate &rarr; pnpm dev (API + Web parallel)
+          </p>
+        </div>
+      </div>
+
+      <!-- ========== S15: SECURITY ========== -->
+      <div class="section" id="s15">
+        <div class="section-title"><span class="icon">15.</span> Security &amp; Governance</div>
+        <div class="card">
+          <table>
+            <tr>
+              <th>Layer</th>
+              <th>Mechanism</th>
+              <th>Implementation</th>
+            </tr>
+            <tr>
+              <td>Authentication</td>
+              <td>JWT + HttpOnly Cookie</td>
+              <td>JwtAuthGuard (global)</td>
+            </tr>
+            <tr>
+              <td>Authorization</td>
+              <td>RBAC 6-role</td>
+              <td>RolesGuard + @Roles() decorator</td>
+            </tr>
+            <tr>
+              <td>CSRF</td>
+              <td>Double Submit Cookie</td>
+              <td>CsrfMiddleware + X-CSRF-Token header</td>
+            </tr>
+            <tr>
+              <td>Rate Limiting</td>
+              <td>Throttle Guard</td>
+              <td>ThrottleGuard (global)</td>
+            </tr>
+            <tr>
+              <td>Audit Trail</td>
+              <td>All state changes logged</td>
+              <td>AuditInterceptor + AuditLog model</td>
+            </tr>
+            <tr>
+              <td>Input Sanitization</td>
+              <td>XSS prevention</td>
+              <td>sanitizeInput(), sanitizeNodeName()</td>
+            </tr>
+            <tr>
+              <td>URL Validation</td>
+              <td>SSRF prevention</td>
+              <td>UrlValidator utility</td>
+            </tr>
+            <tr>
+              <td>Tenant Isolation</td>
+              <td>Row-level filtering</td>
+              <td>Prisma middleware + tenantId filter</td>
+            </tr>
+            <tr>
+              <td>Correlation ID</td>
+              <td>Request tracing</td>
+              <td>CorrelationInterceptor (every request)</td>
+            </tr>
+            <tr>
+              <td>Policy Engine</td>
+              <td>OPA-style rule evaluation</td>
+              <td>GovernanceModule + YAML rules</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Governance Audit UI Mockup -->
+        <div class="card">
+          <h3>실제 개발 화면 &mdash; Governance Audit Log (<code>/governance/audit</code>)</h3>
+          <div class="ui-mockup">
+            <div class="ui-mockup-header">
+              <span class="title">Governance &mdash; AI Activity Audit Log</span>
+              <span class="label">실제 개발 화면</span>
+            </div>
+            <div class="ui-mockup-body">
+              <!-- Search Bar -->
+              <div class="mock-search-bar">
+                <div class="mock-input">&#128269; 검색어를 입력하세요...</div>
+                <div class="mock-select">&#9660; 액션 필터: ALL</div>
+              </div>
+
+              <!-- Action Filter Badges -->
+              <div style="display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap">
+                <span class="mock-badge info" style="cursor: pointer">CREATE</span>
+                <span class="mock-badge success" style="cursor: pointer">UPDATE</span>
+                <span class="mock-badge danger" style="cursor: pointer">DELETE</span>
+                <span class="mock-badge warning" style="cursor: pointer">EXECUTE</span>
+                <span
+                  class="mock-badge"
+                  style="
+                    background: rgba(124, 58, 237, 0.15);
+                    color: var(--purple);
+                    cursor: pointer;
+                  "
+                  >POLICY_CHECK</span
+                >
+              </div>
+
+              <!-- Audit Log Table -->
+              <table class="mock-table">
+                <tr>
+                  <th>시간</th>
+                  <th>액션</th>
+                  <th>대상</th>
+                  <th>사용자</th>
+                  <th>정책</th>
+                  <th>Correlation ID</th>
+                </tr>
+                <tr>
+                  <td>14:32:05</td>
+                  <td><span class="mock-badge warning">EXECUTE</span></td>
+                  <td>Workflow: 보안스캔-v3</td>
+                  <td style="color: var(--text)">admin@acme.co</td>
+                  <td><span class="mock-badge success">PASS</span></td>
+                  <td style="font-family: monospace; font-size: 0.75em">c7f2a1b3-...</td>
+                </tr>
+                <tr>
+                  <td>14:28:41</td>
+                  <td><span class="mock-badge info">CREATE</span></td>
+                  <td>Pack: sast-analyzer v2.1</td>
+                  <td style="color: var(--text)">dev@acme.co</td>
+                  <td><span class="mock-badge success">PASS</span></td>
+                  <td style="font-family: monospace; font-size: 0.75em">a3e9c4d2-...</td>
+                </tr>
+                <tr>
+                  <td>14:25:12</td>
+                  <td><span class="mock-badge danger">DELETE</span></td>
+                  <td>Connector: legacy-jira</td>
+                  <td style="color: var(--text)">admin@acme.co</td>
+                  <td>
+                    <span
+                      class="mock-badge"
+                      style="background: rgba(124, 58, 237, 0.15); color: var(--purple)"
+                      >REVIEW</span
+                    >
+                  </td>
+                  <td style="font-family: monospace; font-size: 0.75em">f1b8d7e6-...</td>
+                </tr>
+                <tr>
+                  <td>14:22:33</td>
+                  <td>
+                    <span
+                      class="mock-badge"
+                      style="background: rgba(124, 58, 237, 0.15); color: var(--purple)"
+                      >POLICY_CHECK</span
+                    >
+                  </td>
+                  <td>Node: email-send (외부발송)</td>
+                  <td style="color: var(--text)">ops@acme.co</td>
+                  <td><span class="mock-badge danger">BLOCK</span></td>
+                  <td style="font-family: monospace; font-size: 0.75em">d4c2e9a1-...</td>
+                </tr>
+                <tr>
+                  <td>14:18:07</td>
+                  <td><span class="mock-badge success">UPDATE</span></td>
+                  <td>Policy: deploy-approval-rule</td>
+                  <td style="color: var(--text)">admin@acme.co</td>
+                  <td><span class="mock-badge success">PASS</span></td>
+                  <td style="font-family: monospace; font-size: 0.75em">b7a3f5c8-...</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+          <div class="ui-mockup-label">
+            Governance Audit Log 실제 개발 화면 &mdash; 검색, 액션 필터, 감사 로그 테이블
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S16: API SUMMARY ========== -->
+      <div class="section" id="s16">
+        <div class="section-title"><span class="icon">16.</span> API Endpoints Summary</div>
+        <div class="card">
+          <table>
+            <tr>
+              <th>Module</th>
+              <th>Base Path</th>
+              <th>Key Endpoints</th>
+            </tr>
+            <tr>
+              <td>Auth</td>
+              <td><code>/v1/auth</code></td>
+              <td>POST /login, POST /logout, GET /me</td>
+            </tr>
+            <tr>
+              <td>Tenant</td>
+              <td><code>/v1/tenants</code></td>
+              <td>CRUD + members</td>
+            </tr>
+            <tr>
+              <td>Workflow</td>
+              <td><code>/v1/workflows</code></td>
+              <td>CRUD, publish, archive, duplicate, versions, restore</td>
+            </tr>
+            <tr>
+              <td>Execution</td>
+              <td><code>/v1/executions</code></td>
+              <td>POST /run, GET /:id, GET /status</td>
+            </tr>
+            <tr>
+              <td>Workflow Nodes</td>
+              <td><code>/v1/workflow-nodes</code></td>
+              <td>POST /execute, GET /connectors</td>
+            </tr>
+            <tr>
+              <td>Builder</td>
+              <td><code>/v1/builder</code></td>
+              <td>POST /plan, POST /validate</td>
+            </tr>
+            <tr>
+              <td>Pack</td>
+              <td><code>/v1/packs</code></td>
+              <td>CRUD, certify, install, upgrade</td>
+            </tr>
+            <tr>
+              <td>Governance</td>
+              <td><code>/v1/governance</code></td>
+              <td>policies, evaluations, audit logs</td>
+            </tr>
+            <tr>
+              <td>Knowledge</td>
+              <td><code>/v1/knowledge</code></td>
+              <td>CRUD artifacts, patterns</td>
+            </tr>
+            <tr>
+              <td>FinOps</td>
+              <td><code>/v1/finops</code></td>
+              <td>config, token-logs, predictions</td>
+            </tr>
+            <tr>
+              <td>Connector</td>
+              <td><code>/v1/connectors</code></td>
+              <td>CRUD + runtime</td>
+            </tr>
+            <tr>
+              <td>Mission</td>
+              <td><code>/v1/missions</code></td>
+              <td>CRUD + messages + handoffs</td>
+            </tr>
+            <tr>
+              <td>Release</td>
+              <td><code>/v1/release</code></td>
+              <td>replay, shadow, canary, promote</td>
+            </tr>
+            <tr>
+              <td>FDS</td>
+              <td><code>/v1/fds</code></td>
+              <td>rules, alerts, anomalies</td>
+            </tr>
+            <tr>
+              <td>Notification</td>
+              <td><code>/v1/notifications</code></td>
+              <td>send, list</td>
+            </tr>
+            <tr>
+              <td>Events</td>
+              <td><code>/v1/events</code></td>
+              <td>SSE stream</td>
+            </tr>
+            <tr>
+              <td>Health</td>
+              <td><code>/v1/health</code></td>
+              <td>GET /health</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== S17: DATA FLOW ========== -->
+      <div class="section" id="s17">
+        <div class="section-title"><span class="icon">17.</span> Data Flow Diagrams</div>
+        <div class="card">
+          <h3>Workflow Lifecycle</h3>
+          <div class="flow-container">
+            <div class="flow-step">NL Prompt<br /><small>User Input</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">Parse &amp; Build<br /><small>Frontend NLP</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">Canvas Edit<br /><small>Node Config</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">Save<br /><small>API/localStorage</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step purple">Publish<br /><small>Version Snapshot</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">Execute<br /><small>Pipeline Run</small></div>
+          </div>
+
+          <h3 style="margin-top: 25px">Security Scan Pipeline (Example)</h3>
+          <div class="flow-container">
+            <div class="flow-step">File Upload<br /><small>ZIP/Source</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">Extract Files<br /><small>Unzip + Scan</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step red">SAST Analysis<br /><small>Claude AI</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step red">Pentest Scan<br /><small>Attack Vectors</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">Report Gen<br /><small>HTML Report</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step purple">Email Send<br /><small>SMTP Delivery</small></div>
+          </div>
+
+          <h3 style="margin-top: 25px">Workflow Save Flow</h3>
+          <div class="flow-container">
+            <div class="flow-step">Title Bar Edit<br /><small>Local Only</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">Header Save Button<br /><small>handleFloSave()</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">Name Search<br /><small>listWorkflows()</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">Exists? Update<br /><small>PUT /workflows/:id</small></div>
+            <span class="flow-arrow" style="color: var(--red)">/</span>
+            <div class="flow-step purple">New? Create<br /><small>POST /workflows</small></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== S18: DEPLOYMENT ========== -->
+      <div class="section" id="s18">
+        <div class="section-title"><span class="icon">18.</span> Deployment Architecture</div>
+        <div class="card">
+          <h3>Development Environment</h3>
+          <div class="arch-diagram">
+            <div class="arch-label">Developer Machine (Windows)</div>
+            <div class="arch-row">
+              <div class="arch-box highlight">
+                <div class="title">Docker Desktop</div>
+                <div class="sub">PostgreSQL + Redis</div>
+              </div>
+              <div class="arch-box green">
+                <div class="title">pnpm dev</div>
+                <div class="sub">API (4000) + Web (3000)</div>
+              </div>
+            </div>
+            <div class="arch-arrow">&#x25BC;</div>
+            <div class="arch-label">Production Target (Planned)</div>
+            <div class="arch-row">
+              <div class="arch-box purple">
+                <div class="title">AWS ECS / K8s</div>
+                <div class="sub">Container Orchestration</div>
+              </div>
+              <div class="arch-box purple">
+                <div class="title">RDS PostgreSQL</div>
+                <div class="sub">Managed DB</div>
+              </div>
+              <div class="arch-box purple">
+                <div class="title">ElastiCache Redis</div>
+                <div class="sub">Managed Cache</div>
+              </div>
+              <div class="arch-box purple">
+                <div class="title">S3</div>
+                <div class="sub">File Storage</div>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="margin-top: 20px">Environment Variables</h3>
+          <table>
+            <tr>
+              <th>Variable</th>
+              <th>Description</th>
+            </tr>
+            <tr>
+              <td><code>DATABASE_URL</code></td>
+              <td>PostgreSQL connection string</td>
+            </tr>
+            <tr>
+              <td><code>REDIS_URL</code></td>
+              <td>Redis connection string</td>
+            </tr>
+            <tr>
+              <td><code>JWT_SECRET</code></td>
+              <td>JWT signing secret</td>
+            </tr>
+            <tr>
+              <td><code>ANTHROPIC_API_KEY</code></td>
+              <td>Anthropic Claude API key</td>
+            </tr>
+            <tr>
+              <td><code>OPENAI_API_KEY</code></td>
+              <td>OpenAI API key (fallback)</td>
+            </tr>
+            <tr>
+              <td><code>SMTP_HOST / SMTP_PORT</code></td>
+              <td>Email server configuration</td>
+            </tr>
+            <tr>
+              <td><code>SLACK_WEBHOOK_URL</code></td>
+              <td>Slack notification webhook</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== S19: BUILDER HARNESS ENGINE ========== -->
+      <div class="section" id="s19">
+        <div class="section-title">
+          <span class="icon">19.</span> Builder Harness Engine (BH-1 ~ BH-7)
+        </div>
+
+        <!-- Architecture Overview -->
+        <div class="card">
+          <h3>Harness Engine Architecture Overview</h3>
+          <div class="arch-diagram">
+            <div class="arch-label">DUAL-MODE ARCHITECTURE</div>
+            <div class="arch-row">
+              <div class="arch-box highlight" style="max-width: 300px">
+                <div class="title">API Mode (NestJS Backend)</div>
+                <div class="sub">
+                  Multi-tenant isolation, PostgreSQL persistence, RBAC enforcement
+                </div>
+              </div>
+              <div class="arch-box teal" style="max-width: 100px">
+                <div class="title">&#8596;</div>
+                <div class="sub">Fallback</div>
+              </div>
+              <div class="arch-box green" style="max-width: 300px">
+                <div class="title">Local Mode (In-Browser)</div>
+                <div class="sub">Demo / Offline, localStorage, no auth required</div>
+              </div>
+            </div>
+            <div class="arch-arrow">&#x25BC;</div>
+            <div class="arch-label">7 SUB-ENGINES PIPELINE</div>
+            <div class="arch-row">
+              <div class="arch-box" style="border-color: rgba(2, 132, 199, 0.4)">
+                <div class="title">BH-1</div>
+                <div class="sub">Intent Classification</div>
+              </div>
+              <div class="arch-box green">
+                <div class="title">BH-2</div>
+                <div class="sub">Param Extract + Gap</div>
+              </div>
+              <div class="arch-box red">
+                <div class="title">BH-3</div>
+                <div class="sub">Policy Injector</div>
+              </div>
+              <div class="arch-box highlight">
+                <div class="title">BH-4</div>
+                <div class="sub">Structural Validator</div>
+              </div>
+            </div>
+            <div class="arch-row">
+              <div class="arch-box purple">
+                <div class="title">BH-5</div>
+                <div class="sub">Readiness Scoring</div>
+              </div>
+              <div class="arch-box orange">
+                <div class="title">BH-6</div>
+                <div class="sub">Save/Repair Loop</div>
+              </div>
+              <div class="arch-box teal">
+                <div class="title">BH-7</div>
+                <div class="sub">Simulation Engine</div>
+              </div>
+            </div>
+            <div class="arch-arrow">&#x25BC;</div>
+            <div class="arch-label">FRONTEND AGENT MEETING SYSTEM (6 AGENTS)</div>
+            <div class="arch-row">
+              <div class="arch-box">
+                <div class="title">Intent Decomposer</div>
+                <div class="sub">NL &rarr; Intent</div>
+              </div>
+              <div class="arch-box green">
+                <div class="title">Capability Registry</div>
+                <div class="sub">Template Match</div>
+              </div>
+              <div class="arch-box highlight">
+                <div class="title">Data Contract</div>
+                <div class="sub">Connector Validate</div>
+              </div>
+            </div>
+            <div class="arch-row">
+              <div class="arch-box red">
+                <div class="title">Path Advisor</div>
+                <div class="sub">Policy Guard</div>
+              </div>
+              <div class="arch-box purple">
+                <div class="title">LLM Reviewer</div>
+                <div class="sub">Orchestrator</div>
+              </div>
+              <div class="arch-box teal">
+                <div class="title">Eval Agent</div>
+                <div class="sub">Score + Simulate</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="highlight-box info">
+            <strong>Harness Pipeline Flow:</strong> NL Prompt &rarr; BH-1 (Intent) &rarr; BH-2
+            (Params + Connectors) &rarr; BH-3 (Policy Inject) &rarr; BH-4 (Validate) &rarr; BH-5
+            (Score) &rarr; BH-6 (Save/Repair) &rarr; BH-7 (Simulate). Each sub-engine emits events
+            to <code>HarnessEventBus</code> for real-time frontend display.
+          </div>
+        </div>
+
+        <!-- BH-1: Intent Classification -->
+        <div class="sub-engine-card bh1">
+          <h4>BH-1: Intent Classification (6-Type Model)</h4>
+          <table>
+            <tr>
+              <th>Intent Type</th>
+              <th>Description</th>
+              <th>Key Patterns</th>
+              <th>Base Weight</th>
+            </tr>
+            <tr>
+              <td><code>incident-response</code></td>
+              <td>장애 대응 워크플로우</td>
+              <td>장애, 인시던트, alert, rollback, hotfix</td>
+              <td>1.0</td>
+            </tr>
+            <tr>
+              <td><code>deploy-verification</code></td>
+              <td>배포 검증 워크플로우</td>
+              <td>배포, deploy, canary, release, staging</td>
+              <td>0.9</td>
+            </tr>
+            <tr>
+              <td><code>report-generation</code></td>
+              <td>보고서 생성 워크플로우</td>
+              <td>보고서, report, 요약, summary, dashboard</td>
+              <td>0.8</td>
+            </tr>
+            <tr>
+              <td><code>approval-workflow</code></td>
+              <td>승인 프로세스 워크플로우</td>
+              <td>승인, approval, 결재, 검토, sign-off</td>
+              <td>0.85</td>
+            </tr>
+            <tr>
+              <td><code>knowledge-capture</code></td>
+              <td>지식 수집/정리 워크플로우</td>
+              <td>지식, knowledge, 문서화, wiki, runbook</td>
+              <td>0.7</td>
+            </tr>
+            <tr>
+              <td><code>scheduled-execution</code></td>
+              <td>예약 실행 워크플로우</td>
+              <td>스케줄, 매일, cron, 주기적, batch</td>
+              <td>0.75</td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 15px; color: var(--gold)">Weighted Scoring Algorithm</h3>
+          <div class="highlight-box info">
+            <strong>Scoring Formula:</strong>
+            <code>score = SUM(matchedPatterns * weight)</code> where <em>normal keywords = 1pt</em>,
+            <em>boost keywords = 2pt</em>, multiplied by base weight. 17 intent patterns across 6
+            types. Best-fit template matching selects the intent with highest aggregate score.
+          </div>
+
+          <div class="flow-container">
+            <div class="flow-step">NL Input</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">Pattern Match<br /><small>17 patterns</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">Weight Calc<br /><small>normal=1, boost=2</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">
+              Best-Fit Select<br /><small>max(score * baseWt)</small>
+            </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">Intent + Confidence</div>
+          </div>
+        </div>
+
+        <!-- BH-2: Parameter Extraction -->
+        <div class="sub-engine-card bh2">
+          <h4>BH-2: Parameter Extraction + Connector Gap Detection</h4>
+          <table>
+            <tr>
+              <th>Parameter</th>
+              <th>Extraction Method</th>
+              <th>Example Pattern</th>
+            </tr>
+            <tr>
+              <td><code>service_name</code></td>
+              <td>NLP regex</td>
+              <td><code>/서비스\s*[:=]?\s*(\S+)/</code></td>
+            </tr>
+            <tr>
+              <td><code>ticket_id</code></td>
+              <td>NLP regex</td>
+              <td><code>/(JIRA|INC|CHG)-\d+/i</code></td>
+            </tr>
+            <tr>
+              <td><code>environment</code></td>
+              <td>NLP regex</td>
+              <td><code>/(prod|staging|dev|qa)/i</code></td>
+            </tr>
+            <tr>
+              <td><code>release_id</code></td>
+              <td>NLP regex</td>
+              <td><code>/v?\d+\.\d+(\.\d+)?/</code></td>
+            </tr>
+            <tr>
+              <td><code>approver</code></td>
+              <td>NLP regex</td>
+              <td><code>/승인자\s*[:=]?\s*(\S+@\S+)/</code></td>
+            </tr>
+            <tr>
+              <td><code>report_cycle</code></td>
+              <td>NLP regex</td>
+              <td><code>/(일간|주간|월간|daily|weekly|monthly)/</code></td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 15px; color: var(--green)">Connector Tier System</h3>
+          <table>
+            <tr>
+              <th>Tier</th>
+              <th>Requirement</th>
+              <th>Connectors</th>
+              <th>Fallback</th>
+            </tr>
+            <tr>
+              <td><span class="badge red">tier1-must</span></td>
+              <td>필수 (없으면 실행 불가)</td>
+              <td>Jira, Slack, PagerDuty, Datadog</td>
+              <td>없음 &mdash; 실행 차단</td>
+            </tr>
+            <tr>
+              <td><span class="badge gold">tier2-reporting</span></td>
+              <td>보고용 (대체 가능)</td>
+              <td>Email, Teams, Confluence</td>
+              <td>Slack &rarr; Teams &rarr; Email</td>
+            </tr>
+            <tr>
+              <td><span class="badge green">tier3-knowledge</span></td>
+              <td>지식 관리 (선택)</td>
+              <td>Wiki, Notion, Google Docs</td>
+              <td>내장 Knowledge Registry</td>
+            </tr>
+          </table>
+
+          <div class="highlight-box">
+            <strong>Alternative Connector Mapping:</strong> Slack &rarr; Teams &rarr; Email
+            (fallback chain). Jira &rarr; Linear &rarr; GitHub Issues. Datadog &rarr; Grafana &rarr;
+            CloudWatch. 각 커넥터에 대해 최대 3단계 대체 경로를 자동 탐색합니다.
+          </div>
+        </div>
+
+        <!-- BH-3: Policy Injector -->
+        <div class="sub-engine-card bh3">
+          <h4>BH-3: Policy Injector</h4>
+          <table>
+            <tr>
+              <th>Classification</th>
+              <th>Type</th>
+              <th>Affected Actions</th>
+            </tr>
+            <tr>
+              <td><span class="badge red">RISKY_ACTION_TYPES</span></td>
+              <td>Action Classification</td>
+              <td>
+                <code>deploy</code>, <code>delete</code>, <code>external-send</code>,
+                <code>write</code>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="badge red">HIGH_RISK_NODE_TYPES</span></td>
+              <td>Node Classification</td>
+              <td>
+                <code>git-deploy</code>, <code>email-send</code>, <code>slack-message</code>,
+                <code>data-delete</code>, <code>api-write</code>
+              </td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 15px; color: var(--red)">Auto-Insert Governance Checkpoints</h3>
+          <div class="flow-container">
+            <div class="flow-step">Scan Workflow Nodes</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step red">
+              Detect Risky Nodes<br /><small>RISKY_ACTION_TYPES</small>
+            </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">
+              Insert Approval Gate<br /><small>Before risky node</small>
+            </div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step purple">Admin Approval<br /><small>deploy/delete</small></div>
+          </div>
+
+          <div class="highlight-box warn">
+            <strong>Mandatory Enforcement:</strong> <code>deploy</code> 및
+            <code>delete</code> 액션이 포함된 노드는 반드시 admin 역할의 승인 게이트가 삽입됩니다.
+            이 정책은 비활성화할 수 없습니다.
+          </div>
+        </div>
+
+        <!-- BH-4: Structural Validator -->
+        <div class="sub-engine-card bh4">
+          <h4>BH-4: Structural Validator</h4>
+          <table>
+            <tr>
+              <th>Validation Rule</th>
+              <th>Check</th>
+              <th>Auto-Repair Action</th>
+              <th>Severity</th>
+            </tr>
+            <tr>
+              <td>Trigger Node</td>
+              <td>워크플로우에 시작 트리거가 있는지</td>
+              <td><code>add-trigger</code></td>
+              <td><span class="mock-badge danger">blocking</span></td>
+            </tr>
+            <tr>
+              <td>Exit Node</td>
+              <td>종료 노드가 하나 이상 존재하는지</td>
+              <td><code>add-exit-node</code></td>
+              <td><span class="mock-badge danger">blocking</span></td>
+            </tr>
+            <tr>
+              <td>Retry Coverage</td>
+              <td>외부 호출 노드에 재시도 설정이 있는지</td>
+              <td><code>inject-retry</code></td>
+              <td><span class="mock-badge warning">warning</span></td>
+            </tr>
+            <tr>
+              <td>Audit/Monitoring</td>
+              <td>감사 로그/모니터링 노드 포함 여부</td>
+              <td><code>add-monitor</code></td>
+              <td><span class="mock-badge warning">warning</span></td>
+            </tr>
+            <tr>
+              <td>Branch Condition</td>
+              <td>분기 노드에 조건식이 설정되었는지</td>
+              <td><code>set-branch-predicate</code></td>
+              <td><span class="mock-badge danger">blocking</span></td>
+            </tr>
+            <tr>
+              <td>Branch Paths</td>
+              <td>분기 노드에 최소 2개 경로가 있는지</td>
+              <td><code>add-branch-paths</code></td>
+              <td><span class="mock-badge danger">blocking</span></td>
+            </tr>
+            <tr>
+              <td>Approval Gates</td>
+              <td>위험 노드 앞에 승인 게이트가 있는지</td>
+              <td><code>add-approval</code></td>
+              <td><span class="mock-badge warning">warning</span></td>
+            </tr>
+            <tr>
+              <td>Connector Valid</td>
+              <td>사용된 커넥터가 유효한지</td>
+              <td><code>replace-connector</code></td>
+              <td><span class="mock-badge warning">warning</span></td>
+            </tr>
+          </table>
+
+          <div class="highlight-box info">
+            <strong>8 Repair Types:</strong> <code>add-trigger</code>, <code>add-exit-node</code>,
+            <code>inject-retry</code>, <code>add-monitor</code>, <code>set-branch-predicate</code>,
+            <code>add-branch-paths</code>, <code>add-approval</code>,
+            <code>replace-connector</code>. 각 repair action은 자동 적용 가능하며, 적용 후
+            re-validate가 수행됩니다.
+          </div>
+        </div>
+
+        <!-- BH-5: Readiness Scoring -->
+        <div class="sub-engine-card bh5">
+          <h4>BH-5: Readiness Scoring (5-Axis, 0-100 Weighted)</h4>
+          <table>
+            <tr>
+              <th>Axis</th>
+              <th>Weight</th>
+              <th>Evaluation Criteria</th>
+            </tr>
+            <tr>
+              <td style="color: var(--cyan); font-weight: 700">실행 준비도</td>
+              <td><span class="badge cyan">30%</span></td>
+              <td>trigger 존재, exit 존재, retry 적용률, 최소 노드 수 (3개 이상)</td>
+            </tr>
+            <tr>
+              <td style="color: var(--green); font-weight: 700">커넥터 유효성</td>
+              <td><span class="badge green">20%</span></td>
+              <td>missing connector 수, placeholder 커넥터 수, tier1 필수 커넥터 존재</td>
+            </tr>
+            <tr>
+              <td style="color: var(--red); font-weight: 700">정책 적용률</td>
+              <td><span class="badge red">20%</span></td>
+              <td>risky node에 대한 승인 게이트 적용률, deploy 승인 필수 여부</td>
+            </tr>
+            <tr>
+              <td style="color: var(--gold); font-weight: 700">운영자 사용성</td>
+              <td><span class="badge gold">15%</span></td>
+              <td>알림 노드 포함, 수동 개입 지점 존재, 사용자 확인 절차</td>
+            </tr>
+            <tr>
+              <td style="color: var(--purple); font-weight: 700">모니터링 가시성</td>
+              <td><span class="badge purple">15%</span></td>
+              <td>audit log 노드, evidence pack 생성, log-monitor 노드 포함</td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 15px; color: var(--purple)">Score Bands</h3>
+          <div class="badge-row">
+            <span class="badge green" style="font-size: 0.9em">&#11088; Excellent (90+)</span>
+            <span class="badge cyan" style="font-size: 0.9em">Good (75-89)</span>
+            <span class="badge gold" style="font-size: 0.9em">Fair (55-74)</span>
+            <span class="badge orange" style="font-size: 0.9em">Poor (35-54)</span>
+            <span class="badge red" style="font-size: 0.9em">&#9888; Critical (&lt;35)</span>
+          </div>
+        </div>
+
+        <!-- BH-6: Save/Repair Loop -->
+        <div class="sub-engine-card bh6">
+          <h4>BH-6: Save/Repair Loop</h4>
+          <h3 style="color: var(--orange)">Save Policy</h3>
+          <table>
+            <tr>
+              <th>Condition</th>
+              <th>Action</th>
+              <th>User Impact</th>
+            </tr>
+            <tr>
+              <td>Blocking errors present</td>
+              <td><span class="mock-badge danger">BLOCK SAVE</span></td>
+              <td>저장 불가, 수정 필요</td>
+            </tr>
+            <tr>
+              <td>Warnings present</td>
+              <td><span class="mock-badge warning">ACK REQUIRED</span></td>
+              <td>경고 확인 후 저장 가능</td>
+            </tr>
+            <tr>
+              <td>All clear</td>
+              <td><span class="mock-badge success">AUTO SAVE</span></td>
+              <td>즉시 저장</td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 15px; color: var(--orange)">One-Click Repair (8 Types)</h3>
+          <div class="flow-container">
+            <div class="flow-step red">Validation Error<br /><small>BH-4 output</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">Select Repair<br /><small>8 repair types</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">Auto-Apply<br /><small>Node mutation</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">Re-Validate<br /><small>BH-4 rerun</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step purple">Re-Score<br /><small>BH-5 rerun</small></div>
+          </div>
+
+          <div class="badge-row" style="margin-top: 10px">
+            <span class="badge cyan">add-trigger</span>
+            <span class="badge cyan">add-exit-node</span>
+            <span class="badge green">inject-retry</span>
+            <span class="badge green">add-monitor</span>
+            <span class="badge gold">set-branch-predicate</span>
+            <span class="badge gold">add-branch-paths</span>
+            <span class="badge red">add-approval</span>
+            <span class="badge orange">replace-connector</span>
+          </div>
+        </div>
+
+        <!-- BH-7: Simulation Engine -->
+        <div class="sub-engine-card bh7">
+          <h4>BH-7: Simulation Engine (10-50 Samples)</h4>
+
+          <h3 style="color: var(--teal)">Dynamic Sample Count</h3>
+          <div class="highlight-box info">
+            <strong>Formula:</strong>
+            <code
+              >sampleCount = min(50, base(10) + 5 * riskyNodes + 3 * branches + 2 *
+              connectorGaps)</code
+            ><br />
+            Deterministic pseudo-random seed for reproducibility. Same input always produces same
+            simulation results.
+          </div>
+
+          <h3 style="margin-top: 15px; color: var(--teal)">5 Simulation Metrics</h3>
+          <table>
+            <tr>
+              <th>Metric</th>
+              <th>Description</th>
+              <th>Target Range</th>
+            </tr>
+            <tr>
+              <td><code>generationSuccessRate</code></td>
+              <td>워크플로우 생성 성공 비율</td>
+              <td><span class="badge green">&gt;95%</span></td>
+            </tr>
+            <tr>
+              <td><code>executionFeasibilityRate</code></td>
+              <td>실행 가능성 비율</td>
+              <td><span class="badge green">&gt;90%</span></td>
+            </tr>
+            <tr>
+              <td><code>connectorMismatchRate</code></td>
+              <td>커넥터 불일치 비율</td>
+              <td><span class="badge gold">&lt;10%</span></td>
+            </tr>
+            <tr>
+              <td><code>policyViolationRisk</code></td>
+              <td>정책 위반 위험도</td>
+              <td><span class="badge red">&lt;5%</span></td>
+            </tr>
+            <tr>
+              <td><code>humanEditRate</code></td>
+              <td>수동 편집 필요 비율</td>
+              <td><span class="badge gold">&lt;20%</span></td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Frontend Agent Meeting System -->
+        <div class="card">
+          <h3>Frontend Agent Meeting System (6 Agents)</h3>
+          <table>
+            <tr>
+              <th>Agent</th>
+              <th>Role</th>
+              <th>Position</th>
+              <th>Responsibility</th>
+            </tr>
+            <tr>
+              <td style="color: var(--cyan); font-weight: 600">Intent Decomposer</td>
+              <td>NL Analysis</td>
+              <td>Top-Left</td>
+              <td>사용자 프롬프트를 intent로 분류하고 세부 파라미터를 추출</td>
+            </tr>
+            <tr>
+              <td style="color: var(--gold); font-weight: 600">Capability Registry</td>
+              <td>Template Match</td>
+              <td>Top-Center</td>
+              <td>intent에 맞는 템플릿/패턴 매칭 및 노드 구성 제안</td>
+            </tr>
+            <tr>
+              <td style="color: var(--green); font-weight: 600">Data Contract Validator</td>
+              <td>Connector Check</td>
+              <td>Top-Right</td>
+              <td>커넥터 유효성, 데이터 계약 검증, gap 탐지</td>
+            </tr>
+            <tr>
+              <td style="color: var(--red); font-weight: 600">Path Advisor</td>
+              <td>Policy Guard</td>
+              <td>Bottom-Left</td>
+              <td>정책 위반 감지, 승인 게이트 추가, 위험 경로 경고</td>
+            </tr>
+            <tr>
+              <td style="color: var(--purple); font-weight: 600">LLM Reviewer</td>
+              <td>Orchestrator</td>
+              <td>Bottom-Center</td>
+              <td>전체 의사결정 오케스트레이션, 최종 합의 도출</td>
+            </tr>
+            <tr>
+              <td style="color: var(--teal); font-weight: 600">Eval Agent</td>
+              <td>Score + Simulate</td>
+              <td>Bottom-Right</td>
+              <td>Readiness 점수 계산, 시뮬레이션 실행, 최종 평가</td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 20px">HarnessEventBus &mdash; Singleton Event System</h3>
+          <div class="flow-container">
+            <div class="flow-step">Agent Action<br /><small>deliberation</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step gold">HarnessEventBus<br /><small>singleton emit</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step green">LiveHarnessPanel<br /><small>real-time render</small></div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step purple">Speech Bubbles<br /><small>agent messages</small></div>
+          </div>
+
+          <h3 style="margin-top: 20px">Consensus Algorithm</h3>
+          <div class="highlight-box">
+            <strong>Approval Condition:</strong><br />
+            <code
+              >approved = (avgConfidence &gt; 0.7) &amp;&amp; (noPolicyConcerns) &amp;&amp;
+              (noCriticalDataIssues)</code
+            ><br />
+            모든 6 에이전트의 평균 신뢰도가 0.7 이상이고, 정책 위반 우려가 없으며, 심각한 데이터
+            계약 문제가 없을 때 자동 승인됩니다.
+          </div>
+        </div>
+
+        <!-- Shared Types -->
+        <div class="card">
+          <h3>Shared Types &mdash; <code>packages/types/src/builder-harness.ts</code></h3>
+          <table>
+            <tr>
+              <th>Endpoint</th>
+              <th>DTO</th>
+              <th>Purpose</th>
+            </tr>
+            <tr>
+              <td><code>POST /builder/plan</code></td>
+              <td><code>BuilderPlanDto</code></td>
+              <td>NL prompt &rarr; intent + template plan 생성</td>
+            </tr>
+            <tr>
+              <td><code>POST /builder/params/extract</code></td>
+              <td><code>ParamsExtractDto</code></td>
+              <td>파라미터 추출 + 커넥터 gap 탐지</td>
+            </tr>
+            <tr>
+              <td><code>POST /builder/connectors/check</code></td>
+              <td><code>ConnectorsCheckDto</code></td>
+              <td>커넥터 유효성 및 대체 경로 확인</td>
+            </tr>
+            <tr>
+              <td><code>POST /builder/validate</code></td>
+              <td><code>ValidateDto</code></td>
+              <td>구조적 검증 + 자동 repair 제안</td>
+            </tr>
+            <tr>
+              <td><code>POST /builder/eval/preview</code></td>
+              <td><code>EvalPreviewDto</code></td>
+              <td>Readiness 점수 + 시뮬레이션 미리보기</td>
+            </tr>
+            <tr>
+              <td><code>POST /builder/save</code></td>
+              <td><code>BuilderSaveDto</code></td>
+              <td>검증 후 워크플로우 저장</td>
+            </tr>
+            <tr>
+              <td><code>POST /builder/repair</code></td>
+              <td><code>RepairDto</code></td>
+              <td>원클릭 수리 + re-validate + re-score</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- LiveHarnessPanel UI Mockup -->
+        <div class="card">
+          <h3>실제 개발 화면 &mdash; LiveHarnessPanel (Agent Meeting)</h3>
+          <div class="ui-mockup">
+            <div class="ui-mockup-header">
+              <span class="title">Agent Meeting &mdash; LiveHarnessPanel</span>
+              <span class="label">실제 개발 화면</span>
+            </div>
+            <div class="ui-mockup-body">
+              <!-- Phase Badge -->
+              <div style="text-align: center; margin-bottom: 12px">
+                <span class="mock-badge info" style="font-size: 0.85em; padding: 4px 16px"
+                  >Phase: DELIBERATING</span
+                >
+              </div>
+
+              <!-- Agent Meeting Layout -->
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 12px">
+                <!-- Top Row: 3 Agents -->
+                <div style="display: flex; gap: 24px; justify-content: center">
+                  <!-- Intent Agent -->
+                  <div style="text-align: center; max-width: 180px">
+                    <div
+                      style="
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 50%;
+                        background: rgba(2, 132, 199, 0.2);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 1.3em;
+                        margin: 0 auto 4px;
+                        border: 2px solid rgba(2, 132, 199, 0.4);
+                      "
+                    >
+                      &#129302;
+                    </div>
+                    <div
+                      style="
+                        font-size: 0.72em;
+                        font-weight: 600;
+                        color: var(--cyan);
+                        margin-bottom: 4px;
+                      "
+                    >
+                      Intent Decomposer
+                    </div>
+                    <div
+                      style="
+                        background: rgba(2, 132, 199, 0.06);
+                        border: 1px solid rgba(2, 132, 199, 0.15);
+                        border-radius: 8px;
+                        padding: 6px 8px;
+                        font-size: 0.68em;
+                        color: var(--text-muted);
+                        position: relative;
+                      "
+                    >
+                      <div
+                        style="
+                          position: absolute;
+                          bottom: -6px;
+                          left: 50%;
+                          transform: translateX(-50%);
+                          width: 0;
+                          height: 0;
+                          border-left: 6px solid transparent;
+                          border-right: 6px solid transparent;
+                          border-top: 6px solid rgba(2, 132, 199, 0.15);
+                        "
+                      ></div>
+                      "incident-response 의도 감지, confidence 0.87"
+                    </div>
+                  </div>
+
+                  <!-- Template Agent -->
+                  <div style="text-align: center; max-width: 180px">
+                    <div
+                      style="
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 50%;
+                        background: rgba(217, 119, 6, 0.2);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 1.3em;
+                        margin: 0 auto 4px;
+                        border: 2px solid rgba(217, 119, 6, 0.4);
+                      "
+                    >
+                      &#128230;
+                    </div>
+                    <div
+                      style="
+                        font-size: 0.72em;
+                        font-weight: 600;
+                        color: var(--gold);
+                        margin-bottom: 4px;
+                      "
+                    >
+                      Capability Registry
+                    </div>
+                    <div
+                      style="
+                        background: rgba(217, 119, 6, 0.06);
+                        border: 1px solid rgba(217, 119, 6, 0.15);
+                        border-radius: 8px;
+                        padding: 6px 8px;
+                        font-size: 0.68em;
+                        color: var(--text-muted);
+                        position: relative;
+                      "
+                    >
+                      <div
+                        style="
+                          position: absolute;
+                          bottom: -6px;
+                          left: 50%;
+                          transform: translateX(-50%);
+                          width: 0;
+                          height: 0;
+                          border-left: 6px solid transparent;
+                          border-right: 6px solid transparent;
+                          border-top: 6px solid rgba(217, 119, 6, 0.15);
+                        "
+                      ></div>
+                      "incident-triage 템플릿 매칭, 5노드 구성 제안"
+                    </div>
+                  </div>
+
+                  <!-- Connector Agent -->
+                  <div style="text-align: center; max-width: 180px">
+                    <div
+                      style="
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 50%;
+                        background: rgba(5, 150, 105, 0.2);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 1.3em;
+                        margin: 0 auto 4px;
+                        border: 2px solid rgba(5, 150, 105, 0.4);
+                      "
+                    >
+                      &#128268;
+                    </div>
+                    <div
+                      style="
+                        font-size: 0.72em;
+                        font-weight: 600;
+                        color: var(--green);
+                        margin-bottom: 4px;
+                      "
+                    >
+                      Data Contract
+                    </div>
+                    <div
+                      style="
+                        background: rgba(5, 150, 105, 0.06);
+                        border: 1px solid rgba(5, 150, 105, 0.15);
+                        border-radius: 8px;
+                        padding: 6px 8px;
+                        font-size: 0.68em;
+                        color: var(--text-muted);
+                        position: relative;
+                      "
+                    >
+                      <div
+                        style="
+                          position: absolute;
+                          bottom: -6px;
+                          left: 50%;
+                          transform: translateX(-50%);
+                          width: 0;
+                          height: 0;
+                          border-left: 6px solid transparent;
+                          border-right: 6px solid transparent;
+                          border-top: 6px solid rgba(5, 150, 105, 0.15);
+                        "
+                      ></div>
+                      "Slack 커넥터 유효, PagerDuty 미연결 (gap)"
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Meeting Table -->
+                <div
+                  style="
+                    width: 220px;
+                    height: 32px;
+                    background: linear-gradient(
+                      90deg,
+                      rgba(217, 119, 6, 0.08),
+                      rgba(2, 132, 199, 0.08),
+                      rgba(217, 119, 6, 0.08)
+                    );
+                    border: 1px solid rgba(217, 119, 6, 0.2);
+                    border-radius: 16px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 0.7em;
+                    color: var(--gold);
+                    letter-spacing: 2px;
+                    font-weight: 600;
+                  "
+                >
+                  CONSENSUS TABLE
+                </div>
+
+                <!-- Bottom Row: 3 Agents -->
+                <div style="display: flex; gap: 24px; justify-content: center">
+                  <!-- Policy Agent -->
+                  <div style="text-align: center; max-width: 180px">
+                    <div
+                      style="
+                        background: rgba(220, 38, 38, 0.06);
+                        border: 1px solid rgba(220, 38, 38, 0.15);
+                        border-radius: 8px;
+                        padding: 6px 8px;
+                        font-size: 0.68em;
+                        color: var(--text-muted);
+                        position: relative;
+                        margin-bottom: 4px;
+                      "
+                    >
+                      <div
+                        style="
+                          position: absolute;
+                          top: -6px;
+                          left: 50%;
+                          transform: translateX(-50%);
+                          width: 0;
+                          height: 0;
+                          border-left: 6px solid transparent;
+                          border-right: 6px solid transparent;
+                          border-bottom: 6px solid rgba(220, 38, 38, 0.15);
+                        "
+                      ></div>
+                      "email-send 노드에 승인 게이트 필요 (RISKY)"
+                    </div>
+                    <div
+                      style="
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 50%;
+                        background: rgba(220, 38, 38, 0.2);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 1.3em;
+                        margin: 0 auto 4px;
+                        border: 2px solid rgba(220, 38, 38, 0.4);
+                      "
+                    >
+                      &#128737;
+                    </div>
+                    <div style="font-size: 0.72em; font-weight: 600; color: var(--red)">
+                      Path Advisor
+                    </div>
+                  </div>
+
+                  <!-- LLM Reviewer -->
+                  <div style="text-align: center; max-width: 180px">
+                    <div
+                      style="
+                        background: rgba(124, 58, 237, 0.06);
+                        border: 1px solid rgba(124, 58, 237, 0.15);
+                        border-radius: 8px;
+                        padding: 6px 8px;
+                        font-size: 0.68em;
+                        color: var(--text-muted);
+                        position: relative;
+                        margin-bottom: 4px;
+                      "
+                    >
+                      <div
+                        style="
+                          position: absolute;
+                          top: -6px;
+                          left: 50%;
+                          transform: translateX(-50%);
+                          width: 0;
+                          height: 0;
+                          border-left: 6px solid transparent;
+                          border-right: 6px solid transparent;
+                          border-bottom: 6px solid rgba(124, 58, 237, 0.15);
+                        "
+                      ></div>
+                      "승인 게이트 추가 후 재평가 진행합니다"
+                    </div>
+                    <div
+                      style="
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 50%;
+                        background: rgba(124, 58, 237, 0.2);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 1.3em;
+                        margin: 0 auto 4px;
+                        border: 2px solid rgba(124, 58, 237, 0.4);
+                      "
+                    >
+                      &#129504;
+                    </div>
+                    <div style="font-size: 0.72em; font-weight: 600; color: var(--purple)">
+                      LLM Reviewer
+                    </div>
+                  </div>
+
+                  <!-- Eval Agent -->
+                  <div style="text-align: center; max-width: 180px">
+                    <div
+                      style="
+                        background: rgba(13, 148, 136, 0.06);
+                        border: 1px solid rgba(13, 148, 136, 0.15);
+                        border-radius: 8px;
+                        padding: 6px 8px;
+                        font-size: 0.68em;
+                        color: var(--text-muted);
+                        position: relative;
+                        margin-bottom: 4px;
+                      "
+                    >
+                      <div
+                        style="
+                          position: absolute;
+                          top: -6px;
+                          left: 50%;
+                          transform: translateX(-50%);
+                          width: 0;
+                          height: 0;
+                          border-left: 6px solid transparent;
+                          border-right: 6px solid transparent;
+                          border-bottom: 6px solid rgba(13, 148, 136, 0.15);
+                        "
+                      ></div>
+                      "Readiness: 82/100 (Good), 시뮬 30샘플 OK"
+                    </div>
+                    <div
+                      style="
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 50%;
+                        background: rgba(13, 148, 136, 0.2);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 1.3em;
+                        margin: 0 auto 4px;
+                        border: 2px solid rgba(13, 148, 136, 0.4);
+                      "
+                    >
+                      &#128200;
+                    </div>
+                    <div style="font-size: 0.72em; font-weight: 600; color: var(--teal)">
+                      Eval Agent
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Readiness Score -->
+              <div
+                style="
+                  text-align: center;
+                  margin-top: 16px;
+                  padding-top: 12px;
+                  border-top: 1px solid rgba(0, 0, 0, 0.06);
+                "
+              >
+                <div
+                  style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 12px;
+                    background: rgba(2, 132, 199, 0.06);
+                    border: 1px solid rgba(2, 132, 199, 0.15);
+                    border-radius: 8px;
+                    padding: 8px 20px;
+                  "
+                >
+                  <span style="font-size: 0.78em; color: var(--text-muted)">Readiness Score</span>
+                  <span style="font-size: 1.6em; font-weight: 800; color: var(--cyan)">82</span>
+                  <span class="mock-badge info">Good</span>
+                  <span style="font-size: 0.72em; color: var(--text-muted)"
+                    >avgConfidence: 0.84</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ui-mockup-label">
+            LiveHarnessPanel 실제 개발 화면 &mdash; 6 Agent Meeting Room, Speech Bubbles, Readiness
+            Score
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== FOOTER ========== -->
+      <div
+        style="
+          text-align: center;
+          padding: 40px 0;
+          border-top: 1px solid var(--card-border);
+          margin-top: 40px;
+          color: var(--text-muted);
+          font-size: 0.85em;
+        "
+      >
+        <p><strong>Metis.AI</strong> &mdash; Enterprise Multi-Tenant AgentOps Platform</p>
+        <p>Generated: 2026-05-27 | Architecture Version 1.2</p>
+        <p style="margin-top: 8px; font-size: 0.8em">
+          Turborepo + NestJS 10 + Next.js 15 + React 19 + Prisma + PostgreSQL + Claude AI
+        </p>
+      </div>
+    </div>
+    <!-- /container -->
+  </body>
+</html>

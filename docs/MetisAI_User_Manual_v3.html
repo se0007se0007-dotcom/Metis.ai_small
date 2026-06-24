@@ -1,0 +1,204 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>METIS.AI 사용자 매뉴얼 v3 (현행화 2026-06)</title>
+<style>
+:root{--ink:#1e293b;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--navy:#0f1b2d;--bg:#f8fafc;--green:#16a34a;--amber:#b45309;--red:#dc2626}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;font-size:14px;line-height:1.65}
+.layout{display:flex;max-width:1180px;margin:0 auto}
+nav.toc{width:250px;flex-shrink:0;position:sticky;top:0;align-self:flex-start;height:100vh;overflow:auto;background:var(--navy);color:#cbd5e1;padding:20px 16px}
+nav.toc h2{color:#fff;font-size:14px;margin:0 0 4px}
+nav.toc .ver{font-size:10px;color:#7dd3fc;margin-bottom:14px}
+nav.toc a{display:block;color:#cbd5e1;text-decoration:none;font-size:12px;padding:4px 8px;border-radius:5px;margin:1px 0}
+nav.toc a:hover{background:rgba(255,255,255,.08);color:#fff}
+nav.toc a.sub{padding-left:18px;font-size:11px;color:#94a3b8}
+nav.toc .grp{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin:12px 0 2px 8px}
+main{flex:1;padding:30px 36px;background:#fff;min-width:0}
+h1{font-size:24px;margin:0 0 4px}.subtitle{color:var(--muted);margin:0 0 24px}
+h2.sec{font-size:18px;margin:34px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--accent);scroll-margin-top:10px}
+h3{font-size:14px;margin:18px 0 6px;color:var(--navy)}
+p{margin:6px 0}ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+code{background:#f1f5f9;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
+pre{background:#0f1b2d;color:#e2e8f0;border-radius:8px;padding:12px 14px;overflow:auto;font-size:12px;line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
+th,td{text-align:left;padding:7px 9px;border:1px solid var(--line);vertical-align:top}
+th{background:#f1f5f9;font-weight:700}
+.tag{display:inline-block;font-size:10px;font-weight:700;border-radius:5px;padding:2px 7px}
+.new{background:#dcfce7;color:#166534}.fix{background:#fef3c7;color:#92400e}
+.note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;font-size:12.5px;margin:10px 0}
+.warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 12px;font-size:12.5px;margin:10px 0}
+.kv{font-size:12.5px}.kv td:first-child{font-weight:600;width:34%;white-space:nowrap}
+.crumb{font-size:11px;color:var(--muted)}
+@media print{nav.toc{display:none}main{padding:0}}
+</style></head><body>
+<div class="layout">
+<nav class="toc">
+  <h2>METIS.AI 매뉴얼</h2><div class="ver">v3 · 현행화 2026-06</div>
+  <a href="#intro">1. 개요</a>
+  <a href="#start">2. 시작하기 · 로그인 · 권한</a>
+  <div class="grp">대시보드</div>
+  <a href="#home">3. 홈 대시보드</a>
+  <a href="#home-kpi" class="sub">3.1 상단 요약 · 빠른실행</a>
+  <a href="#home-eff" class="sub">3.2 효과성 요약</a>
+  <a href="#home-util" class="sub">3.3 활용 랭킹</a>
+  <a href="#home-chart" class="sub">3.4 성과·품질 추이</a>
+  <a href="#home-apm" class="sub">3.5 APM X-View</a>
+  <a href="#home-agents" class="sub">3.6 Agent 현황 · 런처</a>
+  <div class="grp">기능 메뉴</div>
+  <a href="#agent">4. Agent 운영·관리</a>
+  <a href="#gov">5. 거버넌스</a>
+  <a href="#eff">6. 성과/효과성</a>
+  <a href="#orb" class="sub">6.1 ORB 심사</a>
+  <a href="#know">7. 지식관리</a>
+  <a href="#orch">8. 오케스트레이션</a>
+  <a href="#insight">9. 인사이트 · FinOps</a>
+  <a href="#risk" class="sub">9.1 Risk · Anomalies</a>
+  <div class="grp">연동 · 운영</div>
+  <a href="#ingest">10. 외부 Agent 연동(수집 SDK)</a>
+  <a href="#signal">11. 효과성 원천 수집</a>
+  <a href="#run">12. 설치·실행</a>
+  <a href="#faq">13. FAQ · 변경 이력</a>
+</nav>
+<main>
+<h1>METIS.AI 사용자 매뉴얼</h1>
+<p class="subtitle">멀티테넌트 AgentOps 거버넌스 · 성과(ROI) 플랫폼 — v3 현행화(2026-06)</p>
+
+<h2 class="sec" id="intro">1. 개요</h2>
+<p>METIS.AI는 기업이 운영하는 AI 에이전트를 <b>안전하게 통제(거버넌스)</b>하고 그 <b>성과(공수 절감·ROI)</b>를 증명하는 멀티테넌트 SaaS입니다. 모든 에이전트 실행은 자동으로 4게이트 품질 평가·보안 점검·이상 탐지를 거치며, 결과는 대시보드·효과성·리스크 화면에 집계됩니다.</p>
+<table><tr><th>구성</th><th>내용</th></tr>
+<tr><td>핵심 가치</td><td>① 품질·보안·정책 자동 평가(4게이트) ② 성과/ROI 정량화(시간절감·MTTD·MTTR) ③ 운영 리스크·이상 탐지 ④ FinOps 비용 최적화 ⑤ 지식·정책 자동 학습 루프</td></tr>
+<tr><td>구조</td><td>main agent = 워크플로우, sub agent = 노드. 실행=ExecutionSession/Step, 평가=AgentEvaluation.</td></tr>
+<tr><td>대시보드 테마</td><td>다크 모드(전문가용 저채도 팔레트)</td></tr></table>
+
+<h2 class="sec" id="start">2. 시작하기 · 로그인 · 권한</h2>
+<p>로그인하면 <b>홈 대시보드(/home)</b>가 첫 화면으로 열립니다. 상단바·좌측 메뉴의 "대시보드"는 모두 홈 대시보드로 연결됩니다.</p>
+<h3>역할(RBAC) 6종</h3>
+<table><tr><th>역할</th><th>권한 요약</th></tr>
+<tr><td>PLATFORM_ADMIN</td><td>플랫폼 전체 관리</td></tr>
+<tr><td>TENANT_ADMIN</td><td>테넌트 설정·정책·키 발급·Agent 기준 편집</td></tr>
+<tr><td>OPERATOR</td><td>운영·조치(알람 처리/에스컬레이션)</td></tr>
+<tr><td>DEVELOPER</td><td>워크플로우·에이전트 개발</td></tr>
+<tr><td>AUDITOR</td><td>감사·읽기 중심(거버넌스 조회)</td></tr>
+<tr><td>VIEWER</td><td>읽기 전용</td></tr></table>
+
+<h2 class="sec" id="home">3. 홈 대시보드</h2>
+<p class="crumb">메뉴: 대시보드(/home)</p>
+<h3 id="home-kpi">3.1 상단 요약 · 빠른실행</h3>
+<p>상단 기간 선택(7/30/90/180일) <b>왼쪽</b>에 <span class="tag new">신규</span> <b>빠른실행 버튼</b>(최근 사용 1개 · 인기 2개)이 있어 자주 쓰는 에이전트를 바로 실행할 수 있습니다.</p>
+<p>요약 카드 6종(클릭 시 상세 팝업/이동):</p>
+<table><tr><th>카드</th><th>의미</th></tr>
+<tr><td>Agent 총 수행</td><td>기간 내 총 실행 건수 (클릭 → 실행 이력)</td></tr>
+<tr><td>수행 성공률</td><td>성공 비율 %</td></tr>
+<tr><td>평균 속도</td><td>평균 지연(ms)</td></tr>
+<tr><td>토큰 비용</td><td>기간 토큰 비용($)</td></tr>
+<tr><td>이상 감지</td><td>이상 탐지 건수</td></tr>
+<tr><td>활용 시스템 <span class="tag new">신규</span></td><td>활용 중인 시스템 수. 클릭 → <b>시스템별 사용 Agent</b> 팝업(어느 시스템에서 어떤 에이전트가 얼마나 쓰이는지)</td></tr></table>
+<h3 id="home-eff">3.2 효과성 요약</h3>
+<table><tr><th>카드</th><th>내용</th></tr>
+<tr><td>총 절감 공수 <span class="tag new">변경</span></td><td><b>MM(맨먼스, 1MM=160h)</b> 단위로 표시. 부제는 실제 적용 Agent 수·순가치($). <b>클릭 → Agent별 절감 효과</b> 팝업(절감 공수 MM·절감률·순가치)</td></tr>
+<tr><td>ROI</td><td>투자 대비 효과(배수). 금액은 천단위 정수 표기</td></tr>
+<tr><td>품질 평균 증감</td><td>이전 기간 대비 품질 증감. <b>클릭 → Agent별 품질 증감</b> 팝업</td></tr></table>
+<h3 id="home-util">3.3 활용 랭킹</h3>
+<p>활용 Top3 / 미활용 Top3. <span class="tag new">신규</span> <b>에이전트 행 클릭 → 사용 상세</b> 팝업(어느 시스템에서·얼마나·성공률·점수·절감 공수).</p>
+<h3 id="home-chart">3.4 성과·품질 추이</h3>
+<p>성과 추이(막대=실행량, 선=성공률%), 품질 추이(선=종합점수, 막대=이상). <span class="tag new">신규</span> <b>가로축=날짜, 세로축=지표(0~100)</b> 라벨 표시. "상세" 버튼 → 드릴다운 팝업, "분석 페이지" → 효과성/Evaluator 화면.</p>
+<h3 id="home-apm">3.5 APM X-View <span class="tag new">신규</span></h3>
+<p>제니퍼 스타일 산점도: <b>가로축=하루 24시간(시각), 세로축=호출 소요시간(ms)</b>, 점=개별 수행(성공/실패/실행중 색상). <b>마우스로 영역을 드래그</b>하면 선택된 수행들의 상세(건수·평균소요·실패수·주요 Agent·목록) 팝업이 열립니다.</p>
+<h3 id="home-agents">3.6 Agent 현황 · 런처</h3>
+<p>Agent 현황(Main Agent별): <span class="tag new">변경</span> 상위 10개가 한눈에 보이고 나머지는 <b>스크롤</b>로 확인(행 간격 압축). 막대=평균점수·색=상태, 우측에 품질 추이·실행수·이상. 행 클릭 → Sub Agent 상세 + 효과성 블록. 하단에 Agent 런처(실행)·최근 사용. 모든 에이전트는 <b>코드 · 이름</b>(예: <code>DEV-003 · Dev Agent</code>) 형식으로 일관 표기됩니다.</p>
+
+<h2 class="sec" id="agent">4. Agent 운영·관리</h2>
+<table><tr><th>메뉴</th><th>내용</th></tr>
+<tr><td>운영/개발/품질·공통/편의 Agent</td><td>카테고리별 에이전트 목록·실행 이력 상세(품질·보안·비용·오류·지식·시간·정책)</td></tr>
+<tr><td>Agent 실행 테스트</td><td>에이전트 즉시 실행 테스트</td></tr>
+<tr><td>Agent 관리/통제(상단바)</td><td>거버넌스/FinOps/감사/Review 탭 + <span class="tag new">신규 "📐 Agent 기준/시스템" 탭</span>: 에이전트별 <b>수작업 분/회·가치 라벨·도메인·MTTD 목표·커버리지 목표·시스템명</b>을 인라인 편집·저장(이 기준으로 절감률·ROI가 계산됨)</td></tr></table>
+
+<h2 class="sec" id="gov">5. 거버넌스</h2>
+<table><tr><th>메뉴</th><th>내용</th></tr>
+<tr><td>AI 활동 로그</td><td>감사 추적(누가·무엇을·언제)</td></tr>
+<tr><td>정책코드 엔진</td><td>정책 등록/수정(코드형 정책 CRUD)</td></tr>
+<tr><td>평가 Gate 설정</td><td>4게이트(정확도·환각·보안·정책) 임계값·정책 설정</td></tr>
+<tr><td>정책 제안</td><td>패턴 분석 기반 자동 정책 제안 검토·승인</td></tr>
+<tr><td>Evidence Pack</td><td>규제 대응 증거 묶음(감사·평가·정책 기록)</td></tr>
+<tr><td>KPI 대시보드</td><td>실행 메트릭·정책 위반·효과성 KPI</td></tr></table>
+
+<h2 class="sec" id="eff">6. 성과/효과성 <span class="tag new">신규/강화</span></h2>
+<p class="crumb">메뉴: 거버넌스 &gt; 성과/효과성</p>
+<p>에이전트·시스템별 효과성을 3단(요약/에이전트별/시스템별)으로 제공합니다.</p>
+<table><tr><th>지표</th><th>설명</th></tr>
+<tr><td>시간 절감 / ROI</td><td>수작업 기준 대비 절감 시간·% , 순가치(실측)</td></tr>
+<tr><td>MTTD</td><td>평균 탐지 시간(원천신호 수집 시 실측, 없으면 평균 지연 근사 — 출처 표기)</td></tr>
+<tr><td>MTTR</td><td>평균 복구 시간(FDSAlert 생성→해결 타임스탬프 실측)</td></tr>
+<tr><td>커버리지</td><td>테스트 커버리지(원천신호 수집 시 실측, 없으면 목표값)</td></tr>
+<tr><td>시스템별 롤업</td><td>시스템 단위 <b>활용(실행·성공률)·오류(실패·오류율)·보안(이슈·critical)</b></td></tr></table>
+<h3 id="orb">6.1 ORB 심사 <span class="tag fix">버그 수정</span></h3>
+<p>에이전트 게시 심사 보드: 심사요청(<b>임시등록</b>)→심사→승인 시 게시(워크플로우 lifecycle 연결). 자동채점(5영역)·재실행·자동/수동 배지 제공. <span class="tag fix">수정</span> 임시등록 입력창이 한 글자만 입력되던 포커스 손실 버그 해결(연속 입력 정상).</p>
+
+<h2 class="sec" id="know">7. 지식관리</h2>
+<table><tr><th>메뉴</th><th>내용</th></tr>
+<tr><td>Knowledge Registry / Artifact 관리</td><td>지식 등록·검색·활용도(활용/미활용) 관리</td></tr>
+<tr><td>Agent 오류 패턴 관리</td><td>실행 오류를 패턴으로 자동 수집(ErrorPattern)</td></tr>
+<tr><td>Knowledge Pipeline</td><td>오류→지식→정책 승격의 자동 학습 루프, 실행 시 지식 주입(피드백)</td></tr></table>
+
+<h2 class="sec" id="orch">8. 오케스트레이션</h2>
+<table><tr><th>메뉴</th><th>내용</th></tr>
+<tr><td>워크플로우 빌더</td><td>노드(sub agent) 기반 워크플로우 설계·실행</td></tr>
+<tr><td>템플릿 마켓</td><td>스타터 워크플로우 템플릿</td></tr>
+<tr><td>실행 모니터링</td><td>실행 현황·이력</td></tr>
+<tr><td>커넥터 관리</td><td>외부 시스템 커넥터(노드)·거버넌스(서킷·SSRF 등)</td></tr></table>
+
+<h2 class="sec" id="insight">9. 인사이트 · FinOps</h2>
+<table><tr><th>메뉴</th><th>내용</th></tr>
+<tr><td>FinOps</td><td>3게이트 비용 최적화: ① 의미 캐시(임베딩 코사인 유사도 — "테트리스 개발"≈"테트리스 게임 개발" 매칭) ② 모델 라우팅 ③ 스킬 패커. 절감액·캐시 적중률</td></tr>
+<tr><td>FinOps 데모</td><td>프롬프트 입력→3게이트 최적화 결과(캐시 HIT·유사도·절감) 체험</td></tr>
+<tr><td>Agent Evaluator</td><td>4게이트 품질 엔진: 등급 분포·환각률·에이전트별 품질</td></tr></table>
+<h3 id="risk">9.1 Risk 워크스페이스 · Anomalies <span class="tag new">재설계</span></h3>
+<p><b>Risk 워크스페이스</b>: 에이전트 운영 리스크(보안·품질·이상·비용)를 카테고리/심각도/에이전트별로 집계, 알람 피드·상세·조치(완료/에스컬레이션/차단/무시). <b>Anomalies</b>: 실제 이상 탐지(지연추세·정확도드리프트·토큰급증·오류급증·보안패턴)를 목록·요약·히트맵으로 제공.</p>
+
+<h2 class="sec" id="ingest">10. 외부 Agent 연동 — 수집 SDK 온램프 <span class="tag new">신규</span></h2>
+<p>METIS <b>밖에서</b> 운영하는 에이전트(LangChain·자체 서비스 등)도 1줄 연동으로 동일한 4게이트 평가·거버넌스·성과 체계에 편입할 수 있습니다.</p>
+<table class="kv">
+<tr><td>키 발급</td><td>TENANT_ADMIN: <code>POST /v1/ingest/keys</code> → <code>mts_live_…</code>(1회 노출)</td></tr>
+<tr><td>적재 API</td><td><code>POST /v1/ingest/runs</code> (Authorization: Bearer mts_live_…) 단건/배치, 멱등(runId)</td></tr>
+<tr><td>Python SDK</td><td><code>sdks/python</code> — 무의존성·비차단</td></tr></table>
+<pre>from metis import Metis
+metis = Metis(api_key="mts_live_…", base_url="https://app.metis.ai")
+
+@metis.eval(agent="sr-impact-analyzer", system="SR/ITSM")
+def run_agent(question):
+    return llm.invoke(question)   # 반환값 자동 파싱 → 비동기 적재·평가</pre>
+<div class="note">적재된 외부 실행은 내부 워크플로우와 <b>동일한 평가 엔진</b>을 거쳐 Agent Execution·효과성·Anomalies 화면에 함께 표시됩니다. (검증: 정상/환각/프롬프트인젝션/시크릿유출 4종 시나리오 평가 통과)</div>
+
+<h2 class="sec" id="signal">11. 효과성 원천 수집 <span class="tag new">신규</span></h2>
+<p>MTTD·커버리지를 실측하려면 원천신호를 보냅니다. <code>POST /v1/metrics/effectiveness-signal</code> (DETECTION: 발생→탐지 시각 / COVERAGE: 테스트 결과). 신호가 없으면 MTTD는 근사, 커버리지는 목표값으로 표기됩니다.</p>
+
+<h2 class="sec" id="run">12. 설치 · 실행</h2>
+<div class="warn">스키마 변경(효과성·시스템·코드·온램프 컬럼 등)이 누적되어 있으므로 최초/업데이트 시 <b>db push·generate·seed</b>가 필요합니다.</div>
+<pre># 루트에서
+pnpm install
+pnpm db:push && pnpm db:generate && pnpm db:seed
+pnpm dev          # 또는 start-metis.bat
+# API :4000 (/v1, Swagger /docs) · Web :3000</pre>
+<table class="kv">
+<tr><td>스택</td><td>Turborepo+pnpm · NestJS(api) · Next.js15(web) · BullMQ(worker) · Prisma+PostgreSQL</td></tr>
+<tr><td>인증</td><td>httpOnly 쿠키 + CSRF + RBAC(6역할) + 테넌트 격리</td></tr></table>
+
+<h2 class="sec" id="faq">13. FAQ · 변경 이력</h2>
+<h3>FAQ</h3>
+<table>
+<tr><th>질문</th><th>답</th></tr>
+<tr><td>로그인 시 어디로 가나요?</td><td>홈 대시보드(/home). 상단/좌측 "대시보드" 모두 동일.</td></tr>
+<tr><td>외부 LangChain 에이전트도 평가되나요?</td><td>예 — 수집 SDK(10장)로 연동하면 내부와 동일 평가.</td></tr>
+<tr><td>MTTD/커버리지가 "목표"로 나와요</td><td>원천신호(11장) 수집 전이라 그렇습니다. 신호가 들어오면 실측으로 전환.</td></tr>
+<tr><td>대시보드가 비어 있어요</td><td><code>pnpm db:seed</code> 후 기동했는지 확인.</td></tr></table>
+<h3>주요 변경 이력 (v3)</h3>
+<ul>
+<li>로그인 진입 통일(/home), 중복 "운영 대시보드"(/workbench) 제거</li>
+<li>홈 대시보드 다크모드 + 전문가용 저채도 팔레트, APM X-View(24시간 산점도·드래그 선택)</li>
+<li>요약 카드 라벨 정비, 활용 시스템/효과성/활용랭킹 클릭 팝업, 절감 공수 MM 표기, 코드·이름 일관 표기, 차트 축 라벨</li>
+<li>성과/효과성: 절감%·MTTD·MTTR 실측·시스템별 활용/오류/보안, Agent 기준/시스템 편집</li>
+<li>FinOps 의미 캐시(임베딩 코사인), FDS 리스크·Anomalies 재설계, ORB 임시등록 입력 버그 수정</li>
+<li>외부 Agent 연동(수집 SDK 온램프) + 효과성 원천 수집 API</li>
+</ul>
+<p class="crumb" style="margin-top:24px">© METIS.AI · 사용자 매뉴얼 v3 (2026-06 현행화). 본 문서는 현재 구현 기준이며 기능 추가 시 갱신됩니다.</p>
+</main></div></body></html>

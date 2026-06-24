@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: metis-finops
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: gateway }
+  template:
+    metadata:
+      labels: { app: gateway }
+    spec:
+      containers:
+        - name: gateway
+          image: __REGISTRY__/metis-finops/gateway:1.0.0
+          ports: [{ containerPort: 8400 }]
+          env:
+            - { name: LEDGER_URL, value: http://control-plane:8500 }
+            # 다중 레플리카 캐시 공유 (Azure Cache for Redis 등). 미설정 시 레플리카별 인메모리.
+            - { name: REDIS_URL, value: "" }   # 예: redis://metis-redis:6379
+            # 운영 권장: 컨트롤플레인 불통 시 요청 거부(예산/거버넌스 우회 방지)
+            - { name: METIS_FAIL_CLOSED, value: "1" }
+          envFrom:
+            - secretRef: { name: metis-llm-keys }
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { cpu: "1", memory: 512Mi }
+          readinessProbe:
+            httpGet: { path: /health, port: 8400 }
+            initialDelaySeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: metis-finops
+spec:
+  selector: { app: gateway }
+  ports: [{ port: 8400, targetPort: 8400 }]

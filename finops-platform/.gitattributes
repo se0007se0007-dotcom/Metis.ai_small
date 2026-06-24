@@ -1,0 +1,14 @@
+# 줄바꿈 정규화 — LF/CRLF 경고 제거
+* text=auto
+*.bat text eol=crlf
+*.py text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.docx binary
+*.db binary
+*.db-shm binary
+*.db-wal binary
