@@ -10,7 +10,7 @@
  *   (GET /dashboard/executions/:id)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import {
@@ -31,6 +31,8 @@ import {
   Loader2,
   ChevronDown,
   Layers,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 interface AgentItem {
@@ -47,9 +49,11 @@ interface AgentItem {
   avgScore: number;
   anomalyCount: number;
   subAgentCount?: number;
-  subAgents?: Array<{ name: string; uiType: string; nodeKey: string }>;
-  /** 외부 전용 실행 화면 URL — 있으면 실행 시 새 탭으로 그 화면을 연다(워크플로 실행 대신). */
+  subAgents?: Array<{ name: string; uiType: string; nodeKey: string; launchUrl?: string | null }>;
+  /** 외부 전용 실행 화면 URL — 있으면 실행 시 그 화면을 임베드(iframe)해 실행·기록한다. */
   launchUrl?: string | null;
+  /** 실행 모달이 Sub-Agent 실행일 때의 nodeKey — external-record 에 stepKey 로 전달(Sub 귀속). */
+  _stepKey?: string;
 }
 interface ExecLog {
   id: string;
@@ -179,13 +183,11 @@ export function AgentCategoryView({
   // 직접 실행 상태
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-  // metis 내 실행 팝업 상태 (입력 → 실행 → 결과/4게이트)
-  const [runModal, setRunModal] = useState<AgentItem | null>(null);
-  const [runInput, setRunInput] = useState('');
-  const [runFilename, setRunFilename] = useState('input.py');
-  const [runBusy, setRunBusy] = useState(false);
-  const [runOutput, setRunOutput] = useState<string | null>(null);
-  const [runSessionId, setRunSessionId] = useState<string | null>(null);
+  // metis 내 실행 창 — 여러 개를 동시에 띄워 이동·병행 실행 가능(닫기 전엔 유지).
+  const [runWins, setRunWins] = useState<Array<{ id: number; agent: AgentItem; stepKey?: string }>>(
+    [],
+  );
+  const winSeq = useRef(0);
 
   const recentKey = `metis_recent_agents`;
 
@@ -248,81 +250,37 @@ export function AgentCategoryView({
     [recent, recentKey],
   );
 
-  /** 실행 클릭 → metis 안에서 입력을 받는 실행 팝업을 연다(외부 화면/새 탭 아님). */
+  /** 실행 클릭 → 새 실행 창을 띄운다(기존 창은 닫지 않음 → 병행 실행 가능). */
   const openRun = useCallback((agent: AgentItem) => {
-    setRunModal(agent);
-    setRunInput('');
-    setRunFilename('input.py');
-    setRunOutput(null);
-    setRunSessionId(null);
+    winSeq.current += 1;
+    const id = winSeq.current;
+    setRunWins((ws) => [...ws, { id, agent }]);
+    rememberRecent(agent.key);
     setNotice(null);
+  }, [rememberRecent]);
+
+  /** Sub-Agent 실행 — 그 Sub의 전용화면(launchUrl)을 임베드, 기록은 stepKey(=nodeKey)로 귀속. */
+  const openRunSub = useCallback(
+    (parent: AgentItem, sub: { name: string; nodeKey: string; launchUrl?: string | null }) => {
+      winSeq.current += 1;
+      const id = winSeq.current;
+      setRunWins((ws) => [
+        ...ws,
+        {
+          id,
+          stepKey: sub.nodeKey,
+          agent: { ...parent, name: sub.name, code: null, launchUrl: sub.launchUrl ?? null },
+        },
+      ]);
+      rememberRecent(parent.key);
+      setNotice(null);
+    },
+    [rememberRecent],
+  );
+
+  const closeWin = useCallback((id: number) => {
+    setRunWins((ws) => ws.filter((w) => w.id !== id));
   }, []);
-
-  /**
-   * 실행 팝업의 '실행' — 사용자 입력을 실제 PipelineEngine(LLM + 노드별 4Gate)으로 실행한다.
-   * 결과 텍스트는 팝업에서 바로 보여주고, 비용/품질/보안/이상(4게이트)과 이력은 metis 대시보드에 남는다.
-   */
-  const doRun = useCallback(async () => {
-    if (!runModal) return;
-    setRunBusy(true);
-    setRunOutput(null);
-    setRunSessionId(null);
-    try {
-      let res: { execution?: { executionSessionId?: string; status?: string }; finalOutput?: string };
-      if (runModal.launchUrl) {
-        // 외부 전용 화면 Agent — metis가 그 기능(/api/test)을 서버 호출 + 기록.
-        res = await api.post('/workflows/run-external', {
-          workflowKey: runModal.key,
-          filename: runFilename || 'input.py',
-          code: runInput,
-        });
-      } else {
-        // 워크플로 Agent — metis 파이프라인(LLM + 4Gate).
-        res = await api.post('/workflows/run-by-key', { workflowKey: runModal.key, input: runInput });
-      }
-      rememberRecent(runModal.key);
-      setRunOutput(res?.finalOutput ?? '(출력 텍스트 없음 — 상세에서 노드별 결과를 확인하세요)');
-      setRunSessionId(res?.execution?.executionSessionId ?? null);
-      await fetchAll();
-    } catch (err: any) {
-      setRunOutput(`실행 실패: ${err?.message ?? '알 수 없는 오류'}`);
-    } finally {
-      setRunBusy(false);
-    }
-  }, [runModal, runInput, runFilename, rememberRecent, fetchAll]);
-
-  // 임베드된 외부 화면(iframe)이 실행 후 postMessage로 결과를 넘기면 metis에 기록한다.
-  useEffect(() => {
-    if (!runModal?.launchUrl) return;
-    const onMsg = async (e: MessageEvent) => {
-      const d: any = e?.data;
-      if (!d || d.source !== 'metis-test-agent') return;
-      const p = d.payload || {};
-      try {
-        const res = await api.post<{ execution?: { executionSessionId?: string } }>(
-          '/workflows/external-record',
-          {
-            workflowKey: runModal.key,
-            input: p.filename ? `[${p.filename}] ${p.language ?? ''}` : '',
-            output: p.markdown || '',
-            model: p.mode || 'external',
-            costUsd: Number(p.cost) || 0,
-            latencyMs: Math.round((Number(p.elapsed_s) || 0) * 1000),
-            // 구간별 소요(있으면) → metis 실행 상세의 「단계」로 저장된다.
-            timings: p.timings ?? null,
-          },
-        );
-        rememberRecent(runModal.key);
-        setRunSessionId(res?.execution?.executionSessionId ?? null);
-        setNotice({ type: 'ok', text: '실행 결과가 metis 대시보드·실행 이력에 기록되었습니다.' });
-        fetchAll();
-      } catch (err: any) {
-        setNotice({ type: 'err', text: `기록 실패: ${err?.message ?? '알 수 없는 오류'}` });
-      }
-    };
-    window.addEventListener('message', onMsg);
-    return () => window.removeEventListener('message', onMsg);
-  }, [runModal, rememberRecent, fetchAll]);
 
   const openBuilder = (key: string) => {
     rememberRecent(key);
@@ -459,6 +417,22 @@ export function AgentCategoryView({
                             <span className="w-1 h-1 rounded-full bg-indigo-300 flex-shrink-0" />
                             <span className="font-medium text-gray-700">{s.name}</span>
                             <span className="text-gray-400">· {s.uiType}</span>
+                            {s.launchUrl ? (
+                              <button
+                                onClick={() => openRunSub(a, s)}
+                                title="이 Sub-Agent 전용화면 실행"
+                                className="ml-auto flex items-center gap-1 px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-semibold hover:bg-indigo-700 transition flex-shrink-0"
+                              >
+                                <Play size={9} /> 실행
+                              </button>
+                            ) : (
+                              <span
+                                className="ml-auto text-[9px] text-gray-300"
+                                title="전용화면 URL 미등록 — 기준정보에서 등록하거나 SDK로 보고"
+                              >
+                                URL 미등록
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -587,107 +561,18 @@ export function AgentCategoryView({
         )}
       </div>
 
-      {/* 실행 팝업 — 외부 화면 Agent는 그 화면을 그대로 임베드(iframe), 워크플로 Agent는 입력→실행. */}
-      {runModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => !runBusy && setRunModal(null)}
-        >
-          <div
-            className={`bg-white rounded-lg w-full max-h-[92vh] flex flex-col ${
-              runModal.launchUrl ? 'max-w-5xl' : 'max-w-2xl'
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 flex-shrink-0">
-              <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                <Play size={14} className="text-blue-600" />
-                {runModal.code ? `[${runModal.code}] ` : ''}
-                {runModal.name} 실행
-              </h2>
-              <div className="flex items-center gap-3">
-                {runSessionId && (
-                  <button
-                    onClick={() => {
-                      const id = runSessionId;
-                      setRunModal(null);
-                      openDetail(id);
-                    }}
-                    className="text-[11px] text-blue-600 hover:underline font-semibold"
-                  >
-                    4게이트 상세 보기 →
-                  </button>
-                )}
-                <button onClick={() => setRunModal(null)} className="text-gray-400 hover:text-gray-700">
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-
-            {runModal.launchUrl ? (
-              // 외부 전용 화면 — 그 화면을 metis 안에 그대로 임베드. 실행하면 화면이 결과를
-              // postMessage로 넘겨 metis 대시보드/이력/4게이트에 기록된다.
-              <div className="flex-1 flex flex-col min-h-0">
-                <iframe
-                  src={runModal.launchUrl}
-                  title={runModal.name}
-                  className="w-full flex-1 border-0"
-                  style={{ minHeight: '62vh' }}
-                />
-                <div className="px-4 py-2 border-t border-gray-100 text-[10px] text-gray-500 flex-shrink-0">
-                  이 화면에서 실행하면 결과(비용·품질·보안·이상 4게이트)와 수행 이력이 metis 대시보드에 자동
-                  기록됩니다.
-                </div>
-              </div>
-            ) : (
-              <div className="p-5 overflow-y-auto space-y-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                    입력 (프롬프트 · 분석 대상 · 코드 등)
-                  </label>
-                  <textarea
-                    value={runInput}
-                    onChange={(e) => setRunInput(e.target.value)}
-                    rows={6}
-                    placeholder="이 Agent에 전달할 입력을 작성하세요. (예: 분석할 코드, 질문, 점검 대상 등) — 비워도 실행됩니다."
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 font-mono"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={doRun}
-                    disabled={runBusy}
-                    className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {runBusy ? (
-                      <>
-                        <Loader2 size={13} className="animate-spin" /> 실행 중…
-                      </>
-                    ) : (
-                      <>
-                        <Play size={13} /> 실행
-                      </>
-                    )}
-                  </button>
-                  <span className="text-[10px] text-gray-400">
-                    실행하면 비용·품질·보안·이상(4게이트)과 이력이 대시보드에 기록됩니다.
-                  </span>
-                </div>
-                {runOutput !== null && (
-                  <div className="border border-gray-200 rounded-lg">
-                    <div className="px-3 py-2 border-b border-gray-100">
-                      <span className="text-[11px] font-semibold text-gray-700">실행 결과</span>
-                    </div>
-                    <pre className="p-3 text-[11px] text-gray-800 whitespace-pre-wrap max-h-72 overflow-y-auto">
-                      {runOutput}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* 실행 창 — 여러 개 동시(이동·전체화면·닫기 전까지 유지) → 병행 실행 */}
+      {runWins.map((w, i) => (
+        <RunWindow
+          key={w.id}
+          agent={w.agent}
+          stepKey={w.stepKey}
+          index={i}
+          onClose={() => closeWin(w.id)}
+          onOpenDetail={openDetail}
+          onRecorded={fetchAll}
+        />
+      ))}
 
       {/* detail popup */}
       {selectedId && (
@@ -1231,4 +1116,217 @@ function ReportView({ md }: { md: string }) {
     i++;
   }
   return <div>{blocks}</div>;
+}
+
+// ── 실행 창(독립·이동형) — 여러 개 동시 띄워 병행 실행. iframe 결과는 자기 창에서만 기록. ──
+function RunWindow({
+  agent,
+  stepKey,
+  index,
+  onClose,
+  onOpenDetail,
+  onRecorded,
+}: {
+  agent: AgentItem;
+  stepKey?: string;
+  index: number;
+  onClose: () => void;
+  onOpenDetail: (id: string) => void;
+  onRecorded: () => void;
+}) {
+  const [input, setInput] = useState('');
+  const [output, setOutput] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [full, setFull] = useState(false);
+  const [pos, setPos] = useState({ x: 70 + index * 34, y: 64 + index * 34 });
+  const [z, setZ] = useState(60 + index);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
+
+  const front = () => setZ(Math.floor(Date.now() % 100000) + 60);
+
+  // iframe 결과 기록 — 이 창의 iframe(contentWindow)에서 온 메시지만 처리(다중 창 구분).
+  useEffect(() => {
+    if (!agent.launchUrl) return;
+    const onMsg = async (e: MessageEvent) => {
+      const d: any = e?.data;
+      if (!d || d.source !== 'metis-test-agent') return;
+      if (iframeRef.current && e.source !== iframeRef.current.contentWindow) return;
+      const p = d.payload || {};
+      try {
+        const res = await api.post<{ execution?: { executionSessionId?: string } }>(
+          '/workflows/external-record',
+          {
+            workflowKey: agent.key,
+            input: p.filename ? `[${p.filename}] ${p.language ?? ''}` : '',
+            output: p.markdown || '',
+            model: p.mode || 'external',
+            costUsd: Number(p.cost) || 0,
+            latencyMs: Math.round((Number(p.elapsed_s) || 0) * 1000),
+            timings: p.timings ?? null,
+            stepKey: stepKey || undefined,
+          },
+        );
+        setSessionId(res?.execution?.executionSessionId ?? null);
+        setNote({ type: 'ok', text: 'metis 대시보드·실행 이력에 기록되었습니다.' });
+        onRecorded();
+      } catch (err: any) {
+        setNote({ type: 'err', text: `기록 실패: ${err?.message ?? '오류'}` });
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [agent.launchUrl, agent.key, stepKey, onRecorded]);
+
+  const doRun = useCallback(async () => {
+    setBusy(true);
+    setOutput(null);
+    setSessionId(null);
+    try {
+      let res: { execution?: { executionSessionId?: string }; finalOutput?: string };
+      if (agent.launchUrl) {
+        res = await api.post('/workflows/run-external', {
+          workflowKey: agent.key,
+          filename: 'input.py',
+          code: input,
+        });
+      } else {
+        res = await api.post('/workflows/run-by-key', { workflowKey: agent.key, input });
+      }
+      setOutput(res?.finalOutput ?? '(출력 텍스트 없음 — 4게이트 상세에서 확인하세요)');
+      setSessionId(res?.execution?.executionSessionId ?? null);
+      onRecorded();
+    } catch (err: any) {
+      setOutput(`실행 실패: ${err?.message ?? '알 수 없는 오류'}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [agent, input, onRecorded]);
+
+  const onHeaderDown = (e: React.MouseEvent) => {
+    if (full) return;
+    front();
+    dragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+    const move = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      setPos({
+        x: Math.max(0, ev.clientX - dragRef.current.dx),
+        y: Math.max(0, ev.clientY - dragRef.current.dy),
+      });
+    };
+    const up = () => {
+      dragRef.current = null;
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  const style: React.CSSProperties = full
+    ? { left: 0, top: 0, width: '100vw', height: '100vh', zIndex: z }
+    : {
+        left: pos.x,
+        top: pos.y,
+        width: agent.launchUrl ? 'min(960px, 94vw)' : 'min(560px, 94vw)',
+        maxHeight: '88vh',
+        zIndex: z,
+      };
+
+  return (
+    <div
+      className="fixed bg-white border border-gray-300 rounded-lg shadow-2xl flex flex-col overflow-hidden"
+      style={style}
+      onMouseDown={front}
+    >
+      <div
+        onMouseDown={onHeaderDown}
+        className={`flex items-center justify-between gap-2 px-4 py-2 border-b border-gray-200 bg-gray-50 select-none ${
+          full ? '' : 'cursor-move'
+        }`}
+      >
+        <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1.5 truncate">
+          <Play size={13} className="text-blue-600" />
+          <span className="truncate">
+            {agent.code ? `[${agent.code}] ` : ''}
+            {agent.name}
+          </span>
+        </h2>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {sessionId && (
+            <button
+              onClick={() => onOpenDetail(sessionId)}
+              className="text-[11px] text-blue-600 hover:underline font-semibold"
+            >
+              4게이트 상세 →
+            </button>
+          )}
+          <button
+            onClick={() => setFull((v) => !v)}
+            title={full ? '창 모드' : '전체화면'}
+            className="text-gray-400 hover:text-gray-700"
+          >
+            {full ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          </button>
+          <button onClick={onClose} title="닫기" className="text-gray-400 hover:text-gray-700">
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      {note && (
+        <div
+          className={`px-4 py-1.5 text-[11px] flex-shrink-0 ${
+            note.type === 'ok' ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'
+          }`}
+        >
+          {note.text}
+        </div>
+      )}
+
+      {agent.launchUrl ? (
+        <div className="flex-1 flex flex-col min-h-0">
+          <iframe
+            ref={iframeRef}
+            src={agent.launchUrl ?? undefined}
+            title={agent.name}
+            className="w-full flex-1 border-0"
+            style={{ minHeight: full ? '0' : '60vh' }}
+          />
+        </div>
+      ) : (
+        <div className="p-4 space-y-3 overflow-y-auto">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            rows={6}
+            placeholder="이 Agent에 전달할 입력(비워도 실행)"
+            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg font-mono"
+          />
+          <button
+            onClick={doRun}
+            disabled={busy}
+            className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+          >
+            {busy ? (
+              <>
+                <Loader2 size={13} className="animate-spin" /> 실행 중…
+              </>
+            ) : (
+              <>
+                <Play size={13} /> 실행
+              </>
+            )}
+          </button>
+          {output !== null && (
+            <pre className="p-3 text-[11px] text-gray-800 whitespace-pre-wrap max-h-72 overflow-y-auto border border-gray-200 rounded-lg">
+              {output}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

@@ -19,6 +19,7 @@ from urllib.parse import unquote
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 import embeddings
 import providers
@@ -292,8 +293,11 @@ async def chat_completions(request: Request):
     max_tokens = int(body.get("max_tokens") or 1024)
     force_mock = request.headers.get("x-metis-force-mock", "0") == "1"
 
-    res = process_request(ctx, sim, model, messages, max_tokens, force_mock,
-                          body.get("tools"), request.headers, t0)
+    # 블로킹(LLM egress + 원장) 작업을 스레드풀로 오프로딩 — 이벤트 루프를 막지 않아
+    # 동시 요청이 실제로 병렬 처리된다(예: test-agent 3콜 병렬 → 직렬 합이 아닌 최대 1콜에 수렴).
+    res = await run_in_threadpool(
+        process_request, ctx, sim, model, messages, max_tokens, force_mock,
+        body.get("tools"), request.headers, t0)
     if res["kind"] == "block":
         return JSONResponse(status_code=429, content={
             "error": {"type": "metis_policy_block", "message": "; ".join(res["reasons"]),
@@ -412,8 +416,9 @@ async def anthropic_messages(request: Request):
     force_mock = request.headers.get("x-metis-force-mock", "0") == "1"
     messages = _anthropic_to_messages(body)
 
-    res = process_request(ctx, sim, model, messages, max_tokens, force_mock,
-                          body.get("tools"), request.headers, t0)
+    res = await run_in_threadpool(
+        process_request, ctx, sim, model, messages, max_tokens, force_mock,
+        body.get("tools"), request.headers, t0)
     if res["kind"] == "block":
         return JSONResponse(status_code=429, content={
             "type": "error",

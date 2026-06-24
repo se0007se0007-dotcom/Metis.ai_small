@@ -124,6 +124,7 @@ export class WorkflowController {
       latencyMs?: number;
       steps?: Array<{ key: string; type?: string; ms?: number; status?: string }>;
       timings?: any;
+      stepKey?: string;
     },
   ) {
     return this.workflowService.recordExternalRun(

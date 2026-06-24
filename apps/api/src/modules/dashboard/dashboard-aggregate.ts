@@ -71,9 +71,37 @@ export interface QualitySummary {
 
 export type HealthState = 'healthy' | 'degraded' | 'down' | 'idle';
 
+/**
+ * 커넥터/도구형 노드 타입 — '에이전트'가 아니라 단순 연동/도구 단계.
+ * 대시보드에서 Sub-Agent(추적·통제 대상)와 구분하기 위한 분류 기준.
+ */
+export const TOOL_NODE_TYPES = new Set<string>([
+  'slack',
+  'email-send',
+  'notification',
+  'data-storage',
+  'file-upload',
+  'schedule',
+  'api-call',
+  'git-deploy',
+  'data-collect',
+  'document-gen',
+  'passthrough',
+  'condition',
+  'log-monitor',
+]);
+
+export function isAgentNode(nodeType: string | null | undefined): boolean {
+  const t = (nodeType ?? '').toString().toLowerCase();
+  if (!t) return true; // 불명확하면 에이전트로 간주(과소집계 방지)
+  return !TOOL_NODE_TYPES.has(t);
+}
+
 export interface SubAgentRollup {
   stepKey: string;
   nodeType: string | null;
+  /** true = 실제 Sub-Agent(추적·통제 대상), false = 커넥터/도구 노드. */
+  isAgent: boolean;
   agentName: string | null;
   evaluations: number;
   avgScore: number;
@@ -307,6 +335,7 @@ export function aggregateDashboard(
       subAgents.push({
         stepKey,
         nodeType: rows[0]?.nodeType ?? null,
+        isAgent: isAgentNode(rows[0]?.nodeType),
         agentName: rows[0]?.agentName ?? null,
         evaluations: rows.length,
         avgScore: r1(sScore),

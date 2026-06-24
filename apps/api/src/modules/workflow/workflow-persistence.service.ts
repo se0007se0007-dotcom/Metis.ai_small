@@ -890,6 +890,127 @@ export class WorkflowPersistenceService {
   }
 
   /**
+   * 기준정보에서 Sub-Agent(노드) 추가. nodeKey 는 이름 기반 slug 로 자동 생성하고
+   * 같은 워크플로우 안에서 유일하게 보정한다. executionOrder 는 맨 뒤에 붙인다.
+   */
+  async addSubAgent(
+    ctx: TenantContext,
+    workflowKey: string,
+    dto: { name: string; uiType?: string; launchUrl?: string | null },
+  ): Promise<{ nodeKey: string; name: string; uiType: string; launchUrl: string | null }> {
+    const nm = (dto?.name || '').trim();
+    if (!nm) throw new BadRequestException('Sub-Agent 이름이 필요합니다.');
+    const wf = await this.prisma.workflow.findFirst({
+      where: { tenantId: ctx.tenantId, key: workflowKey, deletedAt: null },
+      select: { id: true },
+    });
+    if (!wf) throw new NotFoundException('워크플로우(Agent)를 찾을 수 없습니다.');
+
+    const nodes = await (this.prisma as any).workflowNodeDef.findMany({
+      where: { workflowId: wf.id },
+      select: { nodeKey: true, executionOrder: true },
+    });
+    const existingKeys = new Set<string>(nodes.map((n: any) => n.nodeKey));
+    const base =
+      nm
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40) || 'sub';
+    let nodeKey = base;
+    for (let i = 1; existingKeys.has(nodeKey) && i < 200; i++) nodeKey = `${base}-${i}`;
+    const maxOrder = nodes.reduce((m: number, n: any) => Math.max(m, n.executionOrder ?? 0), 0);
+    const uiType = (dto?.uiType || 'ai-processing').toString().slice(0, 40);
+    const launchUrl = (dto?.launchUrl || '').toString().trim() || null;
+
+    await (this.prisma as any).workflowNodeDef.create({
+      data: {
+        workflowId: wf.id,
+        nodeKey,
+        uiType,
+        name: nm,
+        executionOrder: maxOrder + 1,
+        dependsOn: [],
+        // 기준정보에서 등록한 노드는 '에이전트'로 명시(대시보드에서 도구 노드와 구분).
+        configJson: { kind: 'agent', ...(launchUrl ? { launchUrl } : {}) },
+      },
+    });
+    this.logger.log(`Sub-Agent added: workflow=${workflowKey} node=${nodeKey} tenant=${ctx.tenantId}`);
+    return { nodeKey, name: nm, uiType, launchUrl };
+  }
+
+  /**
+   * 기준정보에서 Sub-Agent(노드) 편집 — 이름/전용 실행화면 URL(configJson.launchUrl).
+   * launchUrl 은 다른 config 키를 보존하며 병합한다.
+   */
+  async updateSubAgent(
+    ctx: TenantContext,
+    workflowKey: string,
+    nodeKey: string,
+    dto: { name?: string; launchUrl?: string | null },
+  ): Promise<{ nodeKey: string; name: string; launchUrl: string | null }> {
+    const wf = await this.prisma.workflow.findFirst({
+      where: { tenantId: ctx.tenantId, key: workflowKey, deletedAt: null },
+      select: { id: true },
+    });
+    if (!wf) throw new NotFoundException('워크플로우(Agent)를 찾을 수 없습니다.');
+    const node = await (this.prisma as any).workflowNodeDef.findFirst({
+      where: { workflowId: wf.id, nodeKey },
+      select: { id: true, name: true, configJson: true },
+    });
+    if (!node) throw new NotFoundException('Sub-Agent(노드)를 찾을 수 없습니다.');
+
+    const data: any = {};
+    if (dto.name !== undefined) {
+      const nm = (dto.name || '').trim();
+      if (!nm) throw new BadRequestException('Sub-Agent 이름은 비울 수 없습니다.');
+      data.name = nm;
+    }
+    if (dto.launchUrl !== undefined) {
+      const prev =
+        node.configJson && typeof node.configJson === 'object'
+          ? { ...(node.configJson as Record<string, any>) }
+          : {};
+      const url = (dto.launchUrl || '').trim();
+      if (url) prev.launchUrl = url;
+      else delete prev.launchUrl;
+      data.configJson = prev;
+    }
+    const updated = await (this.prisma as any).workflowNodeDef.update({
+      where: { id: node.id },
+      data,
+      select: { nodeKey: true, name: true, configJson: true },
+    });
+    const savedUrl =
+      updated.configJson && typeof updated.configJson === 'object'
+        ? ((updated.configJson as any).launchUrl ?? null)
+        : null;
+    this.logger.log(
+      `Sub-Agent updated: workflow=${workflowKey} node=${nodeKey} launchUrl=${savedUrl ?? '(none)'}`,
+    );
+    return { nodeKey: updated.nodeKey, name: updated.name, launchUrl: savedUrl };
+  }
+
+  /** 기준정보에서 Sub-Agent(노드) 삭제. 실행 이력/평가 기록은 보존된다. */
+  async deleteSubAgent(
+    ctx: TenantContext,
+    workflowKey: string,
+    nodeKey: string,
+  ): Promise<{ ok: true; nodeKey: string }> {
+    const wf = await this.prisma.workflow.findFirst({
+      where: { tenantId: ctx.tenantId, key: workflowKey, deletedAt: null },
+      select: { id: true },
+    });
+    if (!wf) throw new NotFoundException('워크플로우(Agent)를 찾을 수 없습니다.');
+    const res = await (this.prisma as any).workflowNodeDef.deleteMany({
+      where: { workflowId: wf.id, nodeKey },
+    });
+    if (!res || res.count === 0) throw new NotFoundException('Sub-Agent(노드)를 찾을 수 없습니다.');
+    this.logger.log(`Sub-Agent deleted: workflow=${workflowKey} node=${nodeKey} tenant=${ctx.tenantId}`);
+    return { ok: true, nodeKey };
+  }
+
+  /**
    * 관리자 즉시 게시/미노출 전환 — listed 플래그를 직접 변경한다.
    * 게시(listed=true) 시 status 도 PUBLISHED 로 올려 실행 카탈로그에 바로 노출된다.
    * ORB 심사를 우회하는 관리자 권한 동작이므로 Audit 로그로 남긴다.

@@ -33,20 +33,34 @@ import {
   Pencil,
   X,
   CheckCircle2,
+  Trash2,
 } from 'lucide-react';
+
+// 기준정보에서 Sub-Agent 추가 시 고를 수 있는 대략적 유형(빌더에서 세부 설정).
+const SUB_TYPES = [
+  'ai-processing',
+  'api-call',
+  'data-collect',
+  'data-storage',
+  'log-monitor',
+  'notification',
+  'report',
+  'condition',
+];
 
 interface EditAgentState {
   key: string;
   name: string;
   code: string;
   launchUrl: string;
-  subs: { nodeKey: string; name: string }[];
+  subs: { nodeKey: string; name: string; launchUrl: string }[];
 }
 
 interface SubDef {
   name: string;
   uiType: string;
   nodeKey: string;
+  launchUrl?: string | null;
 }
 interface MainAgentDef {
   key: string;
@@ -130,6 +144,12 @@ export default function AgentMasterPage() {
   const [editAgent, setEditAgent] = useState<EditAgentState | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [newSub, setNewSub] = useState<{ name: string; uiType: string; launchUrl: string }>({
+    name: '',
+    uiType: 'ai-processing',
+    launchUrl: '',
+  });
+  const [subBusy, setSubBusy] = useState(false);
 
   const openEdit = (a: MainAgentDef) =>
     setEditAgent({
@@ -137,8 +157,90 @@ export default function AgentMasterPage() {
       name: a.name,
       code: a.code ?? '',
       launchUrl: a.launchUrl ?? '',
-      subs: (a.subAgents ?? []).map((s) => ({ nodeKey: s.nodeKey, name: s.name })),
+      subs: (a.subAgents ?? []).map((s) => ({
+        nodeKey: s.nodeKey,
+        name: s.name,
+        launchUrl: s.launchUrl ?? '',
+      })),
     });
+
+  const addSub = async () => {
+    if (!editAgent) return;
+    const name = newSub.name.trim();
+    if (!name) {
+      setNotice({ type: 'err', text: 'Sub-Agent 이름을 입력하세요.' });
+      return;
+    }
+    setSubBusy(true);
+    setNotice(null);
+    try {
+      const created = await api.post<{ nodeKey: string; name: string; uiType: string; launchUrl: string | null }>(
+        `/workflows/by-key/${encodeURIComponent(editAgent.key)}/nodes`,
+        { name, uiType: newSub.uiType, launchUrl: newSub.launchUrl.trim() || null },
+      );
+      setEditAgent({
+        ...editAgent,
+        subs: [
+          ...editAgent.subs,
+          { nodeKey: created.nodeKey, name: created.name, launchUrl: created.launchUrl ?? '' },
+        ],
+      });
+      setNewSub({ name: '', uiType: newSub.uiType, launchUrl: '' });
+      setNotice({ type: 'ok', text: `Sub-Agent 추가: ${created.name}` });
+      await fetchAll();
+    } catch (e: any) {
+      setNotice({ type: 'err', text: `추가 실패: ${e?.message ?? '알 수 없는 오류'}` });
+    } finally {
+      setSubBusy(false);
+    }
+  };
+
+  // 기존 Sub-Agent 이름/launchUrl 저장(노드 PATCH)
+  const saveSub = async (nodeKey: string) => {
+    if (!editAgent) return;
+    const sub = editAgent.subs.find((s) => s.nodeKey === nodeKey);
+    if (!sub) return;
+    setSubBusy(true);
+    setNotice(null);
+    try {
+      const res = await api.patch<{ nodeKey: string; name: string; launchUrl: string | null }>(
+        `/workflows/by-key/${encodeURIComponent(editAgent.key)}/nodes/${encodeURIComponent(nodeKey)}`,
+        { name: sub.name.trim(), launchUrl: sub.launchUrl.trim() || null },
+      );
+      setEditAgent({
+        ...editAgent,
+        subs: editAgent.subs.map((s) =>
+          s.nodeKey === nodeKey ? { ...s, name: res.name, launchUrl: res.launchUrl ?? '' } : s,
+        ),
+      });
+      setNotice({
+        type: 'ok',
+        text: `Sub-Agent 저장: ${res.name}${res.launchUrl ? ` · URL ${res.launchUrl}` : ''}`,
+      });
+      await fetchAll();
+    } catch (e: any) {
+      setNotice({ type: 'err', text: `저장 실패: ${e?.message ?? '알 수 없는 오류'}` });
+    } finally {
+      setSubBusy(false);
+    }
+  };
+
+  const removeSub = async (nodeKey: string, name: string) => {
+    if (!editAgent) return;
+    if (!confirm(`Sub-Agent "${name}" 를 삭제할까요? (실행 이력은 보존됩니다)`)) return;
+    setSubBusy(true);
+    setNotice(null);
+    try {
+      await api.delete(`/workflows/by-key/${encodeURIComponent(editAgent.key)}/nodes/${encodeURIComponent(nodeKey)}`);
+      setEditAgent({ ...editAgent, subs: editAgent.subs.filter((s) => s.nodeKey !== nodeKey) });
+      setNotice({ type: 'ok', text: `Sub-Agent 삭제: ${name}` });
+      await fetchAll();
+    } catch (e: any) {
+      setNotice({ type: 'err', text: `삭제 실패: ${e?.message ?? '알 수 없는 오류'}` });
+    } finally {
+      setSubBusy(false);
+    }
+  };
 
   const setListing = async (key: string, listed: boolean) => {
     setNotice(null);
@@ -566,27 +668,110 @@ export default function AgentMasterPage() {
                   대시보드·이력(비용·품질·보안·이상)에 기록합니다. (새 탭/별도 설정 불필요)
                 </p>
               </div>
-              {editAgent.subs.length > 0 && (
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 mb-1">
-                    Sub-Agent 이름 ({editAgent.subs.length})
-                  </label>
-                  <div className="space-y-1.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1">
+                  Sub-Agent ({editAgent.subs.length}) — 추가/삭제 가능
+                </label>
+                {editAgent.subs.length > 0 ? (
+                  <div className="space-y-2.5">
                     {editAgent.subs.map((s, i) => (
-                      <input
-                        key={s.nodeKey}
-                        value={s.name}
-                        onChange={(e) => {
-                          const subs = editAgent.subs.slice();
-                          subs[i] = { ...subs[i], name: e.target.value };
-                          setEditAgent({ ...editAgent, subs });
-                        }}
-                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg"
-                      />
+                      <div key={s.nodeKey} className="rounded-lg border border-gray-100 p-2 space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            value={s.name}
+                            onChange={(e) => {
+                              const subs = editAgent.subs.slice();
+                              subs[i] = { ...subs[i], name: e.target.value };
+                              setEditAgent({ ...editAgent, subs });
+                            }}
+                            placeholder="Sub-Agent 이름"
+                            className="flex-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void saveSub(s.nodeKey)}
+                            disabled={subBusy}
+                            className="px-2 py-1.5 bg-gray-800 text-white rounded-lg text-[11px] font-semibold disabled:opacity-50"
+                          >
+                            저장
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeSub(s.nodeKey, s.name)}
+                            disabled={subBusy}
+                            title="Sub-Agent 삭제"
+                            className="px-2 py-1.5 text-rose-500 hover:bg-rose-50 rounded-lg disabled:opacity-50"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                        <input
+                          value={s.launchUrl}
+                          onChange={(e) => {
+                            const subs = editAgent.subs.slice();
+                            subs[i] = { ...subs[i], launchUrl: e.target.value };
+                            setEditAgent({ ...editAgent, subs });
+                          }}
+                          placeholder="전용 실행화면 URL (선택) — 예: http://localhost:8610"
+                          className="w-full px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg font-mono"
+                        />
+                      </div>
                     ))}
                   </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400 mb-1.5">
+                    매핑된 Sub-Agent가 없습니다. 아래에서 추가하세요.
+                  </p>
+                )}
+                {/* 추가 행 */}
+                <div className="mt-2 rounded-lg border border-dashed border-gray-200 p-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      value={newSub.name}
+                      onChange={(e) => setNewSub({ ...newSub, name: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void addSub();
+                        }
+                      }}
+                      placeholder="새 Sub-Agent 이름"
+                      className="flex-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg"
+                    />
+                    <select
+                      value={newSub.uiType}
+                      onChange={(e) => setNewSub({ ...newSub, uiType: e.target.value })}
+                      className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white"
+                    >
+                      {SUB_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => void addSub()}
+                      disabled={subBusy || !newSub.name.trim()}
+                      className="px-2.5 py-1.5 bg-gray-800 text-white rounded-lg text-xs font-semibold disabled:opacity-50"
+                    >
+                      추가
+                    </button>
+                  </div>
+                  <input
+                    value={newSub.launchUrl}
+                    onChange={(e) => setNewSub({ ...newSub, launchUrl: e.target.value })}
+                    placeholder="전용 실행화면 URL (선택) — 개인이 만든 화면 베이스 URL"
+                    className="w-full px-2.5 py-1.5 text-[11px] border border-gray-200 rounded-lg font-mono"
+                  />
                 </div>
-              )}
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Sub-Agent 등록 방법 2가지: (1) <b>전용 실행화면 URL</b>을 넣으면 메인처럼 그 화면을 metis에서
+                  실행·기록합니다. (2) 화면 없이 함수만 있으면 <b>연동 설정</b>에서 Ingest 키를 받아 SDK로
+                  <code> workflowKey+stepKey</code>를 보고하면 이 Sub-Agent로 집계됩니다. (유형은 대략 분류 —
+                  세부 동작·연결은 빌더에서)
+                </p>
+              </div>
             </div>
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-200 flex-shrink-0">
               <button onClick={() => setEditAgent(null)} className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900">

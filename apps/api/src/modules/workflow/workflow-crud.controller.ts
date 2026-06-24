@@ -460,4 +460,57 @@ export class WorkflowCrudController {
       body,
     );
   }
+
+  /** Sub-Agent(노드) 추가 — 기준정보 화면에서 직접. */
+  @Post('by-key/:workflowKey/nodes')
+  @Roles('TENANT_ADMIN', 'PLATFORM_ADMIN')
+  @Audit('CREATE', 'Workflow')
+  @ApiOperation({ summary: 'Sub-Agent(노드) 추가 (기준정보)' })
+  async addSubAgent(
+    @CurrentUser() user: RequestUser,
+    @Param('workflowKey') workflowKey: string,
+    @Body() body: { name: string; uiType?: string; launchUrl?: string | null },
+  ) {
+    return this.persistence.addSubAgent(
+      { tenantId: user.tenantId, userId: user.userId, role: user.role },
+      workflowKey,
+      body,
+    );
+  }
+
+  /** Sub-Agent(노드) 편집 — 이름/전용 실행화면 URL. */
+  @Patch('by-key/:workflowKey/nodes/:nodeKey')
+  @Roles('TENANT_ADMIN', 'PLATFORM_ADMIN')
+  @Audit('UPDATE', 'Workflow')
+  @ApiOperation({ summary: 'Sub-Agent(노드) 이름/launchUrl 편집 (기준정보)' })
+  async updateSubAgent(
+    @CurrentUser() user: RequestUser,
+    @Param('workflowKey') workflowKey: string,
+    @Param('nodeKey') nodeKey: string,
+    @Body() body: { name?: string; launchUrl?: string | null },
+  ) {
+    return this.persistence.updateSubAgent(
+      { tenantId: user.tenantId, userId: user.userId, role: user.role },
+      workflowKey,
+      nodeKey,
+      body,
+    );
+  }
+
+  /** Sub-Agent(노드) 삭제 — 기준정보 화면에서 직접. */
+  @Delete('by-key/:workflowKey/nodes/:nodeKey')
+  @Roles('TENANT_ADMIN', 'PLATFORM_ADMIN')
+  @Audit('DELETE', 'Workflow')
+  @ApiOperation({ summary: 'Sub-Agent(노드) 삭제 (기준정보)' })
+  async deleteSubAgent(
+    @CurrentUser() user: RequestUser,
+    @Param('workflowKey') workflowKey: string,
+    @Param('nodeKey') nodeKey: string,
+  ) {
+    return this.persistence.deleteSubAgent(
+      { tenantId: user.tenantId, userId: user.userId, role: user.role },
+      workflowKey,
+      nodeKey,
+    );
+  }
 }

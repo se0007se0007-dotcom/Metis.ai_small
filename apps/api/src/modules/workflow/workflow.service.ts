@@ -215,13 +215,23 @@ export class WorkflowService {
       steps?: Array<{ key: string; type?: string; ms?: number; status?: string }>;
       /** 외부 agent가 보고한 구간 타이밍(dict, *_s). steps 미제공 시 이걸로 구간 생성. */
       timings?: any;
+      /** Sub-Agent(노드) 실행이면 그 nodeKey — 해당 Sub로 귀속(4게이트/대시보드). */
+      stepKey?: string;
     },
   ): Promise<any> {
     const wf = await (this.prisma as any).workflow.findFirst({
       where: { tenantId: ctx.tenantId, key: body.workflowKey, deletedAt: null },
-      select: { key: true, name: true },
+      select: { id: true, key: true, name: true },
     });
-    const name = wf?.name ?? body.workflowKey;
+    // stepKey(Sub-Agent)면 그 노드 이름을 표시명으로 — AI 활동로그/이력이 Sub 기준으로 보이게.
+    let subName: string | null = null;
+    if (wf?.id && body.stepKey) {
+      const node = await (this.prisma as any).workflowNodeDef
+        .findFirst({ where: { workflowId: wf.id, nodeKey: body.stepKey }, select: { name: true } })
+        .catch(() => null);
+      subName = node?.name ?? null;
+    }
+    const name = subName ?? wf?.name ?? body.workflowKey;
     let executionSessionId: string | null = null;
     try {
       const ing = await this.ingest.ingestRuns(
@@ -230,6 +240,7 @@ export class WorkflowService {
           {
             agentName: name,
             workflowKey: body.workflowKey,
+            stepKey: body.stepKey || undefined,
             input: (body.input || '').toString().slice(0, 8000),
             output: (body.output || '').toString().slice(0, 20000),
             model: body.model || 'external',

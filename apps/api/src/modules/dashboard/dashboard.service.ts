@@ -13,6 +13,7 @@ import { PrismaClient } from '@metis/database';
 import { PRISMA_TOKEN } from '../database.module';
 import {
   aggregateDashboard,
+  isAgentNode,
   ExecRow,
   EvalRow,
   DashboardAggregate,
@@ -852,7 +853,7 @@ export class DashboardService {
           updatedAt: true,
           effectivenessJson: true,
           nodes: {
-            select: { name: true, uiType: true, nodeKey: true },
+            select: { name: true, uiType: true, nodeKey: true, configJson: true },
             orderBy: { executionOrder: 'asc' },
           },
         },
@@ -900,7 +901,18 @@ export class DashboardService {
             : null,
         // 메인+서브 한눈에: Sub-Agent(노드) 수 + 목록.
         subAgentCount: subs.length,
-        subAgents: subs.map((n: any) => ({ name: n.name, uiType: n.uiType, nodeKey: n.nodeKey })),
+        subAgents: subs.map((n: any) => {
+          const cfg = n.configJson && typeof n.configJson === 'object' ? (n.configJson as any) : {};
+          // 기준정보에서 등록한 노드는 kind='agent' 로 명시; 그 외엔 uiType 으로 분류.
+          const isAgent = cfg.kind === 'agent' ? true : isAgentNode(n.uiType);
+          return {
+            name: n.name,
+            uiType: n.uiType,
+            nodeKey: n.nodeKey,
+            launchUrl: cfg.launchUrl ?? null,
+            isAgent,
+          };
+        }),
         health: roll?.health ?? 'idle',
         executions: roll?.executions ?? 0,
         successRate: roll?.successRate ?? 0,
