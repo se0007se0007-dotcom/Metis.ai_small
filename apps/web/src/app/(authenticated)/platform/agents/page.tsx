@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { api } from '@/lib/api-client';
-import { RefreshCw, AlertCircle, Zap, Code, CheckCircle, Tool, Activity } from 'lucide-react';
+import { RefreshCw, AlertCircle, Zap, Code, CheckCircle, Wrench, Activity } from 'lucide-react';
 
 // ── Types ──
 
@@ -66,7 +66,7 @@ export default function AgentsPage() {
     },
     utility: {
       label: '[Utility]',
-      icon: Tool,
+      icon: Wrench,
       color: 'text-gray-500',
     },
   };

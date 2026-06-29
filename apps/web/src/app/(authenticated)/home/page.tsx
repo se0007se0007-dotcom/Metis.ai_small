@@ -2501,7 +2501,7 @@ function QualityDeltaModal({
           </tbody>
         </table>
       </div>
-      <Pager p={groupBy === 'team' ? teamPage : agentPage} />
+      {groupBy === 'team' ? <Pager p={teamPage} /> : <Pager p={agentPage} />}
     </ModalShell>
   );
 }
