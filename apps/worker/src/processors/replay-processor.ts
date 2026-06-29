@@ -197,6 +197,11 @@ export async function runReplayProcessor(
     errorRate: totalCases > 0 ? (failedCases + errorCases) / totalCases : 0,
     retryCount,
     totalExecutions: totalCases,
+    // Replay validates I/O contracts, not eval-engine quality/security/anomaly signals;
+    // use neutral defaults so these dimensions don't penalize the comparison.
+    evalQualityScore: 100,
+    evalSecurityScore: 100,
+    evalAnomalyCount: 0,
   };
 
   // Update run with final results

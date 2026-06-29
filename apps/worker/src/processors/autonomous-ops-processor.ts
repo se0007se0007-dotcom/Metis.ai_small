@@ -97,23 +97,29 @@ export async function runAutonomousOpsProcessor(
     },
   });
 
-  await prisma.executionTrace
-    .create({
-      data: {
-        correlationId,
-        traceJson: {
-          event: verified ? 'AUTO_ACTION_VERIFIED' : 'AUTO_ACTION_FAILED',
-          autoActionId,
-          kind,
-          targetType,
-          targetId,
-          durationMs: Date.now() - start,
-          postActionState,
-          timestamp: new Date().toISOString(),
-        } as any,
-      },
-    })
-    .catch(() => {});
+  // ExecutionTrace is anchored to an ExecutionSession (required FK). We can only
+  // write a session-scoped breadcrumb when the action targets a concrete execution.
+  const traceSessionId = targetType === 'Execution' ? targetId : null;
+  if (traceSessionId) {
+    await prisma.executionTrace
+      .create({
+        data: {
+          correlationId,
+          session: { connect: { id: traceSessionId } },
+          traceJson: {
+            event: verified ? 'AUTO_ACTION_VERIFIED' : 'AUTO_ACTION_FAILED',
+            autoActionId,
+            kind,
+            targetType,
+            targetId,
+            durationMs: Date.now() - start,
+            postActionState,
+            timestamp: new Date().toISOString(),
+          } as any,
+        },
+      })
+      .catch(() => {});
+  }
 
   await job.updateProgress(100);
 

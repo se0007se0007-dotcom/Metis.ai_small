@@ -357,6 +357,9 @@ async function collectExecutionMetrics(
       errorRate: 0,
       retryCount: 0,
       totalExecutions: 0,
+      evalQualityScore: 0,
+      evalSecurityScore: 0,
+      evalAnomalyCount: 0,
     };
   }
 
@@ -367,6 +370,7 @@ async function collectExecutionMetrics(
       createdAt: { gte: since },
     },
     select: {
+      id: true,
       status: true,
       latencyMs: true,
       costUsd: true,
@@ -389,8 +393,45 @@ async function collectExecutionMetrics(
       errorRate: 0,
       retryCount: 0,
       totalExecutions: 0,
+      evalQualityScore: 0,
+      evalSecurityScore: 0,
+      evalAnomalyCount: 0,
     };
   }
+
+  const sessionIds = sessions.map((s: any) => s.id);
+
+  // Aggregate evaluation quality/security/anomaly signals from AgentEvaluation history
+  const evaluations = await prisma.agentEvaluation
+    .findMany({
+      where: {
+        tenantId,
+        executionSessionId: { in: sessionIds },
+      },
+      select: {
+        overallScore: true,
+        securityScore: true,
+        anomalyDetected: true,
+      },
+      take: 1000,
+    })
+    .catch(() => [] as Array<{ overallScore: number | null; securityScore: number | null; anomalyDetected: boolean | null }>);
+
+  const qualityScores = evaluations
+    .map((e) => e.overallScore)
+    .filter((v): v is number => v != null);
+  const securityScores = evaluations
+    .map((e) => e.securityScore)
+    .filter((v): v is number => v != null);
+  const evalQualityScore =
+    qualityScores.length > 0
+      ? Math.round(qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length)
+      : 100;
+  const evalSecurityScore =
+    securityScores.length > 0
+      ? Math.round(securityScores.reduce((a, b) => a + b, 0) / securityScores.length)
+      : 100;
+  const evalAnomalyCount = evaluations.filter((e) => e.anomalyDetected === true).length;
 
   const succeeded = sessions.filter((s: any) => s.status === 'SUCCEEDED').length;
   const failed = sessions.filter((s: any) => s.status === 'FAILED').length;
@@ -406,22 +447,7 @@ async function collectExecutionMetrics(
     .count({
       where: {
         tenantId,
-        executionSessionId: {
-          in:
-            sessions.length > 0
-              ? (
-                  await prisma.executionSession.findMany({
-                    where: {
-                      tenantId,
-                      packInstallationId: { in: installationIds },
-                      createdAt: { gte: since },
-                    },
-                    select: { id: true },
-                    take: 1000,
-                  })
-                ).map((s: any) => s.id)
-              : [],
-        },
+        executionSessionId: { in: sessionIds },
         result: 'FAIL',
       },
     })
@@ -440,6 +466,9 @@ async function collectExecutionMetrics(
     errorRate: failed / total,
     retryCount: 0, // TODO: implement retry tracking
     totalExecutions: total,
+    evalQualityScore,
+    evalSecurityScore,
+    evalAnomalyCount,
   };
 }
 
