@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { api } from '@/lib/api-client';
@@ -2806,6 +2806,15 @@ function generateNodeSettings(type: NodeType, prompt: string): Record<string, an
 // ── Main Page Component ──
 
 export default function BuilderPage() {
+  // useSearchParams() requires a Suspense boundary during static generation (Next 15).
+  return (
+    <Suspense fallback={null}>
+      <BuilderPageInner />
+    </Suspense>
+  );
+}
+
+function BuilderPageInner() {
   useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const searchParams = useSearchParams();
   const [promptInput, setPromptInput] = useState('');
