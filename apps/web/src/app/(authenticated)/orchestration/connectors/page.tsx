@@ -1134,7 +1134,7 @@ export default function ConnectorsPage() {
             <span className="text-xs font-semibold text-gray-900">
               워크플로우 노드 (Sub-Agent)
               {nodeData
-                ? ` — ${nodeData.grouped.length}종 / 총 ${nodeData.totalNodes}개 노드 · ${nodeData.totalWorkflows}개 워크플로우`
+                ? ` — ${nodeData?.grouped.length ?? 0}종 / 총 ${nodeData?.totalNodes ?? 0}개 노드 · ${nodeData?.totalWorkflows ?? 0}개 워크플로우`
                 : ''}
             </span>
           </div>
