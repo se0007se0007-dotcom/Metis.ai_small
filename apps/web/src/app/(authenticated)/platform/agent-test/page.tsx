@@ -82,6 +82,7 @@ interface GateResult {
 }
 
 interface SimulationResult {
+  id?: string;
   agentKey: string;
   agentName: string;
   executionSessionId?: string;
