@@ -3404,7 +3404,7 @@ function HistoryModal({
             <>
               {/* 지표별 핵심 요약 — 도넛(분포형) + 지표 칩 */}
               <div className="flex flex-wrap items-center gap-3 mb-4 p-3 bg-gray-50 border border-gray-100 rounded-lg">
-                {(kind === 'total' || kind === 'success' || kind === 'anomaly') && (
+                {(kind === 'total' || kind === 'success') && (
                   <DonutChart
                     size={96}
                     centerValue={kind === 'success' ? `${successRate}%` : String(logs.length)}
@@ -3446,17 +3446,6 @@ function HistoryModal({
                       <StatChip label="합계 비용" value={krw(totalCost, { decimals: 1 })} tone="navy" />
                       <StatChip label="건당 평균" value={krw(avgCost, { decimals: 2 })} tone="gray" />
                       <StatChip label="수행" value={`${logs.length}건`} tone="gray" />
-                    </>
-                  )}
-                  {kind === 'anomaly' && (
-                    <>
-                      <StatChip label="실패·이상" value={`${fail}건`} tone={fail > 0 ? 'red' : 'green'} />
-                      <StatChip
-                        label="전체 대비"
-                        value={`${logs.length ? Math.round((fail / logs.length) * 100) : 0}%`}
-                        tone="amber"
-                      />
-                      <StatChip label="평균 지연" value={fmtMs(avgLat)} tone="gray" />
                     </>
                   )}
                 </div>
@@ -3524,7 +3513,7 @@ function HistoryModal({
                     ? '느린 실행 순'
                     : kind === 'cost'
                       ? '고비용 실행 순'
-                      : kind === 'success' || kind === 'anomaly'
+                      : kind === 'success'
                         ? '실패 우선 · 최근 순'
                         : '최근 실행 순'}
                 </p>
