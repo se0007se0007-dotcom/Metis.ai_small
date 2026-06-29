@@ -39,10 +39,5 @@
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
   }
 }
