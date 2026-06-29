@@ -16,7 +16,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { usePagination, Pager } from '@/components/shared/usePagination';
 import { api } from '@/lib/api-client';
 import { agentDisplayName } from '@/lib/agent-label';
-import { useOpsRef, mmHours } from '@/lib/opsRef';
+import { useOpsRef, mmHours, krw } from '@/lib/opsRef';
 import {
   Activity,
   TrendingUp,
@@ -103,12 +103,15 @@ interface MainAgent {
   workflowKey: string;
   name?: string | null;
   code?: string | null;
+  team?: string | null;
   executions: number;
   successRate: number;
   avgLatencyMs: number;
   totalCostUsd: number;
   avgScore: number;
+  securityScore?: number | null;
   anomalyCount: number;
+  anomalyRate?: number;
   health: string;
   subAgents: SubAgent[];
   trend: AgentTrend | null;
@@ -184,6 +187,7 @@ interface EffAgent {
   name: string;
   code?: string | null;
   system: string | null;
+  team?: string | null;
   timeSavedPct: number | null;
   timeSavedHours: number | null;
   roi: { netValueUsd: number | null } | null;
@@ -264,9 +268,20 @@ export default function HomePage() {
   const [mainF, setMainF] = useState('');
   const [subF, setSubF] = useState('');
   const [subOpts, setSubOpts] = useState<string[]>([]);
+  // 팀/테넌트 필터 — 테넌트 전환은 PLATFORM_ADMIN만.
+  const [teamF, setTeamF] = useState('');
+  const [tenantF, setTenantF] = useState('');
+  const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
+  const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
+  const [role, setRole] = useState('');
+  const isPlatformAdmin = role === 'PLATFORM_ADMIN';
   const [overview, setOverview] = useState<Overview | null>(null);
   const [agents, setAgents] = useState<AgentItem[]>([]);
   const [eff, setEff] = useState<EffDetail | null>(null);
+  // 활용 시스템 카드 — 상세 팝업과 동일 정의(/dashboard/system-usage)로 일치시킨다.
+  const [sysSummary, setSysSummary] = useState<{ systemCount: number; agentCount: number } | null>(
+    null,
+  );
   const [execPoints, setExecPoints] = useState<ExecLog[]>([]);
   const [apmDays, setApmDays] = useState(1); // APM 전용 기간(일) — 기본 최근 1일
   const [loading, setLoading] = useState(true);
@@ -282,45 +297,94 @@ export default function HomePage() {
   const [apmSel, setApmSel] = useState<ExecLog[] | null>(null);
   const [systemUsageModal, setSystemUsageModal] = useState(false);
   const [savingsModal, setSavingsModal] = useState(false);
+  const [roiModal, setRoiModal] = useState(false);
   const [qualityDeltaModal, setQualityDeltaModal] = useState(false);
   const [agentUsageModal, setAgentUsageModal] = useState<{
     label: string;
     system: string;
+    team?: string | null;
     executions: number;
     successRate: number;
     avgScore: number;
     timeSavedHours: number | null;
+    securityScore?: number | null;
+    anomalyCount?: number;
+    anomalyRate?: number;
+    totalCostUsd?: number;
+    avgLatencyMs?: number;
+    health?: string;
   } | null>(null);
 
-  const fetchAll = useCallback(async (d: number, mf = '', sf = '') => {
-    setLoading(true);
-    setError(null);
-    const ovq =
-      `days=${d}` +
-      (mf ? `&workflowKey=${encodeURIComponent(mf)}` : '') +
-      (sf ? `&subAgent=${encodeURIComponent(sf)}` : '');
-    try {
-      const [ov, ag] = await Promise.all([
-        api.get<Overview>(`/dashboard/overview?${ovq}`),
-        api.get<{ items: AgentItem[] }>(`/dashboard/agents?days=${d}`),
-      ]);
-      setOverview(ov);
-      setAgents(Array.isArray(ag?.items) ? ag.items : []);
-    } catch (err: any) {
-      setError(err?.message ?? '대시보드를 불러오지 못했습니다');
-    } finally {
-      setLoading(false);
-    }
-    // best-effort: 한쪽이 실패해도 홈은 깨지지 않음
-    api
-      .get<EffDetail>(`/dashboard/effectiveness?days=${d}`)
-      .then((res) => setEff(res ?? null))
-      .catch(() => setEff(null));
-  }, []);
+  const fetchAll = useCallback(
+    async (d: number, mf = '', sf = '', tm = '', tn = '') => {
+      setLoading(true);
+      setError(null);
+      // 팀/테넌트 필터 공통 쿼리(테넌트는 PLATFORM_ADMIN만 서버에서 적용).
+      const ftq =
+        (tm ? `&teamId=${encodeURIComponent(tm)}` : '') +
+        (tn ? `&tenantId=${encodeURIComponent(tn)}` : '');
+      const ovq =
+        `days=${d}` +
+        (mf ? `&workflowKey=${encodeURIComponent(mf)}` : '') +
+        (sf ? `&subAgent=${encodeURIComponent(sf)}` : '') +
+        ftq;
+      try {
+        const [ov, ag] = await Promise.all([
+          api.get<Overview>(`/dashboard/overview?${ovq}`),
+          api.get<{ items: AgentItem[] }>(`/dashboard/agents?days=${d}${ftq}`),
+        ]);
+        setOverview(ov);
+        setAgents(Array.isArray(ag?.items) ? ag.items : []);
+      } catch (err: any) {
+        setError(err?.message ?? '대시보드를 불러오지 못했습니다');
+      } finally {
+        setLoading(false);
+      }
+      // best-effort: 한쪽이 실패해도 홈은 깨지지 않음
+      api
+        .get<EffDetail>(`/dashboard/effectiveness?days=${d}${ftq}`)
+        .then((res) => setEff(res ?? null))
+        .catch(() => setEff(null));
+      // 활용 시스템 카드 값을 상세(system-usage)와 동일 기준으로 일치
+      api
+        .get<{ summary: { systemCount: number; agentCount: number } }>(
+          `/dashboard/system-usage?days=${d}${ftq}`,
+        )
+        .then((res) => setSysSummary(res?.summary ?? null))
+        .catch(() => setSysSummary(null));
+    },
+    [],
+  );
 
   useEffect(() => {
-    fetchAll(days, mainF, subF);
-  }, [days, mainF, subF, fetchAll]);
+    fetchAll(days, mainF, subF, teamF, tenantF);
+  }, [days, mainF, subF, teamF, tenantF, fetchAll]);
+
+  // 역할 + (PLATFORM_ADMIN이면) 테넌트 목록 1회 로드
+  useEffect(() => {
+    api
+      .get<{ role: string }>('/auth/me')
+      .then((r) => {
+        if (r?.role) setRole(r.role);
+        if (r?.role === 'PLATFORM_ADMIN') {
+          api
+            .get<{ items: { id: string; name: string }[] }>('/tenants/all')
+            .then((res) => setTenants(Array.isArray(res?.items) ? res.items : []))
+            .catch(() => setTenants([]));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // 팀 목록 — 선택된 테넌트(없으면 본인) 기준으로 로드. 테넌트 전환 시 팀 필터 초기화.
+  useEffect(() => {
+    const url = tenantF ? `/tenants/by-id/${tenantF}/org` : '/tenants/current/org';
+    setTeamF('');
+    api
+      .get<{ teams: { id: string; name: string }[] }>(url)
+      .then((res) => setTeams(Array.isArray(res?.teams) ? res.teams : []))
+      .catch(() => setTeams([]));
+  }, [tenantF]);
 
   // APM X-View는 전역 기간과 독립. 최신 100건을 한 번에 받아두고(서버 기간 필터 없음),
   // 기간(apmDays)은 화면에서 필터 — 기간 전환이 즉시이고 최근 실행이 절대 누락되지 않는다.
@@ -403,18 +467,27 @@ export default function HomePage() {
     return key;
   };
 
-  const systemCount = eff?.summary?.systemCount;
+  // 카드 = 상세(system-usage)와 동일 정의(활용=실행 있는 Agent의 시스템). 미로드 시 eff로 폴백.
+  const systemCount = sysSummary?.systemCount ?? eff?.summary?.systemCount;
 
-  // 활용 랭킹 행 클릭 → Agent 사용 상세 (eff로 시스템/절감 공수 보강)
+  // 활용 랭킹 행 클릭 → Agent 사용 상세 (eff로 시스템/절감, overview로 4게이트 보강)
   const openAgentUsage = (e: UtilizationEntry) => {
     const m = eff?.agents?.find((x) => x.workflowKey === e.workflowKey);
+    const ma = overview?.mainAgents?.find((x) => x.workflowKey === e.workflowKey);
     setAgentUsageModal({
       label: agentLabel(e),
       system: m?.system ?? '미지정',
+      team: m?.team ?? null,
       executions: e.executions,
       successRate: e.successRate,
       avgScore: e.avgScore,
       timeSavedHours: m?.timeSavedHours ?? null,
+      securityScore: (ma as any)?.securityScore ?? null,
+      anomalyCount: ma?.anomalyCount ?? 0,
+      anomalyRate: (ma as any)?.anomalyRate ?? 0,
+      totalCostUsd: ma?.totalCostUsd ?? 0,
+      avgLatencyMs: ma?.avgLatencyMs ?? 0,
+      health: ma?.health,
     });
   };
 
@@ -472,15 +545,45 @@ export default function HomePage() {
           onClick={() => {
             setMainF('');
             setSubF('');
+            setTeamF('');
+            setTenantF('');
           }}
-          aria-hidden={!(mainF || subF)}
-          tabIndex={mainF || subF ? 0 : -1}
+          aria-hidden={!(mainF || subF || teamF || tenantF)}
+          tabIndex={mainF || subF || teamF || tenantF ? 0 : -1}
           className={`text-[11px] font-semibold text-accent hover:underline mr-0.5 ${
-            mainF || subF ? 'visible' : 'invisible'
+            mainF || subF || teamF || tenantF ? 'visible' : 'invisible'
           }`}
         >
           필터 해제
         </button>
+        {isPlatformAdmin && (
+          <select
+            value={tenantF}
+            onChange={(e) => setTenantF(e.target.value)}
+            title="테넌트 필터 (PLATFORM_ADMIN)"
+            className="bg-white border border-gray-200 rounded-lg text-xs text-gray-900 px-2.5 py-1.5 min-w-[12rem]"
+          >
+            <option value="">🏢 내 테넌트</option>
+            {tenants.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <select
+          value={teamF}
+          onChange={(e) => setTeamF(e.target.value)}
+          title="팀 필터"
+          className="bg-white border border-gray-200 rounded-lg text-xs text-gray-900 px-2.5 py-1.5 min-w-[12rem]"
+        >
+          <option value="">👥 전체 팀 ({teams.length})</option>
+          {teams.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
         <select
           value={mainF}
           onChange={(e) => {
@@ -545,7 +648,7 @@ export default function HomePage() {
         <SummaryStat
           icon={<DollarSign size={16} className="text-success" />}
           label="토큰 비용"
-          value={kpi ? `$${kpi.monthlyCostUsd.toLocaleString()}` : '—'}
+          value={kpi ? krw(kpi.monthlyCostUsd) : '—'}
           onClick={() => setHistoryModal({ kind: 'cost', title: '토큰 비용 — 에이전트별·고비용 실행' })}
         />
         <SummaryStat
@@ -558,8 +661,8 @@ export default function HomePage() {
         <SummaryStat
           icon={<Layers size={16} className="text-accent" />}
           label="활용 시스템"
-          value={systemCount != null ? String(systemCount) : '—'}
-          sub={systemCount != null ? `${systemCount}/${systemCount} 연결` : undefined}
+          value={systemCount != null ? `${systemCount}개` : '—'}
+          sub={systemCount != null ? '시스템·팀·테넌트 상세 ▸' : undefined}
           accent="indigo"
           onClick={() => setSystemUsageModal(true)}
         />
@@ -569,9 +672,9 @@ export default function HomePage() {
               icon={<TrendingUp size={16} className="text-success" />}
               label="총 절감 공수"
               value={`${(effSummary.totalTimeSavedHours / mmHours()).toFixed(1)} MM`}
-              sub={`${effSummary.agentsWithConfig}개 Agent 기준 · 순가치 $${Math.round(
+              sub={`${effSummary.agentsWithConfig}개 Agent 기준 · 순가치 ${krw(
                 effSummary.totalNetValueUsd ?? 0,
-              ).toLocaleString()}`}
+              )}`}
               valueClass="text-success"
               onClick={() => setSavingsModal(true)}
             />
@@ -579,10 +682,11 @@ export default function HomePage() {
               icon={<DollarSign size={16} className="text-accent" />}
               label="ROI"
               value={effSummary.roiRatio != null ? `${effSummary.roiRatio.toFixed(1)}x` : '—'}
-              sub={`인건비 환산 $${Math.round(
-                effSummary.totalLaborValueUsd ?? 0,
-              ).toLocaleString()} vs 비용 $${Math.round(effSummary.totalCostUsd ?? 0).toLocaleString()}`}
+              sub={`인건비 환산 ${krw(effSummary.totalLaborValueUsd ?? 0)} vs 비용 ${krw(
+                effSummary.totalCostUsd ?? 0,
+              )}`}
               valueClass="text-accent"
+              onClick={() => setRoiModal(true)}
             />
             <SummaryStat
               icon={<Gauge size={16} className="text-purple" />}
@@ -782,14 +886,23 @@ export default function HomePage() {
       )}
       {/* 시스템별 사용 Agent 팝업 (활용 시스템 KPI 클릭) */}
       {systemUsageModal && (
-        <SystemUsageModal eff={eff} onClose={() => setSystemUsageModal(false)} />
+        <SystemUsageModal days={days} onClose={() => setSystemUsageModal(false)} />
       )}
       {/* Agent별 절감 효과 팝업 (총 절감 공수 클릭) */}
       {savingsModal && <SavingsModal eff={eff} onClose={() => setSavingsModal(false)} />}
+      {/* ROI 상세 팝업 (ROI 클릭) */}
+      {roiModal && (
+        <RoiDetailModal
+          eff={eff}
+          effSummary={effSummary}
+          onClose={() => setRoiModal(false)}
+        />
+      )}
       {/* Agent별 품질 증감 팝업 (품질 평균 증감 클릭) */}
       {qualityDeltaModal && (
         <QualityDeltaModal
           mainAgents={overview?.mainAgents ?? []}
+          trend={overview?.timeseries ?? []}
           onClose={() => setQualityDeltaModal(false)}
         />
       )}
@@ -1295,7 +1408,7 @@ function AgentDetailModal({
                   label="순가치"
                   v={
                     main.effectiveness.roi && Number.isFinite(main.effectiveness.roi.netValueUsd)
-                      ? `$${Math.round(main.effectiveness.roi.netValueUsd).toLocaleString()}`
+                      ? krw(main.effectiveness.roi.netValueUsd)
                       : '—'
                   }
                 />
@@ -1356,7 +1469,7 @@ function AgentDetailModal({
                         {s.anomalyCount}
                       </td>
                       <td className="px-2 py-1.5 text-right text-muted-dark">
-                        ${s.avgCostUsd.toFixed(4)}
+                        {krw(s.avgCostUsd, { decimals: 2 })}
                       </td>
                       <td className="px-2 py-1.5 text-right text-muted-dark">
                         {fmtMs(s.avgLatencyMs)}
@@ -1388,24 +1501,101 @@ function PerfDetailModal({
 }) {
   useEscClose(onClose);
   const agents = eff?.agents ?? [];
-  const dash = (v: any) => (v == null || v === 0 ? '—' : v);
+  const sorted = [...agents].sort((a, b) => (b.timeSavedHours ?? 0) - (a.timeSavedHours ?? 0));
+  const top3 = sorted.slice(0, 3);
+  const low3 = [...sorted].reverse().slice(0, 3);
+  const barAgents = sorted.slice(0, 8);
+  const maxHours = Math.max(...agents.map((a) => a.timeSavedHours ?? 0), 1);
+  const toMM = (h: number | null | undefined) => (h ?? 0) / mmHours();
   return (
     <ModalShell title="📈 성과 상세" onClose={onClose} wide>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <MiniStat
-          label="총 절감 시간"
-          v={effSummary ? `${effSummary.totalTimeSavedHours.toLocaleString()}h` : '—'}
+          label="총 절감 공수"
+          v={effSummary ? `${(effSummary.totalTimeSavedHours / mmHours()).toFixed(1)} MM` : '—'}
         />
         <MiniStat label="ROI" v={effSummary?.roiRatio != null ? `${effSummary.roiRatio}x` : '—'} />
-        <MiniStat
-          label="순가치"
-          v={effSummary ? `$${effSummary.totalNetValueUsd.toLocaleString()}` : '—'}
-        />
+        <MiniStat label="순가치" v={effSummary ? krw(effSummary.totalNetValueUsd) : '—'} />
         <MiniStat
           label="평균 MTTR"
           v={eff?.summary?.avgMttrHours != null ? `${eff.summary.avgMttrHours}h` : '—'}
         />
       </div>
+
+      {/* 에이전트별 절감 공수 막대 (상위) */}
+      <p className="text-xs font-semibold text-gray-500 mb-2">에이전트별 절감 공수 (상위)</p>
+      {barAgents.length === 0 ? (
+        <p className="text-[11px] text-muted-dark py-3">효과성 데이터가 없습니다.</p>
+      ) : (
+        <div className="space-y-1.5 mb-4">
+          {barAgents.map((a) => (
+            <div key={a.workflowKey} className="flex items-center gap-2 text-[11px]">
+              <span className="w-40 truncate text-gray-800" title={agentLabel(a)}>
+                {agentLabel(a)}
+              </span>
+              <div className="flex-1">
+                <InlineBar pct={((a.timeSavedHours ?? 0) / maxHours) * 100} color="#6FAF9A" />
+              </div>
+              <span className="w-24 text-right text-gray-600">
+                <b className="text-gray-900">{toMM(a.timeSavedHours).toFixed(1)}</b> MM
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 절감 TOP3 / 하위3 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <p className="text-xs font-semibold text-gray-500 mb-2">🏆 절감 기여 TOP 3</p>
+          <table className="w-full text-xs border border-gray-200 rounded overflow-hidden">
+            <tbody>
+              {top3.length === 0 ? (
+                <tr>
+                  <td className="text-center text-muted-dark py-4">데이터 없음</td>
+                </tr>
+              ) : (
+                top3.map((a, i) => (
+                  <tr key={a.workflowKey} className="border-b border-gray-200 last:border-0">
+                    <td className="px-2 py-1.5 text-muted-dark w-6">{i + 1}</td>
+                    <td className="px-2 py-1.5 text-gray-900 truncate" title={agentLabel(a)}>
+                      {agentLabel(a)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-semibold text-success">
+                      {toMM(a.timeSavedHours).toFixed(1)} MM
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-gray-500 mb-2">⚠ 절감 하위 3</p>
+          <table className="w-full text-xs border border-gray-200 rounded overflow-hidden">
+            <tbody>
+              {low3.length === 0 ? (
+                <tr>
+                  <td className="text-center text-muted-dark py-4">데이터 없음</td>
+                </tr>
+              ) : (
+                low3.map((a, i) => (
+                  <tr key={a.workflowKey} className="border-b border-gray-200 last:border-0">
+                    <td className="px-2 py-1.5 text-muted-dark w-6">{i + 1}</td>
+                    <td className="px-2 py-1.5 text-gray-900 truncate" title={agentLabel(a)}>
+                      {agentLabel(a)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-semibold text-gray-500">
+                      {toMM(a.timeSavedHours).toFixed(1)} MM
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <p className="text-xs font-semibold text-gray-500 mb-2">Main Agent별 성과 (실측)</p>
       <div className="overflow-x-auto border border-gray-200 rounded">
         <table className="w-full text-xs">
@@ -1461,9 +1651,7 @@ function PerfDetailModal({
                     {a.mttr?.actualHours != null ? `${a.mttr.actualHours}h` : '—'}
                   </td>
                   <td className="px-2 py-1.5 text-right text-gray-500">
-                    {a.roi?.netValueUsd != null
-                      ? `$${Math.round(a.roi.netValueUsd).toLocaleString()}`
-                      : '—'}
+                    {a.roi?.netValueUsd != null ? krw(a.roi.netValueUsd) : '—'}
                   </td>
                 </tr>
               ))
@@ -1686,92 +1874,135 @@ function ApmSelectionModal({
 }
 
 // ── 시스템별 사용 Agent 팝업 (어떤 시스템을 어떤 Agent가 쓰는가) ──
-function SystemUsageModal({ eff, onClose }: { eff: EffDetail | null; onClose: () => void }) {
+interface UsageGroupRow {
+  system?: string;
+  team?: string;
+  tenant?: string;
+  agentCount: number;
+  executions: number;
+}
+interface SystemUsagePayload {
+  scope: 'platform' | 'tenant';
+  summary: {
+    agentCount: number;
+    systemCount: number;
+    teamCount: number;
+    tenantCount: number;
+    totalExecutions: number;
+  };
+  bySystem: UsageGroupRow[];
+  byTeam: UsageGroupRow[];
+  byTenant: UsageGroupRow[];
+}
+
+const USAGE_COLORS = ['#4F6BD8', '#6FAF9A', '#C9A45C', '#C77B7B', '#8B7BD8', '#5BA8C4'];
+
+function SystemUsageModal({ days, onClose }: { days: number; onClose: () => void }) {
   useEscClose(onClose);
-  const agents = eff?.agents ?? [];
-  // bySystem이 있으면 사용, 없으면 agents의 distinct system으로 구성
-  const systems =
-    eff?.bySystem && eff.bySystem.length > 0
-      ? eff.bySystem.map((b) => ({
-          system: b.system,
-          agentCount: b.agentCount,
-          executions: b.executions,
-        }))
-      : [...new Set(agents.map((a) => a.system ?? '미지정'))].map((sys) => {
-          const list = agents.filter((a) => (a.system ?? '미지정') === sys);
-          return { system: sys, agentCount: list.length, executions: 0 };
-        });
+  const [data, setData] = useState<SystemUsagePayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [dim, setDim] = useState<'system' | 'team' | 'tenant'>('tenant');
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await api.get<SystemUsagePayload>(`/dashboard/system-usage?days=${days}`);
+        if (alive) setData(res ?? null);
+      } catch {
+        if (alive) setData(null);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [days]);
+
+  const sum = data?.summary;
+  const groups: UsageGroupRow[] =
+    dim === 'system' ? data?.bySystem ?? [] : dim === 'team' ? data?.byTeam ?? [] : data?.byTenant ?? [];
+  const labelOf = (g: UsageGroupRow) => g.system ?? g.team ?? g.tenant ?? '—';
+  const maxAgents = Math.max(1, ...groups.map((g) => g.agentCount));
+  const dimLabel = dim === 'system' ? '시스템' : dim === 'team' ? '팀' : '테넌트';
+
   return (
-    <ModalShell title="🧩 시스템별 사용 Agent" onClose={onClose} wide>
-      {systems.length === 0 ? (
+    <ModalShell title="🧩 활용 시스템 상세" onClose={onClose} wide>
+      {loading ? (
+        <Skeleton />
+      ) : !data || (sum?.agentCount ?? 0) === 0 ? (
         <p className="text-xs text-muted-dark py-6 text-center">
-          시스템/Agent 데이터가 아직 없습니다.
+          최근 {days}일간 활용된 Agent가 없습니다.
         </p>
       ) : (
         <>
-          {/* 시스템별 Agent 분포 도넛 */}
-          <div className="flex items-center justify-between flex-wrap gap-3 mb-4 p-3 bg-gray-50 border border-gray-100 rounded-lg">
+          {/* 요약 — 먼저 '몇 개나 활용되는지' */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            <StatChip label="활용 시스템" value={`${sum!.systemCount}개`} tone="navy" />
+            <StatChip label="활용 Agent" value={`${sum!.agentCount}개`} tone="green" />
+            <StatChip label="팀" value={`${sum!.teamCount}개`} tone="gray" />
+            <StatChip label="테넌트" value={`${sum!.tenantCount}개`} tone="gray" />
+            <StatChip label="총 실행" value={`${sum!.totalExecutions.toLocaleString()}회`} tone="amber" />
+          </div>
+          {data.scope !== 'platform' && (
+            <p className="text-[10px] text-muted-dark mb-2">
+              ※ 본인 테넌트 범위 집계입니다. 전체 테넌트 교차 집계는 PLATFORM_ADMIN 권한에서 표시됩니다.
+            </p>
+          )}
+
+          {/* 그룹핑 — 리스트 박스(테넌트 → 팀 → 시스템) */}
+          <div className="flex items-center justify-end gap-1.5 mb-3">
+            <span className="text-[10px] text-muted-dark">그룹</span>
+            <select
+              value={dim}
+              onChange={(e) => setDim(e.target.value as 'system' | 'team' | 'tenant')}
+              className="bg-white border border-gray-200 rounded text-[11px] text-gray-900 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              <option value="tenant">테넌트별</option>
+              <option value="team">팀별</option>
+              <option value="system">시스템별</option>
+            </select>
+          </div>
+
+          {/* 선택 차원 도넛 */}
+          <div className="flex items-center gap-3 flex-wrap mb-3 p-3 bg-gray-50 border border-gray-100 rounded-lg">
             <DonutChart
               size={104}
-              centerValue={String(agents.length)}
-              centerLabel="Agents"
-              segments={systems.slice(0, 6).map((sys, i) => ({
-                value: sys.agentCount,
-                label: sys.system,
-                color: ['#4F6BD8', '#6FAF9A', '#C9A45C', '#C77B7B', '#8B7BD8', '#5BA8C4'][i % 6],
+              centerValue={String(groups.length)}
+              centerLabel={dimLabel}
+              segments={groups.slice(0, 6).map((g, i) => ({
+                value: g.agentCount,
+                label: labelOf(g),
+                color: USAGE_COLORS[i % USAGE_COLORS.length],
               }))}
             />
-            <div className="text-[10px] text-muted-dark max-w-[220px]">
-              시스템마다 어떤 Agent가 붙어 일하고 있는지, 절감 기여는 어느 정도인지 보여줍니다.
+            <div className="text-[10px] text-muted-dark max-w-[240px]">
+              {dimLabel}별로 활용되는 Agent 수와 실행량을 보여줍니다. 활용 = 최근 {days}일간 실행이 있는
+              Agent.
             </div>
           </div>
-          <div className="space-y-4">
-            {(() => {
-              const maxSaved = Math.max(...agents.map((a) => a.timeSavedHours ?? 0), 1);
-              return systems.map((sys) => {
-                const list = agents.filter((a) => (a.system ?? '미지정') === sys.system);
-                return (
-                  <div key={sys.system} className="rounded border border-gray-200 bg-white p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-gray-900">{sys.system}</span>
-                      <span className="text-[10px] text-muted-dark">
-                        Agent {sys.agentCount}개{sys.executions ? ` · ${sys.executions}회` : ''}
-                      </span>
-                    </div>
-                    {list.length === 0 ? (
-                      <p className="text-[10px] text-muted-dark">연결된 Agent 없음</p>
-                    ) : (
-                      <ul className="space-y-1.5">
-                        {list.map((a) => (
-                          <li
-                            key={a.workflowKey}
-                            className="flex items-center gap-2 text-[11px] text-gray-500"
-                          >
-                            <span
-                              className="w-[45%] text-gray-900 truncate shrink-0"
-                              title={agentLabel(a)}
-                            >
-                              {agentLabel(a)}
-                            </span>
-                            <div className="flex-1">
-                              <InlineBar
-                                pct={((a.timeSavedHours ?? 0) / maxSaved) * 100}
-                                color="#6FAF9A"
-                              />
-                            </div>
-                            <span className="text-muted-dark flex-shrink-0 w-16 text-right">
-                              {a.timeSavedHours != null
-                                ? `${(a.timeSavedHours / mmHours()).toFixed(1)} MM`
-                                : '—'}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                );
-              });
-            })()}
+
+          {/* 그룹 목록 (Agent 수 막대) */}
+          <div className="space-y-1.5 max-h-[42vh] overflow-y-auto pr-1">
+            {groups.map((g, i) => (
+              <div key={`${labelOf(g)}-${i}`} className="flex items-center gap-2 text-[11px]">
+                <span className="w-40 truncate text-gray-800" title={labelOf(g)}>
+                  {labelOf(g)}
+                </span>
+                <div className="flex-1 h-2.5 bg-gray-100 rounded">
+                  <div
+                    className="h-2.5 rounded bg-accent"
+                    style={{ width: `${Math.max(3, Math.round((g.agentCount / maxAgents) * 100))}%` }}
+                  />
+                </div>
+                <span className="w-32 text-right text-gray-600">
+                  <b className="text-gray-900">{g.agentCount}</b> Agent ·{' '}
+                  {g.executions.toLocaleString()}회
+                </span>
+              </div>
+            ))}
           </div>
         </>
       )}
@@ -1782,6 +2013,7 @@ function SystemUsageModal({ eff, onClose }: { eff: EffDetail | null; onClose: ()
 // ── Agent별 절감 효과 팝업 (총 절감 공수 클릭) ──
 function SavingsModal({ eff, onClose }: { eff: EffDetail | null; onClose: () => void }) {
   useEscClose(onClose);
+  const [groupBy, setGroupBy] = useState<'agent' | 'team' | 'system'>('agent');
   const agents = [...(eff?.agents ?? [])].sort(
     (a, b) => (b.timeSavedHours ?? 0) - (a.timeSavedHours ?? 0),
   );
@@ -1789,12 +2021,30 @@ function SavingsModal({ eff, onClose }: { eff: EffDetail | null; onClose: () => 
   const totalNet = agents.reduce((s, a) => s + (a.roi?.netValueUsd ?? 0), 0);
   const maxHours = Math.max(...agents.map((a) => a.timeSavedHours ?? 0), 1);
   const top = agents[0];
+
+  // 팀/시스템 그룹 집계 (절감 공수·순가치·Agent수)
+  const grouped = (() => {
+    if (groupBy === 'agent') return [];
+    const m = new Map<string, { label: string; hours: number; net: number; count: number }>();
+    for (const a of agents) {
+      const key =
+        groupBy === 'team' ? a.team || '미지정 팀' : a.system || '미지정';
+      const g = m.get(key) ?? { label: key, hours: 0, net: 0, count: 0 };
+      g.hours += a.timeSavedHours ?? 0;
+      g.net += a.roi?.netValueUsd ?? 0;
+      g.count += 1;
+      m.set(key, g);
+    }
+    return [...m.values()].sort((x, y) => y.hours - x.hours);
+  })();
+  const maxGroupHours = Math.max(...grouped.map((g) => g.hours), 1);
+
   return (
-    <ModalShell title="🕒 Agent별 절감 효과 — 누가 얼마나 아껴줬나" onClose={onClose} wide>
+    <ModalShell title="🕒 절감 효과 — 누가 얼마나 아껴줬나" onClose={onClose} wide>
       {/* 요약 칩 */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-3">
         <StatChip label="총 절감 공수" value={`${totalMM.toFixed(1)} MM`} sub={`Agent ${agents.length}개 합산`} tone="green" />
-        <StatChip label="총 순가치" value={`$${Math.round(totalNet).toLocaleString()}`} tone="navy" />
+        <StatChip label="총 순가치" value={krw(totalNet)} tone="navy" />
         <StatChip
           label="최고 기여"
           value={top ? `${((top.timeSavedHours ?? 0) / mmHours()).toFixed(1)} MM` : '—'}
@@ -1802,57 +2052,284 @@ function SavingsModal({ eff, onClose }: { eff: EffDetail | null; onClose: () => 
           tone="amber"
         />
       </div>
-      <div className="overflow-x-auto border border-gray-200 rounded">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="text-[10px] text-muted-dark bg-white border-b border-gray-200">
-              <th className="text-left px-2 py-1.5">에이전트</th>
-              <th className="text-left px-2 py-1.5">시스템</th>
-              <th className="text-left px-2 py-1.5 w-[28%]">절감 공수 (상대 비교)</th>
-              <th className="text-right px-2 py-1.5">절감률</th>
-              <th className="text-right px-2 py-1.5">순가치</th>
-            </tr>
-          </thead>
-          <tbody>
-            {agents.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center text-muted-dark py-6">
-                  효과성 데이터가 없습니다.
-                </td>
+
+      {/* 그룹핑 필터 */}
+      <div className="flex items-center justify-end gap-1.5 mb-3">
+        <span className="text-[10px] text-muted-dark">보기</span>
+        <select
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value as 'agent' | 'team' | 'system')}
+          className="bg-white border border-gray-200 rounded text-[11px] text-gray-900 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
+        >
+          <option value="team">팀별</option>
+          <option value="system">시스템별</option>
+          <option value="agent">Agent별</option>
+        </select>
+        <span className="text-[10px] text-muted-dark ml-1">
+          (테넌트별은 상단 테넌트 필터로 전환 — PLATFORM_ADMIN)
+        </span>
+      </div>
+
+      {groupBy !== 'agent' ? (
+        <div className="overflow-x-auto border border-gray-200 rounded">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-[10px] text-muted-dark bg-white border-b border-gray-200">
+                <th className="text-left px-2 py-1.5">{groupBy === 'team' ? '팀' : '시스템'}</th>
+                <th className="text-right px-2 py-1.5">Agent</th>
+                <th className="text-left px-2 py-1.5 w-[34%]">절감 공수 (상대 비교)</th>
+                <th className="text-right px-2 py-1.5">순가치</th>
               </tr>
-            ) : (
-              agents.map((a) => (
-                <tr key={a.workflowKey} className="border-b border-gray-200 last:border-0">
-                  <td className="px-2 py-1.5 text-gray-900 truncate max-w-[180px]" title={agentLabel(a)}>
-                    {agentLabel(a)}
-                  </td>
-                  <td className="px-2 py-1.5 text-muted-dark">{a.system ?? '미지정'}</td>
-                  <td className="px-2 py-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-14 text-right font-semibold text-gray-700 shrink-0">
-                        {a.timeSavedHours != null
-                          ? `${(a.timeSavedHours / mmHours()).toFixed(1)} MM`
-                          : '—'}
-                      </span>
-                      <div className="flex-1">
-                        <InlineBar pct={((a.timeSavedHours ?? 0) / maxHours) * 100} color="#6FAF9A" />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-2 py-1.5 text-right text-success font-semibold">
-                    {a.timeSavedPct ? `${a.timeSavedPct.toFixed(1)}%` : '—'}
-                  </td>
-                  <td className="px-2 py-1.5 text-right text-gray-500">
-                    {a.roi?.netValueUsd != null
-                      ? `$${Math.round(a.roi.netValueUsd).toLocaleString()}`
-                      : '—'}
+            </thead>
+            <tbody>
+              {grouped.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="text-center text-muted-dark py-6">
+                    효과성 데이터가 없습니다.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                grouped.map((g) => (
+                  <tr key={g.label} className="border-b border-gray-200 last:border-0">
+                    <td className="px-2 py-1.5 text-gray-900 truncate max-w-[180px]" title={g.label}>
+                      {g.label}
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-muted-dark">{g.count}개</td>
+                    <td className="px-2 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-14 text-right font-semibold text-gray-700 shrink-0">
+                          {(g.hours / mmHours()).toFixed(1)} MM
+                        </span>
+                        <div className="flex-1">
+                          <InlineBar pct={(g.hours / maxGroupHours) * 100} color="#6FAF9A" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-gray-500">{krw(g.net)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="overflow-x-auto border border-gray-200 rounded">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-[10px] text-muted-dark bg-white border-b border-gray-200">
+                <th className="text-left px-2 py-1.5">에이전트</th>
+                <th className="text-left px-2 py-1.5">팀</th>
+                <th className="text-left px-2 py-1.5">시스템</th>
+                <th className="text-left px-2 py-1.5 w-[24%]">절감 공수 (상대 비교)</th>
+                <th className="text-right px-2 py-1.5">절감률</th>
+                <th className="text-right px-2 py-1.5">순가치</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agents.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center text-muted-dark py-6">
+                    효과성 데이터가 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                agents.map((a) => (
+                  <tr key={a.workflowKey} className="border-b border-gray-200 last:border-0">
+                    <td className="px-2 py-1.5 text-gray-900 truncate max-w-[160px]" title={agentLabel(a)}>
+                      {agentLabel(a)}
+                    </td>
+                    <td className="px-2 py-1.5 text-muted-dark truncate max-w-[100px]">
+                      {a.team ?? '미지정 팀'}
+                    </td>
+                    <td className="px-2 py-1.5 text-muted-dark">{a.system ?? '미지정'}</td>
+                    <td className="px-2 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-14 text-right font-semibold text-gray-700 shrink-0">
+                          {a.timeSavedHours != null
+                            ? `${(a.timeSavedHours / mmHours()).toFixed(1)} MM`
+                            : '—'}
+                        </span>
+                        <div className="flex-1">
+                          <InlineBar pct={((a.timeSavedHours ?? 0) / maxHours) * 100} color="#6FAF9A" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-success font-semibold">
+                      {a.timeSavedPct ? `${a.timeSavedPct.toFixed(1)}%` : '—'}
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-gray-500">
+                      {a.roi?.netValueUsd != null ? krw(a.roi.netValueUsd) : '—'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// ── ROI 상세 팝업 (ROI 클릭) — 순가치(ROI) 그래프 + 팀/시스템/Agent 필터 ──
+function RoiDetailModal({
+  eff,
+  effSummary,
+  onClose,
+}: {
+  eff: EffDetail | null;
+  effSummary: EffectivenessSummary | undefined;
+  onClose: () => void;
+}) {
+  useEscClose(onClose);
+  const [groupBy, setGroupBy] = useState<'agent' | 'team' | 'system'>('team');
+  const agents = [...(eff?.agents ?? [])].sort(
+    (a, b) => (b.roi?.netValueUsd ?? 0) - (a.roi?.netValueUsd ?? 0),
+  );
+
+  const grouped = (() => {
+    if (groupBy === 'agent') return [];
+    const m = new Map<string, { label: string; net: number; count: number }>();
+    for (const a of agents) {
+      const key = groupBy === 'team' ? a.team || '미지정 팀' : a.system || '미지정';
+      const g = m.get(key) ?? { label: key, net: 0, count: 0 };
+      g.net += a.roi?.netValueUsd ?? 0;
+      g.count += 1;
+      m.set(key, g);
+    }
+    return [...m.values()].sort((x, y) => y.net - x.net);
+  })();
+  const maxNet = Math.max(...agents.map((a) => Math.abs(a.roi?.netValueUsd ?? 0)), 1);
+  const maxGroupNet = Math.max(...grouped.map((g) => Math.abs(g.net)), 1);
+  const agentPage = usePagination(agents, 8);
+
+  return (
+    <ModalShell title="💰 ROI 상세 — 순가치 기여" onClose={onClose} wide>
+      {/* 요약 칩 */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        <StatChip
+          label="ROI"
+          value={effSummary?.roiRatio != null ? `${effSummary.roiRatio.toFixed(1)}x` : '—'}
+          tone="navy"
+        />
+        <StatChip label="총 순가치" value={krw(effSummary?.totalNetValueUsd ?? 0)} tone="green" />
+        <StatChip label="인건비 환산" value={krw(effSummary?.totalLaborValueUsd ?? 0)} tone="gray" />
+        <StatChip label="총 비용" value={krw(effSummary?.totalCostUsd ?? 0)} tone="amber" />
       </div>
+      <p className="text-[10px] text-muted-dark mb-3">
+        ROI = 인건비 환산 가치 ÷ 운영 비용. 순가치 = 인건비 환산 − 비용.
+      </p>
+
+      {/* 그룹핑 리스트 박스 (우측) */}
+      <div className="flex items-center justify-end gap-1.5 mb-3">
+        <span className="text-[10px] text-muted-dark">보기</span>
+        <select
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value as 'agent' | 'team' | 'system')}
+          className="bg-white border border-gray-200 rounded text-[11px] text-gray-900 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
+        >
+          <option value="team">팀별</option>
+          <option value="system">시스템별</option>
+          <option value="agent">Agent별</option>
+        </select>
+        <span className="text-[10px] text-muted-dark ml-1">
+          (테넌트별은 상단 테넌트 필터로 전환 — PLATFORM_ADMIN)
+        </span>
+      </div>
+
+      {groupBy !== 'agent' ? (
+        <div className="overflow-x-auto border border-gray-200 rounded">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-[10px] text-muted-dark bg-white border-b border-gray-200">
+                <th className="text-left px-2 py-1.5">{groupBy === 'team' ? '팀' : '시스템'}</th>
+                <th className="text-right px-2 py-1.5">Agent</th>
+                <th className="text-left px-2 py-1.5 w-[40%]">순가치 (상대 비교)</th>
+                <th className="text-right px-2 py-1.5">순가치</th>
+              </tr>
+            </thead>
+            <tbody>
+              {grouped.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="text-center text-muted-dark py-6">
+                    효과성 데이터가 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                grouped.map((g) => (
+                  <tr key={g.label} className="border-b border-gray-200 last:border-0">
+                    <td className="px-2 py-1.5 text-gray-900 truncate max-w-[180px]" title={g.label}>
+                      {g.label}
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-muted-dark">{g.count}개</td>
+                    <td className="px-2 py-1.5">
+                      <InlineBar
+                        pct={(Math.abs(g.net) / maxGroupNet) * 100}
+                        color={g.net >= 0 ? '#6FAF9A' : '#C77B7B'}
+                      />
+                    </td>
+                    <td
+                      className={`px-2 py-1.5 text-right font-semibold ${g.net >= 0 ? 'text-gray-700' : 'text-danger'}`}
+                    >
+                      {krw(g.net)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto border border-gray-200 rounded">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-[10px] text-muted-dark bg-white border-b border-gray-200">
+                  <th className="text-left px-2 py-1.5">에이전트</th>
+                  <th className="text-left px-2 py-1.5">팀</th>
+                  <th className="text-left px-2 py-1.5 w-[34%]">순가치 (상대 비교)</th>
+                  <th className="text-right px-2 py-1.5">순가치</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agents.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center text-muted-dark py-6">
+                      효과성 데이터가 없습니다.
+                    </td>
+                  </tr>
+                ) : (
+                  agentPage.pageItems.map((a) => {
+                    const net = a.roi?.netValueUsd ?? 0;
+                    return (
+                      <tr key={a.workflowKey} className="border-b border-gray-200 last:border-0">
+                        <td className="px-2 py-1.5 text-gray-900 truncate max-w-[160px]" title={agentLabel(a)}>
+                          {agentLabel(a)}
+                        </td>
+                        <td className="px-2 py-1.5 text-muted-dark truncate max-w-[100px]">
+                          {a.team ?? '미지정 팀'}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <InlineBar
+                            pct={(Math.abs(net) / maxNet) * 100}
+                            color={net >= 0 ? '#6FAF9A' : '#C77B7B'}
+                          />
+                        </td>
+                        <td
+                          className={`px-2 py-1.5 text-right font-semibold ${net >= 0 ? 'text-gray-700' : 'text-danger'}`}
+                        >
+                          {a.roi?.netValueUsd != null ? krw(net) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pager p={agentPage} />
+        </>
+      )}
     </ModalShell>
   );
 }
@@ -1860,91 +2337,171 @@ function SavingsModal({ eff, onClose }: { eff: EffDetail | null; onClose: () => 
 // ── Agent별 품질 증감 팝업 (품질 평균 증감 클릭) ──
 function QualityDeltaModal({
   mainAgents,
+  trend,
   onClose,
 }: {
   mainAgents: MainAgent[];
+  trend: DailyPoint[];
   onClose: () => void;
 }) {
   useEscClose(onClose);
+  const [groupBy, setGroupBy] = useState<'agent' | 'team'>('agent');
+  const ups = mainAgents.filter((m) => m.trend?.quality?.direction === 'up').length;
+  const downs = mainAgents.filter((m) => m.trend?.quality?.direction === 'down').length;
+  const flats = mainAgents.length - ups - downs;
+
+  // Agent별 정렬(증감률 높은 순)
   const sorted = [...mainAgents].sort(
     (a, b) => (b.trend?.quality?.deltaPct ?? -Infinity) - (a.trend?.quality?.deltaPct ?? -Infinity),
   );
+
+  // 팀별 집계(평균 종합점수·평균 증감률)
+  const teamRows = (() => {
+    const m = new Map<string, { label: string; scoreSum: number; n: number; dSum: number; dN: number }>();
+    for (const a of mainAgents) {
+      const key = a.team || '미지정 팀';
+      const g = m.get(key) ?? { label: key, scoreSum: 0, n: 0, dSum: 0, dN: 0 };
+      g.scoreSum += a.avgScore ?? 0;
+      g.n += 1;
+      const dp = a.trend?.quality?.deltaPct;
+      if (dp != null) {
+        g.dSum += dp;
+        g.dN += 1;
+      }
+      m.set(key, g);
+    }
+    return [...m.values()]
+      .map((g) => ({
+        label: g.label,
+        count: g.n,
+        avgScore: g.n ? Math.round((g.scoreSum / g.n) * 10) / 10 : 0,
+        avgDelta: g.dN ? Math.round((g.dSum / g.dN) * 10) / 10 : null,
+      }))
+      .sort((x, y) => (y.avgDelta ?? -Infinity) - (x.avgDelta ?? -Infinity));
+  })();
+  const maxAbs = Math.max(...mainAgents.map((m) => Math.abs(m.trend?.quality?.deltaPct ?? 0)), 0.1);
+  const maxTeamAbs = Math.max(...teamRows.map((r) => Math.abs(r.avgDelta ?? 0)), 0.1);
+  const agentPage = usePagination(sorted, 8);
+  const teamPage = usePagination(teamRows, 8);
+
   return (
-    <ModalShell title="📊 Agent별 품질 증감" onClose={onClose} wide>
-      {/* 요약 칩 — 상승/하락/유지 분포 */}
-      {(() => {
-        const ups = sorted.filter((m) => m.trend?.quality?.direction === 'up').length;
-        const downs = sorted.filter((m) => m.trend?.quality?.direction === 'down').length;
-        const flats = sorted.length - ups - downs;
-        return (
-          <div className="flex flex-wrap gap-2 mb-4">
-            <StatChip label="품질 상승" value={`▲ ${ups}개`} tone="green" />
-            <StatChip label="품질 하락" value={`▼ ${downs}개`} tone="red" />
-            <StatChip label="유지·미측정" value={`${flats}개`} tone="gray" />
-          </div>
-        );
-      })()}
+    <ModalShell title="📊 품질 증감 상세" onClose={onClose} wide>
+      {/* 요약 칩 */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        <StatChip label="품질 상승" value={`▲ ${ups}개`} tone="green" />
+        <StatChip label="품질 하락" value={`▼ ${downs}개`} tone="red" />
+        <StatChip label="유지·미측정" value={`${flats}개`} tone="gray" />
+      </div>
+
+      {/* 품질 추이 그래프 (일별 평균 종합점수) */}
+      <p className="text-xs font-semibold text-gray-500 mb-1.5">품질 추이 (일별 평균 종합점수)</p>
+      {trend.length > 0 ? (
+        <div className="mb-4">
+          <QualityChart data={trend} />
+        </div>
+      ) : (
+        <p className="text-[11px] text-muted-dark mb-4">추이 데이터가 없습니다.</p>
+      )}
+
+      {/* 그룹핑 리스트 박스 */}
+      <div className="flex items-center justify-end gap-1.5 mb-2">
+        <span className="text-[10px] text-muted-dark">보기</span>
+        <select
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value as 'agent' | 'team')}
+          className="bg-white border border-gray-200 rounded text-[11px] text-gray-900 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
+        >
+          <option value="team">팀별</option>
+          <option value="agent">Agent별</option>
+        </select>
+        <span className="text-[10px] text-muted-dark ml-1">
+          (테넌트별은 상단 테넌트 필터로 전환 — PLATFORM_ADMIN)
+        </span>
+      </div>
+
       <div className="overflow-x-auto border border-gray-200 rounded">
         <table className="w-full text-xs">
           <thead>
             <tr className="text-[10px] text-muted-dark bg-white border-b border-gray-200">
-              <th className="text-left px-2 py-1.5">에이전트</th>
-              <th className="text-right px-2 py-1.5">종합점수</th>
-              <th className="text-center px-2 py-1.5 w-[34%]">증감 (◀ 하락 · 상승 ▶)</th>
-              <th className="text-right px-2 py-1.5">증감률</th>
+              <th className="text-left px-2 py-1.5">{groupBy === 'team' ? '팀' : '에이전트'}</th>
+              {groupBy === 'team' && <th className="text-right px-2 py-1.5">Agent</th>}
+              <th className="text-right px-2 py-1.5">{groupBy === 'team' ? '평균 점수' : '종합점수'}</th>
+              <th className="text-center px-2 py-1.5 w-[32%]">증감 (◀ 하락 · 상승 ▶)</th>
+              <th className="text-right px-2 py-1.5">{groupBy === 'team' ? '평균 증감률' : '증감률'}</th>
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
+            {groupBy === 'team' ? (
+              teamRows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center text-muted-dark py-6">데이터가 없습니다.</td>
+                </tr>
+              ) : (
+                teamPage.pageItems.map((r) => (
+                  <tr key={r.label} className="border-b border-gray-200 last:border-0">
+                    <td className="px-2 py-1.5 text-gray-900 truncate max-w-[160px]" title={r.label}>
+                      {r.label}
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-muted-dark">{r.count}개</td>
+                    <td className="px-2 py-1.5 text-right font-semibold text-gray-700">{r.avgScore}</td>
+                    <td className="px-2 py-1.5">
+                      <DivergeBar pct={r.avgDelta} max={maxTeamAbs} />
+                    </td>
+                    <td
+                      className="px-2 py-1.5 text-right font-semibold"
+                      style={{
+                        color:
+                          r.avgDelta == null ? '#8B9BB4' : r.avgDelta >= 0 ? '#6FAF9A' : '#C77B7B',
+                      }}
+                    >
+                      {r.avgDelta == null
+                        ? '—'
+                        : `${r.avgDelta > 0 ? '▲ ' : r.avgDelta < 0 ? '▼ ' : ''}${Math.abs(r.avgDelta).toFixed(1)}%`}
+                    </td>
+                  </tr>
+                ))
+              )
+            ) : sorted.length === 0 ? (
               <tr>
-                <td colSpan={4} className="text-center text-muted-dark py-6">
-                  데이터가 없습니다.
-                </td>
+                <td colSpan={4} className="text-center text-muted-dark py-6">데이터가 없습니다.</td>
               </tr>
             ) : (
-              (() => {
-                const maxAbs = Math.max(
-                  ...sorted.map((m) => Math.abs(m.trend?.quality?.deltaPct ?? 0)),
-                  0.1,
+              agentPage.pageItems.map((m) => {
+                const t = m.trend?.quality;
+                const dir = t?.direction;
+                const dp = t?.deltaPct;
+                return (
+                  <tr key={m.workflowKey} className="border-b border-gray-200 last:border-0">
+                    <td className="px-2 py-1.5 text-gray-900 truncate max-w-[180px]" title={agentLabel(m)}>
+                      {agentLabel(m)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-semibold text-gray-700">{m.avgScore}</td>
+                    <td className="px-2 py-1.5">
+                      <DivergeBar pct={dir === 'flat' ? 0 : (dp ?? null)} max={maxAbs} />
+                    </td>
+                    <td
+                      className="px-2 py-1.5 text-right font-semibold"
+                      style={{
+                        color:
+                          !t || dir === 'flat' || dp == null
+                            ? '#8B9BB4'
+                            : dir === 'up'
+                              ? '#6FAF9A'
+                              : '#C77B7B',
+                      }}
+                    >
+                      {!t || dp == null
+                        ? '—'
+                        : `${dir === 'up' ? '▲ ' : dir === 'down' ? '▼ ' : ''}${Math.abs(dp).toFixed(1)}%`}
+                    </td>
+                  </tr>
                 );
-                return sorted.map((m) => {
-                  const t = m.trend?.quality;
-                  const dir = t?.direction;
-                  const dp = t?.deltaPct;
-                  return (
-                    <tr key={m.workflowKey} className="border-b border-gray-200 last:border-0">
-                      <td className="px-2 py-1.5 text-gray-900 truncate max-w-[180px]" title={agentLabel(m)}>
-                        {agentLabel(m)}
-                      </td>
-                      <td className="px-2 py-1.5 text-right font-semibold text-gray-700">
-                        {m.avgScore}
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <DivergeBar pct={dir === 'flat' ? 0 : (dp ?? null)} max={maxAbs} />
-                      </td>
-                      <td
-                        className="px-2 py-1.5 text-right font-semibold"
-                        style={{
-                          color:
-                            !t || dir === 'flat' || dp == null
-                              ? '#8B9BB4'
-                              : dir === 'up'
-                                ? '#6FAF9A'
-                                : '#C77B7B',
-                        }}
-                      >
-                        {!t || dp == null
-                          ? '—'
-                          : `${dir === 'up' ? '▲ ' : dir === 'down' ? '▼ ' : ''}${Math.abs(dp).toFixed(1)}%`}
-                      </td>
-                    </tr>
-                  );
-                });
-              })()
+              })
             )}
           </tbody>
         </table>
       </div>
+      <Pager p={groupBy === 'team' ? teamPage : agentPage} />
     </ModalShell>
   );
 }
@@ -1957,16 +2514,26 @@ function AgentUsageModal({
   detail: {
     label: string;
     system: string;
+    team?: string | null;
     executions: number;
     successRate: number;
     avgScore: number;
     timeSavedHours: number | null;
+    securityScore?: number | null;
+    anomalyCount?: number;
+    anomalyRate?: number;
+    totalCostUsd?: number;
+    avgLatencyMs?: number;
+    health?: string;
   };
   onClose: () => void;
 }) {
   useEscClose(onClose);
+  const gateColor = (v: number) => (v >= 85 ? '#6FAF9A' : v >= 70 ? '#C9A45C' : '#C77B7B');
+  const sec = detail.securityScore;
+  const anomalyOk = (detail.anomalyRate ?? 0) < 5; // 이상 비율 5% 미만이면 양호
   return (
-    <ModalShell title={`📌 Agent 사용 상세 — ${detail.label}`} onClose={onClose}>
+    <ModalShell title={`📌 Agent 사용 상세 — ${detail.label}`} onClose={onClose} wide>
       <div className="flex flex-wrap items-center gap-4">
         {/* 성공률 도넛 */}
         <DonutChart
@@ -1981,6 +2548,7 @@ function AgentUsageModal({
         <div className="flex-1 min-w-[240px] space-y-2.5">
           <div className="flex flex-wrap gap-2">
             <StatChip label="어디에서 (시스템)" value={detail.system} tone="navy" />
+            <StatChip label="팀" value={detail.team || '미지정 팀'} tone="gray" />
             <StatChip label="얼마나 (수행)" value={`${detail.executions.toLocaleString()}회`} tone="navy" />
             <StatChip
               label="절감 공수"
@@ -1992,17 +2560,69 @@ function AgentUsageModal({
               tone="green"
             />
           </div>
-          {/* 종합점수 게이지 */}
-          <div>
-            <div className="flex items-center justify-between text-[10px] text-muted-dark mb-1">
-              <span>종합 점수</span>
-              <b className="text-gray-900 text-xs">{detail.avgScore} / 100</b>
-            </div>
-            <InlineBar
-              pct={detail.avgScore}
-              color={detail.avgScore >= 85 ? '#6FAF9A' : detail.avgScore >= 70 ? '#C9A45C' : '#C77B7B'}
-            />
+        </div>
+      </div>
+
+      {/* 4게이트 상태 — 품질 · 보안 · 이상 · 비용 */}
+      <p className="text-[11px] font-semibold text-gray-700 mt-4 mb-1.5">4게이트 상태</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        {/* 품질 */}
+        <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-semibold text-gray-700">품질</span>
+            <span className="text-sm font-bold" style={{ color: gateColor(detail.avgScore) }}>
+              {detail.avgScore}
+            </span>
           </div>
+          <InlineBar pct={detail.avgScore} color={gateColor(detail.avgScore)} />
+          <p className="text-[10px] text-muted-dark mt-1">종합 평가 점수 / 100</p>
+        </div>
+        {/* 보안 */}
+        <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-semibold text-gray-700">보안</span>
+            <span
+              className="text-sm font-bold"
+              style={{ color: sec != null ? gateColor(sec) : '#9ca3af' }}
+            >
+              {sec != null ? sec : '—'}
+            </span>
+          </div>
+          <InlineBar pct={sec ?? 0} color={sec != null ? gateColor(sec) : '#E5E7EB'} />
+          <p className="text-[10px] text-muted-dark mt-1">평균 보안 점수 / 100</p>
+        </div>
+        {/* 이상 */}
+        <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-semibold text-gray-700">이상</span>
+            <span
+              className={`text-sm font-bold ${anomalyOk ? 'text-success' : 'text-danger'}`}
+            >
+              {detail.anomalyCount ?? 0}건
+            </span>
+          </div>
+          <InlineBar
+            pct={Math.min(100, detail.anomalyRate ?? 0)}
+            color={anomalyOk ? '#6FAF9A' : '#C77B7B'}
+          />
+          <p className="text-[10px] text-muted-dark mt-1">
+            이상 비율 {(detail.anomalyRate ?? 0).toFixed(1)}%
+          </p>
+        </div>
+        {/* 비용 */}
+        <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-semibold text-gray-700">비용</span>
+            <span className="text-sm font-bold text-amber-600">
+              {krw(detail.totalCostUsd ?? 0, { decimals: 0 })}
+            </span>
+          </div>
+          <p className="text-[10px] text-muted-dark mt-1">
+            건당 {krw((detail.totalCostUsd ?? 0) / Math.max(1, detail.executions), { decimals: 2 })}
+          </p>
+          <p className="text-[10px] text-muted-dark">
+            평균 지연 {detail.avgLatencyMs ? `${detail.avgLatencyMs.toLocaleString()}ms` : '—'}
+          </p>
         </div>
       </div>
     </ModalShell>
@@ -2413,6 +3033,198 @@ function Empty() {
 // ── History modal ──
 type KpiKind = 'total' | 'success' | 'latency' | 'cost' | 'anomaly';
 
+// 이상 감지 상세 — 대시보드 KPI(이상 플래그된 평가)와 동일 정의(/evaluator/anomalies).
+const ANOMALY_TYPE_LABEL: Record<string, string> = {
+  latency_trend: '지연 추세',
+  accuracy_drift: '정확도 저하',
+  token_spike: '토큰 급증',
+  error_surge: '오류 급증',
+  security_pattern: '보안 패턴',
+};
+const ANOMALY_SEV: Record<string, { label: string; cls: string }> = {
+  critical: { label: '심각', cls: 'text-red-600 bg-red-50 border-red-200' },
+  warning: { label: '주의', cls: 'text-amber-600 bg-amber-50 border-amber-200' },
+  info: { label: '정보', cls: 'text-gray-600 bg-gray-50 border-gray-200' },
+};
+const normSev = (s?: string) => {
+  const v = String(s ?? '').toLowerCase();
+  if (v.startsWith('crit') || v === 'high' || v === 'error') return 'critical';
+  if (v.startsWith('warn') || v === 'medium') return 'warning';
+  return 'info';
+};
+
+interface AnomalyItem {
+  id: string;
+  workflowKey?: string | null;
+  agentName?: string | null;
+  type: string;
+  severity?: string;
+  detail?: string;
+  detectedAt?: string;
+}
+interface AnomalyPayload {
+  items: AnomalyItem[];
+  summary: {
+    total: number;
+    evaluationCount?: number;
+    bySeverity: { critical: number; warning: number; info: number };
+    byType: Record<string, number>;
+    byAgent: Array<{ agentName: string; count: number }>;
+  };
+}
+
+function AnomalyDetail({ days }: { days: number }) {
+  const [data, setData] = useState<AnomalyPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await api.get<AnomalyPayload>(`/evaluator/anomalies?days=${days}`);
+        if (alive) setData(res ?? null);
+      } catch {
+        if (alive) setData(null);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [days]);
+
+  const [sevFilter, setSevFilter] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
+  const items = data?.items ?? [];
+  const filteredItems =
+    sevFilter === 'all' ? items : items.filter((it) => normSev(it.severity) === sevFilter);
+  const itemsPage = usePagination(filteredItems, 10);
+  const sum = data?.summary;
+  const evalCount = sum?.evaluationCount ?? 0;
+  const eventTotal = sum?.total ?? 0;
+  const topAgents = (sum?.byAgent ?? []).slice(0, 6);
+  const agentMax = Math.max(1, ...topAgents.map((a) => a.count));
+
+  if (loading) return <Skeleton />;
+  if (!data || (evalCount === 0 && eventTotal === 0))
+    return <p className="text-xs text-muted-dark text-center py-8">이상 감지 내역이 없습니다.</p>;
+
+  return (
+    <>
+      {/* 핵심 요약 — KPI와 동일한 '이상 플래그된 평가 수' */}
+      <div className="flex flex-wrap items-center gap-2 mb-3 p-3 bg-gray-50 border border-gray-100 rounded-lg">
+        <StatChip label="이상 감지 (평가)" value={`${evalCount.toLocaleString()}건`} tone="red" />
+        <StatChip label="이상 이벤트" value={`${eventTotal.toLocaleString()}건`} tone="amber" />
+        <StatChip label="심각" value={`${sum?.bySeverity.critical ?? 0}`} tone="red" />
+        <StatChip label="주의" value={`${sum?.bySeverity.warning ?? 0}`} tone="amber" />
+        <StatChip label="정보" value={`${sum?.bySeverity.info ?? 0}`} tone="gray" />
+      </div>
+      <p className="text-[10px] text-muted-dark mb-3">
+        ※ &lsquo;이상 감지(평가)&rsquo;는 대시보드 KPI와 동일 — 이상으로 플래그된 평가 수입니다. 한 평가가
+        여러 이상 이벤트를 가질 수 있어 이벤트 수와 다를 수 있습니다.
+      </p>
+
+      {/* 에이전트별 이상 분포 */}
+      {topAgents.length > 0 && (
+        <div className="mb-4">
+          <p className="text-[11px] font-semibold text-gray-700 mb-1.5">에이전트별 이상 TOP</p>
+          <div className="space-y-1.5">
+            {topAgents.map((a) => (
+              <div key={a.agentName} className="flex items-center gap-2 text-[11px]">
+                <span className="w-40 truncate text-gray-700" title={a.agentName}>
+                  {a.agentName}
+                </span>
+                <div className="flex-1 h-2 bg-gray-100 rounded">
+                  <div
+                    className="h-2 rounded bg-red-400"
+                    style={{ width: `${Math.max(3, Math.round((a.count / agentMax) * 100))}%` }}
+                  />
+                </div>
+                <span className="w-16 text-right text-gray-600">{a.count}건</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 이상 이벤트 목록 */}
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <p className="text-[11px] font-semibold text-gray-700">이상 이벤트 (최근 순)</p>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-muted-dark">심각도</span>
+          <select
+            value={sevFilter}
+            onChange={(e) => {
+              setSevFilter(e.target.value as 'all' | 'critical' | 'warning' | 'info');
+              itemsPage.setPage(1);
+            }}
+            className="bg-white border border-gray-200 rounded text-[11px] text-gray-900 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            <option value="all">전체 ({items.length})</option>
+            <option value="critical">심각 ({sum?.bySeverity.critical ?? 0})</option>
+            <option value="warning">주의 ({sum?.bySeverity.warning ?? 0})</option>
+            <option value="info">정보 ({sum?.bySeverity.info ?? 0})</option>
+          </select>
+        </div>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-[11px] text-muted-dark py-3">
+          플래그된 평가는 있으나 상세 이상 이벤트 기록이 없습니다.
+        </p>
+      ) : filteredItems.length === 0 ? (
+        <p className="text-[11px] text-muted-dark py-3">해당 심각도의 이상 이벤트가 없습니다.</p>
+      ) : (
+        <>
+          <div className="overflow-x-auto border border-gray-200 rounded">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-[10px] text-muted-dark bg-white border-b border-gray-200">
+                  <th className="text-left px-2 py-1.5">시각</th>
+                  <th className="text-left px-2 py-1.5">에이전트</th>
+                  <th className="text-left px-2 py-1.5">유형</th>
+                  <th className="text-left px-2 py-1.5">심각도</th>
+                  <th className="text-left px-2 py-1.5">설명</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itemsPage.pageItems.map((it, i) => {
+                  const sev = ANOMALY_SEV[normSev(it.severity)];
+                  return (
+                    <tr key={`${it.id}-${i}`} className="border-b border-gray-200 last:border-0">
+                      <td className="px-2 py-1.5 text-muted-dark whitespace-nowrap">
+                        {it.detectedAt ? new Date(it.detectedAt).toLocaleString('ko-KR') : '—'}
+                      </td>
+                      <td
+                        className="px-2 py-1.5 text-gray-900 truncate max-w-[120px]"
+                        title={it.agentName ?? it.workflowKey ?? ''}
+                      >
+                        {it.agentName ?? it.workflowKey ?? '—'}
+                      </td>
+                      <td className="px-2 py-1.5 text-gray-700 whitespace-nowrap">
+                        {ANOMALY_TYPE_LABEL[it.type] ?? it.type}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${sev.cls}`}>
+                          {sev.label}
+                        </span>
+                      </td>
+                      <td className="px-2 py-1.5 text-muted-dark truncate max-w-[200px]" title={it.detail ?? ''}>
+                        {it.detail || '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pager p={itemsPage} />
+        </>
+      )}
+    </>
+  );
+}
+
 function HistoryModal({
   kind,
   title,
@@ -2426,21 +3238,47 @@ function HistoryModal({
 }) {
   const [logs, setLogs] = useState<ExecLog[]>([]);
   const [loading, setLoading] = useState(true);
+  // 리스트 상태 필터(전체/성공/실패/기타) — 분포 요약은 그대로, 표만 걸러 본다.
+  const [statusFilter, setStatusFilter] = useState<'all' | 'SUCCEEDED' | 'FAILED' | 'ETC'>('all');
 
   useEffect(() => {
+    // 이상 감지 팝업은 실행 세션이 아니라 '이상 평가' 데이터를 별도 컴포넌트(AnomalyDetail)에서
+    // 조회한다(대시보드 KPI와 동일 정의). 여기서는 실행 조회를 건너뛴다.
+    if (kind === 'anomaly') {
+      setLoading(false);
+      return;
+    }
+    let alive = true;
     (async () => {
       setLoading(true);
       try {
-        // 이상 감지는 실패 중심, 그 외는 전체를 받아 지표별로 분석.
-        const sf = kind === 'anomaly' ? '?status=FAILED&pageSize=100' : '?pageSize=100';
-        const res = await api.get<{ items: ExecLog[] }>(`/executions${sf}&days=${days}`);
-        setLogs(Array.isArray(res?.items) ? res.items : []);
+        // 서버 pageSize 상한(100)을 넘는 기간은 페이지를 끝까지 받아 합친다.
+        // → 대시보드 KPI(총수행 등)와 동일한 기간·건수로 집계되도록.
+        const statusQ = '';
+        const MAX_PAGES = 30; // 안전 상한(최대 3000건)
+        const all: ExecLog[] = [];
+        for (let page = 1; page <= MAX_PAGES; page++) {
+          const res = await api.get<{ items: ExecLog[]; hasMore?: boolean; total?: number }>(
+            `/executions?${statusQ}pageSize=100&page=${page}&days=${days}`,
+          );
+          const items = Array.isArray(res?.items) ? res.items : [];
+          all.push(...items);
+          if (!res?.hasMore || items.length === 0) break;
+        }
+        // 대시보드 집계와 동일 정의: 임시 실행(adhoc-)은 제외 → KPI 건수와 일치.
+        const cleaned = all.filter(
+          (l) => !String(l.workflowKey ?? '').startsWith('adhoc-'),
+        );
+        if (alive) setLogs(cleaned);
       } catch {
-        setLogs([]);
+        if (alive) setLogs([]);
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
+    return () => {
+      alive = false;
+    };
   }, [kind, days]);
 
   // ── 지표 집계 (표시된 실행 기준) ──
@@ -2462,10 +3300,13 @@ function HistoryModal({
   const avgCost = logs.length ? totalCost / logs.length : 0;
 
   // 에이전트(workflowKey)별 집계
-  const byAgent: Record<string, { n: number; cost: number; lat: number; latN: number; fail: number }> = {};
+  const byAgent: Record<
+    string,
+    { n: number; cost: number; lat: number; latN: number; fail: number; ok: number }
+  > = {};
   for (const l of logs) {
     const k = l.workflowKey || '—';
-    const a = (byAgent[k] ||= { n: 0, cost: 0, lat: 0, latN: 0, fail: 0 });
+    const a = (byAgent[k] ||= { n: 0, cost: 0, lat: 0, latN: 0, fail: 0, ok: 0 });
     a.n++;
     a.cost += Number(l.costUsd) || 0;
     if (l.latencyMs) {
@@ -2473,6 +3314,7 @@ function HistoryModal({
       a.latN++;
     }
     if (l.status === 'FAILED') a.fail++;
+    if (l.status === 'SUCCEEDED') a.ok++;
   }
   const agents = Object.entries(byAgent).map(([k, v]) => ({
     k,
@@ -2492,7 +3334,17 @@ function HistoryModal({
     }
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
-  const logsPage = usePagination(sortedLogs, 10);
+  // 상태 필터 적용(전체/성공/실패/기타) — 표시 리스트에만 반영
+  const filteredLogs = sortedLogs.filter((l) =>
+    statusFilter === 'all'
+      ? true
+      : statusFilter === 'SUCCEEDED'
+        ? l.status === 'SUCCEEDED'
+        : statusFilter === 'FAILED'
+          ? l.status === 'FAILED'
+          : l.status !== 'SUCCEEDED' && l.status !== 'FAILED',
+  );
+  const logsPage = usePagination(filteredLogs, 10);
 
   // 상위 막대(지표별)
   const valOf = (a: AgentRow) =>
@@ -2504,7 +3356,7 @@ function HistoryModal({
   const barMax = Math.max(1, ...topAgents.map(valOf));
   const barLabel = (a: AgentRow) =>
     kind === 'cost'
-      ? `$${a.cost.toFixed(3)}`
+      ? krw(a.cost, { decimals: 1 })
       : kind === 'latency'
         ? fmtMs(a.avgLat)
         : kind === 'success'
@@ -2515,10 +3367,16 @@ function HistoryModal({
       ? '에이전트별 비용 TOP'
       : kind === 'latency'
         ? '에이전트별 평균 지연 TOP'
-        : kind === 'success'
-          ? '실패가 많은 에이전트'
-          : '에이전트별 수행 TOP';
-  const showBars = kind !== 'anomaly' && topAgents.length > 0;
+        : '에이전트별 수행 TOP';
+  // 성공 분석은 전용 막대(성공/실패 건수 + 성공률)로 표시 — 실패 있는 곳 우선
+  const showBars = kind !== 'anomaly' && kind !== 'success' && topAgents.length > 0;
+  const successAgents =
+    kind === 'success'
+      ? [...agents]
+          .map((a) => ({ ...a, rate: a.n ? Math.round((a.ok / a.n) * 100) : 0 }))
+          .sort((x, y) => x.rate - y.rate || y.fail - x.fail) // 성공률 낮은 순(문제 우선)
+          .slice(0, 8)
+      : [];
 
   return (
     <div
@@ -2536,7 +3394,9 @@ function HistoryModal({
           </button>
         </div>
         <div className="p-5">
-          {loading ? (
+          {kind === 'anomaly' ? (
+            <AnomalyDetail days={days} />
+          ) : loading ? (
             <Skeleton />
           ) : logs.length === 0 ? (
             <p className="text-xs text-muted-dark text-center py-8">실행 이력이 없습니다.</p>
@@ -2562,7 +3422,7 @@ function HistoryModal({
                       <StatChip label="총 수행" value={`${logs.length.toLocaleString()}건`} tone="navy" />
                       <StatChip label="성공률" value={`${successRate}%`} tone={fail > 0 ? 'amber' : 'green'} />
                       <StatChip label="평균 지연" value={fmtMs(avgLat)} tone="gray" />
-                      <StatChip label="합계 비용" value={`$${totalCost.toFixed(3)}`} tone="gray" />
+                      <StatChip label="합계 비용" value={krw(totalCost, { decimals: 1 })} tone="gray" />
                     </>
                   )}
                   {kind === 'success' && (
@@ -2583,8 +3443,8 @@ function HistoryModal({
                   )}
                   {kind === 'cost' && (
                     <>
-                      <StatChip label="합계 비용" value={`$${totalCost.toFixed(3)}`} tone="navy" />
-                      <StatChip label="건당 평균" value={`$${avgCost.toFixed(4)}`} tone="gray" />
+                      <StatChip label="합계 비용" value={krw(totalCost, { decimals: 1 })} tone="navy" />
+                      <StatChip label="건당 평균" value={krw(avgCost, { decimals: 2 })} tone="gray" />
                       <StatChip label="수행" value={`${logs.length}건`} tone="gray" />
                     </>
                   )}
@@ -2601,6 +3461,39 @@ function HistoryModal({
                   )}
                 </div>
               </div>
+
+              {/* 성공 분석 — 에이전트별 성공/실패 건수 + 성공률(막대) */}
+              {kind === 'success' && successAgents.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[11px] font-semibold text-gray-700 mb-1.5">
+                    에이전트별 성공률 (낮은 순)
+                  </p>
+                  <div className="space-y-2">
+                    {successAgents.map((a) => (
+                      <div key={a.k} className="flex items-center gap-2 text-[11px]">
+                        <span className="w-40 truncate text-gray-700" title={a.k}>
+                          {a.k}
+                        </span>
+                        <div className="flex-1 flex h-3 rounded overflow-hidden bg-gray-100" title={`성공 ${a.ok} · 실패 ${a.fail} · 기타 ${a.n - a.ok - a.fail}`}>
+                          <div className="h-3 bg-emerald-500" style={{ width: `${(a.ok / a.n) * 100}%` }} />
+                          <div className="h-3 bg-red-400" style={{ width: `${(a.fail / a.n) * 100}%` }} />
+                        </div>
+                        <span className="w-28 text-right text-gray-600">
+                          <b className={a.rate >= 90 ? 'text-emerald-600' : a.rate >= 70 ? 'text-amber-600' : 'text-red-600'}>
+                            {a.rate}%
+                          </b>{' '}
+                          <span className="text-gray-400">({a.ok}/{a.n})</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-dark">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" /> 성공</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-400 inline-block" /> 실패</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-gray-100 border border-gray-200 inline-block" /> 기타</span>
+                  </div>
+                </div>
+              )}
 
               {/* 에이전트별 막대 — 지표에 맞는 상위 분포 */}
               {showBars && (
@@ -2625,15 +3518,33 @@ function HistoryModal({
                 </div>
               )}
 
-              <p className="text-[11px] font-semibold text-gray-700 mb-1.5">
-                {kind === 'latency'
-                  ? '느린 실행 순'
-                  : kind === 'cost'
-                    ? '고비용 실행 순'
-                    : kind === 'success' || kind === 'anomaly'
-                      ? '실패 우선 · 최근 순'
-                      : '최근 실행 순'}
-              </p>
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <p className="text-[11px] font-semibold text-gray-700">
+                  {kind === 'latency'
+                    ? '느린 실행 순'
+                    : kind === 'cost'
+                      ? '고비용 실행 순'
+                      : kind === 'success' || kind === 'anomaly'
+                        ? '실패 우선 · 최근 순'
+                        : '최근 실행 순'}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-muted-dark">상태</span>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value as 'all' | 'SUCCEEDED' | 'FAILED' | 'ETC');
+                      logsPage.setPage(1);
+                    }}
+                    className="bg-white border border-gray-200 rounded text-[11px] text-gray-900 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
+                  >
+                    <option value="all">전체 ({logs.length})</option>
+                    <option value="SUCCEEDED">성공 ({ok})</option>
+                    <option value="FAILED">실패 ({fail})</option>
+                    <option value="ETC">기타 ({etc})</option>
+                  </select>
+                </div>
+              </div>
               <div className="overflow-x-auto border border-gray-200 rounded">
               <table className="w-full text-xs">
                 <thead>
@@ -2665,7 +3576,7 @@ function HistoryModal({
                         <StatusBadge2 status={l.status} />
                       </td>
                       <td className="px-2 py-1.5 text-right text-muted-dark">
-                        {l.costUsd != null ? `$${Number(l.costUsd).toFixed(4)}` : '—'}
+                        {l.costUsd != null ? krw(Number(l.costUsd), { decimals: 2 }) : '—'}
                       </td>
                       <td className="px-2 py-1.5 text-right text-muted-dark">
                         {l.latencyMs != null ? `${l.latencyMs}ms` : '—'}

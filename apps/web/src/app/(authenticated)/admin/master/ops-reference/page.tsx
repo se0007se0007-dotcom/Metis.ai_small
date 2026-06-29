@@ -25,6 +25,7 @@ import {
 interface OpsRef {
   hourlyRateUsd: number;
   workingHoursPerMonth: number;
+  usdToKrw: number;
   healthDownScore: number;
   healthDownFailRate: number;
   healthDownAnomalyRate: number;
@@ -40,6 +41,7 @@ interface OpsRef {
 const DEFAULTS: OpsRef = {
   hourlyRateUsd: 50,
   workingHoursPerMonth: 160,
+  usdToKrw: 1380,
   healthDownScore: 50,
   healthDownFailRate: 0.3,
   healthDownAnomalyRate: 0.4,
@@ -153,6 +155,9 @@ export default function OpsReferencePage() {
             </Field>
             <Field label="월 근무시간 (시간/MM)" hint="절감시간 → 맨먼스(MM) 환산 분모">
               <NumInput value={form.workingHoursPerMonth} step="1" onChange={(v) => set('workingHoursPerMonth', v)} suffix="h" />
+            </Field>
+            <Field label="환율 (원/달러)" hint="모든 비용(USD) 표시를 원화로 환산하는 기준 환율">
+              <NumInput value={form.usdToKrw} step="10" onChange={(v) => set('usdToKrw', v)} suffix="₩/$" />
             </Field>
           </Section>
 

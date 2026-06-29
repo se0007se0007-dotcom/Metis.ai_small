@@ -42,7 +42,7 @@ export class DashboardService {
   async getOverview(
     tenantId: string,
     days = 30,
-    filters: { workflowKey?: string; agentName?: string } = {},
+    filters: { workflowKey?: string; agentName?: string; teamId?: string } = {},
   ): Promise<
     DashboardAggregate & {
       window: { days: number; since: string };
@@ -52,10 +52,17 @@ export class DashboardService {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
+    // 팀 필터 — 팀 소속(Agent 생성자의 팀)인 워크플로우 키 집합으로 좁힌다.
+    // teamId가 있는데 해당 팀 Agent가 0개면 빈 집합([]) → 모든 집계가 0이 된다(정상).
+    const teamKeys = filters.teamId
+      ? await this.resolveTeamWorkflowKeys(resolvedTenantId, filters.teamId)
+      : undefined;
+
     // 메인 Agent(workflowKey) / Sub-Agent(agentName) 필터 — 대시보드 전체가 해당 범위로 좁혀짐.
     const f = {
       workflowKey: filters.workflowKey?.trim() || undefined,
       agentName: filters.agentName?.trim() || undefined,
+      workflowKeys: teamKeys,
     };
 
     const [execs, evals, effConfigs, registeredAgents, opsRef] = await Promise.all([
@@ -86,11 +93,14 @@ export class DashboardService {
           code: typeof r.code === 'string' ? r.code : null,
         });
       }
+      // 팀 라벨(IngestApiKey 기반) — 메인 Agent에 부착(품질/성과 그룹핑용).
+      const teamByKey = await this.loadTeamByWorkflowKey(resolvedTenantId);
       if (Array.isArray(result.mainAgents)) {
         for (const m of result.mainAgents) {
           const meta = metaByKey.get(m.workflowKey);
           m.name = meta?.name ?? m.workflowKey;
           m.code = meta?.code ?? null;
+          m.team = teamByKey.get(m.workflowKey) ?? '미지정 팀';
         }
       }
       if (result.utilization) {
@@ -107,6 +117,130 @@ export class DashboardService {
       this.logger.warn(`getOverview code decoration failed: ${(err as Error).message}`);
     }
     return result;
+  }
+
+  /**
+   * 활용 시스템 상세 — 활용되는(window 내 실행이 있는) Agent를 시스템/팀/테넌트로 그룹핑.
+   *  - PLATFORM_ADMIN: 전 테넌트 교차 집계. 그 외: 본인 테넌트만(테넌트 차원=본인 1개).
+   *  - 팀은 Workflow.createdBy(User)의 소속 팀 기준(없으면 '미지정 팀').
+   *  - adhoc-/nodetest- 워크플로우는 제외(운영 KPI와 동일 정의).
+   */
+  async getSystemUsage(user: { tenantId: string; role?: string }, days = 30): Promise<any> {
+    const isPlatform = user.role === 'PLATFORM_ADMIN';
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const resolvedTenantId = await this.resolveTenantId(user.tenantId);
+    const p = this.prisma as any;
+
+    const emptyPayload = {
+      scope: isPlatform ? 'platform' : 'tenant',
+      summary: { agentCount: 0, systemCount: 0, teamCount: 0, tenantCount: 0, totalExecutions: 0 },
+      bySystem: [],
+      byTeam: [],
+      byTenant: [],
+      window: { days, since: since.toISOString() },
+    };
+
+    try {
+      // 1) 활용 Agent = window 내 실행이 있는 (tenantId, workflowKey)
+      const execWhere: any = { createdAt: { gte: since }, workflowKey: { not: null } };
+      if (!isPlatform) execWhere.tenantId = resolvedTenantId;
+      const grouped = await p.executionSession.groupBy({
+        by: ['tenantId', 'workflowKey'],
+        where: execWhere,
+        _count: { _all: true },
+      });
+      const used = (grouped as any[]).filter((g) => {
+        const k = String(g.workflowKey ?? '');
+        return k && !k.startsWith('adhoc-') && !k.startsWith('nodetest-');
+      });
+      if (used.length === 0) return emptyPayload;
+
+      const execByTk = new Map<string, number>();
+      for (const g of used) execByTk.set(`${g.tenantId}::${g.workflowKey}`, g._count?._all ?? 0);
+
+      // 2) Workflow 메타(system) 로드
+      const tenantIds = [...new Set(used.map((u) => u.tenantId))];
+      const keys = [...new Set(used.map((u) => u.workflowKey))];
+      const wfs = await p.workflow.findMany({
+        where: { tenantId: { in: tenantIds }, key: { in: keys }, deletedAt: null },
+        select: { tenantId: true, key: true, system: true },
+      });
+      const wfByTk = new Map<string, any>();
+      for (const w of wfs) wfByTk.set(`${w.tenantId}::${w.key}`, w);
+
+      // 3) 팀 — IngestApiKey(agentKey=workflow.key, teamId)로 (tenant,agentKey)→팀명 매핑
+      const ikeys = await p.ingestApiKey.findMany({
+        where: { tenantId: { in: tenantIds }, agentKey: { not: null } },
+        select: { tenantId: true, agentKey: true, team: { select: { name: true } } },
+        take: 10000,
+      });
+      const teamByTk = new Map<string, string>();
+      for (const k of ikeys) {
+        const tk = `${k.tenantId}::${k.agentKey}`;
+        if (!teamByTk.has(tk)) teamByTk.set(tk, k.team?.name || '미지정 팀');
+      }
+
+      // 4) 테넌트명
+      const tenants = await p.tenant.findMany({
+        where: { id: { in: tenantIds } },
+        select: { id: true, name: true },
+      });
+      const tenantNameById = new Map<string, string>();
+      for (const t of tenants) tenantNameById.set(t.id, t.name);
+
+      // 5) 그룹 누적
+      type G = { agentCount: number; executions: number };
+      const bySystem = new Map<string, G>();
+      const byTeam = new Map<string, G>();
+      const byTenant = new Map<string, G>();
+      const add = (m: Map<string, G>, key: string, execs: number) => {
+        const g = m.get(key) ?? { agentCount: 0, executions: 0 };
+        g.agentCount += 1;
+        g.executions += execs;
+        m.set(key, g);
+      };
+      let totalExecutions = 0;
+      for (const u of used) {
+        const tk = `${u.tenantId}::${u.workflowKey}`;
+        const execs = execByTk.get(tk) ?? 0;
+        totalExecutions += execs;
+        const wf = wfByTk.get(tk);
+        const system = (wf?.system && String(wf.system).trim()) || '미지정';
+        const team = teamByTk.get(tk) || '미지정 팀';
+        const tenant = tenantNameById.get(u.tenantId) || u.tenantId;
+        add(bySystem, system, execs);
+        add(byTeam, team, execs);
+        add(byTenant, tenant, execs);
+      }
+
+      const toSorted = (m: Map<string, G>, labelKey: string) =>
+        [...m.entries()]
+          .map(([name, g]) => ({
+            [labelKey]: name,
+            agentCount: g.agentCount,
+            executions: g.executions,
+          }))
+          .sort((a: any, b: any) => b.agentCount - a.agentCount || b.executions - a.executions);
+
+      return {
+        scope: isPlatform ? 'platform' : 'tenant',
+        summary: {
+          agentCount: used.length,
+          systemCount: bySystem.size,
+          teamCount: byTeam.size,
+          tenantCount: byTenant.size,
+          totalExecutions,
+        },
+        bySystem: toSorted(bySystem, 'system'),
+        byTeam: toSorted(byTeam, 'team'),
+        byTenant: toSorted(byTenant, 'tenant'),
+        window: { days, since: since.toISOString() },
+      };
+    } catch (err) {
+      this.logger.warn(`getSystemUsage failed: ${(err as Error).message}`);
+      return emptyPayload;
+    }
   }
 
   /**
@@ -193,19 +327,26 @@ export class DashboardService {
    *
    * All numbers are REAL (measured) or CONFIGURED targets passed through verbatim.
    */
-  async getEffectiveness(tenantId: string, days = 30): Promise<any> {
+  async getEffectiveness(
+    tenantId: string,
+    days = 30,
+    filters: { workflowKey?: string; agentName?: string; teamId?: string } = {},
+  ): Promise<any> {
     const resolvedTenantId = await this.resolveTenantId(tenantId);
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    const [agg, alerts, workflowMeta, effSignals, execCounts, securityCounts] = await Promise.all([
-      this.getOverview(tenantId, days),
-      this.loadMttrAlerts(resolvedTenantId, since),
-      this.loadWorkflowMeta(resolvedTenantId),
-      this.loadEffectivenessSignals(resolvedTenantId, since),
-      this.loadExecCountsByAgent(resolvedTenantId, since),
-      this.loadSecurityCountsByAgent(resolvedTenantId, since),
-    ]);
+    const [agg, alerts, workflowMeta, effSignals, execCounts, securityCounts, teamByKey] =
+      await Promise.all([
+        // 팀 필터는 getOverview에서 mainAgents를 좁히므로 effectiveness 전체에 파급된다.
+        this.getOverview(tenantId, days, filters),
+        this.loadMttrAlerts(resolvedTenantId, since),
+        this.loadWorkflowMeta(resolvedTenantId),
+        this.loadEffectivenessSignals(resolvedTenantId, since),
+        this.loadExecCountsByAgent(resolvedTenantId, since),
+        this.loadSecurityCountsByAgent(resolvedTenantId, since),
+        this.loadTeamByWorkflowKey(resolvedTenantId),
+      ]);
 
     // MEASURED MTTD + coverage per agent key (from EffectivenessSignal rows).
     const mttdSignals = computeMttdFromSignals(
@@ -261,6 +402,7 @@ export class DashboardService {
           name: meta?.name ?? m.workflowKey,
           code: meta?.code ?? null,
           system,
+          team: teamByKey.get(m.workflowKey) ?? '미지정 팀',
           domain: meta?.domain ?? null,
           valueLabel: eff.valueLabel,
           category: meta?.category ?? null,
@@ -830,6 +972,7 @@ export class DashboardService {
     days = 30,
     category?: string,
     includeUnlisted = false,
+    teamId?: string,
   ): Promise<{ items: any[] }> {
     const resolvedTenantId = await this.resolveTenantId(tenantId);
 
@@ -840,6 +983,8 @@ export class DashboardService {
       // includeUnlisted=true to still see everything.
       const where: any = { tenantId: resolvedTenantId, deletedAt: null };
       if (!includeUnlisted) where.listed = true;
+      if (teamId) where.createdBy = { teamId }; // 팀 필터(생성자 소속 팀)
+
       workflows = await (this.prisma as any).workflow.findMany({
         where,
         select: {
@@ -1143,14 +1288,52 @@ export class DashboardService {
 
   // ── private loaders ──
 
+  /**
+   * workflowKey → 팀명. 팀 귀속은 IngestApiKey(agentKey=workflow.key, teamId)로 결정한다.
+   * (Agent는 팀에 배정된 Ingest 키로 실행을 보고하므로 그 키의 팀이 곧 Agent의 팀.)
+   * 매핑 없는 워크플로우는 '미지정 팀'.
+   */
+  private async loadTeamByWorkflowKey(tenantId: string): Promise<Map<string, string>> {
+    const m = new Map<string, string>();
+    try {
+      const rows = await (this.prisma as any).ingestApiKey.findMany({
+        where: { tenantId, agentKey: { not: null } },
+        select: { agentKey: true, team: { select: { name: true } } },
+        take: 5000,
+      });
+      for (const r of rows) {
+        if (r.agentKey && !m.has(r.agentKey)) m.set(r.agentKey, r.team?.name || '미지정 팀');
+      }
+    } catch (err) {
+      this.logger.warn(`loadTeamByWorkflowKey failed: ${(err as Error).message}`);
+    }
+    return m;
+  }
+
+  /** 팀(= 팀에 배정된 Ingest 키)에 연결된 workflowKey 집합. 빈 배열이면 해당 팀 Agent 없음. */
+  private async resolveTeamWorkflowKeys(tenantId: string, teamId: string): Promise<string[]> {
+    try {
+      const rows = await (this.prisma as any).ingestApiKey.findMany({
+        where: { tenantId, teamId, agentKey: { not: null } },
+        select: { agentKey: true },
+        take: 5000,
+      });
+      return [...new Set(rows.map((r: any) => r.agentKey).filter(Boolean))] as string[];
+    } catch (err) {
+      this.logger.warn(`resolveTeamWorkflowKeys failed: ${(err as Error).message}`);
+      return [];
+    }
+  }
+
   private async loadExecRows(
     tenantId: string,
     since: Date,
-    filters: { workflowKey?: string; agentName?: string } = {},
+    filters: { workflowKey?: string; agentName?: string; workflowKeys?: string[] } = {},
   ): Promise<ExecRow[]> {
     try {
       const where: any = { tenantId, createdAt: { gte: since } };
       if (filters.workflowKey) where.workflowKey = filters.workflowKey;
+      else if (filters.workflowKeys) where.workflowKey = { in: filters.workflowKeys };
       const rows = await (this.prisma as any).executionSession.findMany({
         where,
         select: {
@@ -1181,7 +1364,7 @@ export class DashboardService {
   private async loadEvalRows(
     tenantId: string,
     since: Date,
-    filters: { workflowKey?: string; agentName?: string } = {},
+    filters: { workflowKey?: string; agentName?: string; workflowKeys?: string[] } = {},
   ): Promise<EvalRow[]> {
     try {
       const where: any = {
@@ -1190,6 +1373,7 @@ export class DashboardService {
         NOT: { workflowKey: { startsWith: 'nodetest-' } },
       };
       if (filters.workflowKey) where.workflowKey = filters.workflowKey;
+      else if (filters.workflowKeys) where.workflowKey = { in: filters.workflowKeys };
       if (filters.agentName) where.agentName = filters.agentName;
       const evals = await (this.prisma as any).agentEvaluation.findMany({
         where,

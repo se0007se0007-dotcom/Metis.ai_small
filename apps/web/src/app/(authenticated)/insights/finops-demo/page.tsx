@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { SubTabs } from '@/components/shared/SubTabs';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import {
   Zap,
   Play,
@@ -119,6 +120,7 @@ const AGENT_OPTIONS = [
 ];
 
 export default function FinOpsDemoPage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [agentName, setAgentName] = useState('RAG-Chatbot');
   const [prompt, setPrompt] = useState('');
   const [requestedModel, setRequestedModel] = useState('');
@@ -646,7 +648,7 @@ export default function FinOpsDemoPage() {
                   }
                   sub={
                     (lastResult.savedUsd ?? 0) > 0
-                      ? `${lastResult.cacheHit ? 'T2 회피 ' : '절감 '}$${(lastResult.savedUsd ?? 0).toFixed(4)}`
+                      ? `${lastResult.cacheHit ? 'T2 회피 ' : '절감 '}${krw(lastResult.savedUsd ?? 0, { decimals: 2 })}`
                       : `적용: ${lastResult.optimizationApplied.length}개 Gate`
                   }
                 />

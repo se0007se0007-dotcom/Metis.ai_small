@@ -65,6 +65,14 @@ export interface EvaluationResult {
     outputLeakageCount: number;
     toolChainRisk: boolean;
     securityRiskLevel: string;
+    /** 근거(마스킹) — 입력위협/출력유출 상세. ORB 근거 상세에서 사용. */
+    details?: Array<{
+      kind: string;
+      type: string;
+      detail: string;
+      severity?: string;
+      confidence?: number;
+    }>;
   };
 
   /** Cost evaluation results (Gate 4) */
@@ -85,6 +93,18 @@ export interface EvaluationResult {
 
   /** Gates that were applied during this evaluation */
   gatesApplied: string[];
+
+  /**
+   * 품질 게이트의 LLM 심판(Claude/OpenAI) 호출 정보.
+   * used=false면 외부 LLM 미사용(통계 폴백)으로 평가된 것.
+   */
+  llmJudge: {
+    used: boolean;
+    provider?: string;
+    model?: string;
+    costUsd?: number;
+    qualityScore?: number;
+  };
 
   /** Persisted record ID (null if persistence failed) */
   recordId: string | null;
@@ -239,7 +259,9 @@ export function buildAnomaliesPayload(
 
   return {
     items,
-    summary: { total: items.length, bySeverity, byType, byAgent },
+    // total = 펼친 이상 '이벤트' 수, evaluationCount = 이상으로 '플래그된 평가' 수.
+    // evaluationCount는 대시보드 KPI(이상 감지)와 동일 정의(같은 window·nodetest- 제외)라 값이 일치한다.
+    summary: { total: items.length, evaluationCount: (rows || []).length, bySeverity, byType, byAgent },
     heatmap,
     window: { days: opts.days, since: opts.since },
   };
@@ -366,6 +388,7 @@ export class EvaluatorService {
         events: [],
       },
       gatesApplied: [],
+      llmJudge: { used: false },
       recordId: null,
     };
 
@@ -454,6 +477,17 @@ export class EvaluatorService {
             result.quality.completionScore = newGradeScore;
 
             gatesApplied.push('llm-judge');
+            result.llmJudge = {
+              used: true,
+              provider: /^claude/i.test(judgeResult.model || '')
+                ? 'Anthropic'
+                : /^(gpt|o1|o3|o4)/i.test(judgeResult.model || '')
+                  ? 'OpenAI'
+                  : 'LLM',
+              model: judgeResult.model,
+              costUsd: judgeResult.costUsd,
+              qualityScore: converted.qualityScore,
+            };
             this.logger.log(
               `LLM Judge blended: quality=${converted.qualityScore}, ` +
                 `hallucination=${converted.hallucinationRate}, ` +
@@ -676,15 +710,52 @@ export class EvaluatorService {
    * @param limit    Maximum number of evaluations to return (default: 50)
    * @returns Evaluations and aggregated stats
    */
+  /**
+   * 팀/테넌트 스코프 해석 — PLATFORM_ADMIN만 tenantId 오버라이드, 팀은 IngestApiKey(agentKey)로
+   * workflowKey 집합을 만든다(대시보드와 동일 정의).
+   */
+  private async resolveEvalScope(
+    userTenantId: string,
+    opts: { teamId?: string; tenantId?: string; role?: string } = {},
+  ): Promise<{ tenantId: string; workflowKeys?: string[] }> {
+    const isPlatform = opts.role === 'PLATFORM_ADMIN';
+    const tenantId = await this.resolveTenantId(
+      isPlatform && opts.tenantId ? opts.tenantId : userTenantId,
+    );
+    let workflowKeys: string[] | undefined;
+    if (opts.teamId) {
+      try {
+        const rows = await (this.prisma as any).ingestApiKey.findMany({
+          where: { tenantId, teamId: opts.teamId, agentKey: { not: null } },
+          select: { agentKey: true },
+          take: 5000,
+        });
+        workflowKeys = [...new Set(rows.map((r: any) => r.agentKey).filter(Boolean))] as string[];
+      } catch {
+        workflowKeys = [];
+      }
+    }
+    return { tenantId, workflowKeys };
+  }
+
   async getRecentEvaluations(
     tenantId: string,
     limit: number = 50,
+    opts: { teamId?: string; tenantId?: string; role?: string } = {},
   ): Promise<{ evaluations: any[]; stats: EvalStats }> {
     try {
-      const resolvedTenantId = await this.resolveTenantId(tenantId);
+      const { tenantId: resolvedTenantId, workflowKeys } = await this.resolveEvalScope(
+        tenantId,
+        opts,
+      );
 
+      const where: any = {
+        tenantId: resolvedTenantId,
+        NOT: { workflowKey: { startsWith: 'nodetest-' } },
+      };
+      if (workflowKeys) where.workflowKey = { in: workflowKeys };
       const evaluations = await (this.prisma as any).agentEvaluation.findMany({
-        where: { tenantId: resolvedTenantId, NOT: { workflowKey: { startsWith: 'nodetest-' } } },
+        where,
         orderBy: { createdAt: 'desc' },
         take: limit,
       });
@@ -719,10 +790,22 @@ export class EvaluatorService {
    */
   async getAnomalies(
     tenantId: string,
-    opts: { days?: number; workflowKey?: string; severity?: string; type?: string } = {},
+    opts: {
+      days?: number;
+      workflowKey?: string;
+      severity?: string;
+      type?: string;
+      teamId?: string;
+      tenantId?: string;
+      role?: string;
+    } = {},
   ): Promise<any> {
     try {
-      const resolvedTenantId = await this.resolveTenantId(tenantId);
+      const { tenantId: resolvedTenantId, workflowKeys } = await this.resolveEvalScope(tenantId, {
+        teamId: opts.teamId,
+        tenantId: opts.tenantId,
+        role: opts.role,
+      });
       const days = Math.max(1, Math.min(365, opts.days || 30));
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
@@ -733,6 +816,7 @@ export class EvaluatorService {
         NOT: { workflowKey: { startsWith: 'nodetest-' } }, // 운영 이상동작 화면에서 테스트 평가 제외
       };
       if (opts.workflowKey) where.workflowKey = opts.workflowKey;
+      else if (workflowKeys) where.workflowKey = { in: workflowKeys };
 
       const rows = await (this.prisma as any).agentEvaluation.findMany({
         where,
@@ -783,18 +867,27 @@ export class EvaluatorService {
    * @param days     Number of days to look back (default: 7)
    * @returns Daily aggregated evaluation data
    */
-  async getEvaluationTrend(tenantId: string, days: number = 7): Promise<any[]> {
+  async getEvaluationTrend(
+    tenantId: string,
+    days: number = 7,
+    opts: { teamId?: string; tenantId?: string; role?: string } = {},
+  ): Promise<any[]> {
     try {
-      const resolvedTenantId = await this.resolveTenantId(tenantId);
+      const { tenantId: resolvedTenantId, workflowKeys } = await this.resolveEvalScope(
+        tenantId,
+        opts,
+      );
       const sinceDate = new Date();
       sinceDate.setDate(sinceDate.getDate() - days);
 
+      const trendWhere: any = {
+        tenantId: resolvedTenantId,
+        createdAt: { gte: sinceDate },
+        NOT: { workflowKey: { startsWith: 'nodetest-' } }, // 트렌드에서 테스트 평가 제외
+      };
+      if (workflowKeys) trendWhere.workflowKey = { in: workflowKeys };
       const evaluations = await (this.prisma as any).agentEvaluation.findMany({
-        where: {
-          tenantId: resolvedTenantId,
-          createdAt: { gte: sinceDate },
-          NOT: { workflowKey: { startsWith: 'nodetest-' } }, // 트렌드에서 테스트 평가 제외
-        },
+        where: trendWhere,
         orderBy: { createdAt: 'asc' },
         select: {
           overallScore: true,
@@ -937,12 +1030,33 @@ export class EvaluatorService {
 
     const securityRiskLevel = this.highestRisk(riskLevels);
 
+    // 근거(마스킹) — 입력 위협 + 출력 유출 상세를 합쳐 저장. ORB 심사 "근거 상세"에서 노출.
+    const details = [
+      ...(Array.isArray(inputResult.details)
+        ? inputResult.details.map((d: any) => ({
+            kind: 'input_threat',
+            type: d.type,
+            detail: d.pattern ?? d.match ?? '',
+            severity: d.severity ?? 'high',
+          }))
+        : []),
+      ...(Array.isArray(outputResult.details)
+        ? outputResult.details.map((d: any) => ({
+            kind: 'output_leak',
+            type: d.type,
+            detail: d.match ?? '', // 이미 마스킹된 값
+            confidence: d.confidence,
+          }))
+        : []),
+    ].slice(0, 20);
+
     return {
       securityScore,
       inputThreatCount: inputResult.threatCount,
       outputLeakageCount: outputResult.leakageCount,
       toolChainRisk: toolChainResult.isSuspicious,
       securityRiskLevel,
+      details,
     };
   }
 

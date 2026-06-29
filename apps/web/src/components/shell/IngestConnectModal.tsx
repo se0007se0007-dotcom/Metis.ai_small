@@ -10,8 +10,9 @@
  * 관리자(ADMIN)에게만 노출. TopNav에서 렌더.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { X, KeyRound, Copy, Check, Plug, FlaskConical, Loader2, Trash2 } from 'lucide-react';
+import { X, KeyRound, Copy, Check, Plug, FlaskConical, Loader2, Trash2, BookOpen } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 
 interface IngestKey {
   id: string;
@@ -28,6 +29,7 @@ const API_BASE_FOR_SDK = (
 ).replace(/\/v1\/?$/, '');
 
 export function IngestConnectModal({ onClose }: { onClose: () => void }) {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [keys, setKeys] = useState<IngestKey[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,16 +104,33 @@ export function IngestConnectModal({ onClose }: { onClose: () => void }) {
   const snippet = `from metis import Metis
 
 m = Metis(
-    api_key="${issuedKey ?? 'mts_live_…'}",
-    base_url="${API_BASE_FOR_SDK}",
+    api_key="${issuedKey ?? 'mts_live_…'}",   # 팀/Agent별 Ingest 키
+    base_url="${API_BASE_FOR_SDK}",  # 내 Metis API 서버
 )
 
-# 실제 Agent 함수에 그냥 씌우면 호출마다 자동 평가/거버넌스
-@m.eval(agent="my-agent", task_type="qa", question_arg="q")
+# ── 표준 연동 (이 형태로 통일) ────────────────────────────────
+#   필수 : agent, question_arg(입력), return값(출력), model
+#   권장 : workflow_key(메인) / step_key(단계)
+#   → 위 입력만으로 품질·보안·비용·이상 4게이트가 모두 평가됨
+@m.eval(
+    agent="<코드>-<이름>",          # 기준정보에 등록한 Agent 이름과 동일
+    workflow_key="<메인 Agent 키>",  # 대시보드 그룹핑(서브→메인 합산)
+    step_key="main",                # 단계가 여러 개면 단계명으로 구분
+    task_type="qa",                 # qa / summarize / classify ...
+    model="claude-haiku-4-5",       # 모델 단가 기준정보의 모델 ID와 일치
+    question_arg="q",               # 함수의 입력 kwarg 이름과 동일
+)
 def my_agent(q):
+    # ★ LLM "원본 응답 객체"를 그대로 return → 출력·토큰 자동 추출(비용 계산)
+    #   문자열만 return하면 토큰=0 → 비용 0 (이때는 log_run으로 토큰 직접 전달)
     return call_my_real_llm(q)
 
-my_agent("환불 정책 알려줘")`;
+my_agent(q="환불 정책 알려줘")
+
+# (선택) RAG면 context_arg 한 줄 추가 → 환각 탐지 강화
+#   @m.eval(..., context_arg="docs")
+#   def my_agent(q, docs=None): ...
+#   docs = retriever.search(q); my_agent(q=q, docs=docs)`;
 
   const copy = async (text: string, which: 'key' | 'snippet') => {
     try {
@@ -280,6 +299,14 @@ my_agent("환불 정책 알려줘")`;
               SDK 위치: <code>sdks/python/metis</code> (pip 불필요 · stdlib만). 전송 즉시 동일한 5-게이트
               평가·거버넌스를 탑니다.
             </p>
+            <a
+              href="/onboarding-guide.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 bg-blue-50 text-blue-700 rounded-lg text-[11px] font-semibold hover:bg-blue-100"
+            >
+              <BookOpen size={13} /> 직원용 연동 온보딩 가이드 열기
+            </a>
           </section>
 
           {/* 4. 빠른 테스트 */}
@@ -329,7 +356,7 @@ my_agent("환불 정책 알려줘")`;
                 <div>
                   <div className="text-gray-400">예상 비용</div>
                   <div className="font-bold text-gray-900">
-                    {typeof eval0.costUsd === 'number' ? `$${eval0.costUsd.toFixed(5)}` : '—'}
+                    {typeof eval0.costUsd === 'number' ? krw(eval0.costUsd, { decimals: 2 }) : '—'}
                   </div>
                   <div className="text-[10px] text-gray-400">
                     {typeof eval0.tokensUsed === 'number' ? `${eval0.tokensUsed.toLocaleString()} 토큰(추정)` : ''}

@@ -20,10 +20,27 @@ export class DashboardController {
     return Math.max(1, Math.min(180, Number.isFinite(n) ? n : 30));
   }
 
+  /** PLATFORM_ADMIN만 다른 테넌트를 조회할 수 있다. 그 외에는 본인 테넌트로 고정. */
+  private effectiveTenant(user: RequestUser, tenantId?: string): string {
+    return user.role === 'PLATFORM_ADMIN' && tenantId?.trim() ? tenantId.trim() : user.tenantId;
+  }
+
   @Get('nav-counts')
   @ApiOperation({ summary: 'Real counts for left-nav badges' })
   async navCounts(@CurrentUser() user: RequestUser) {
     return this.dashboard.getNavCounts(user.tenantId);
+  }
+
+  @Get('system-usage')
+  @ApiOperation({
+    summary: '활용 시스템 상세 — 활용 Agent를 시스템/팀/테넌트로 그룹핑 (PLATFORM_ADMIN은 교차-테넌트)',
+  })
+  @ApiQuery({ name: 'days', required: false, type: Number })
+  async systemUsage(@CurrentUser() user: RequestUser, @Query('days') days?: string) {
+    return this.dashboard.getSystemUsage(
+      { tenantId: user.tenantId, role: user.role },
+      this.parseDays(days),
+    );
   }
 
   @Get('overview')
@@ -31,23 +48,37 @@ export class DashboardController {
   @ApiQuery({ name: 'days', required: false, type: Number })
   @ApiQuery({ name: 'workflowKey', required: false, type: String })
   @ApiQuery({ name: 'subAgent', required: false, type: String })
+  @ApiQuery({ name: 'teamId', required: false, type: String })
+  @ApiQuery({ name: 'tenantId', required: false, type: String, description: 'PLATFORM_ADMIN 전용 테넌트 전환' })
   async overview(
     @CurrentUser() user: RequestUser,
     @Query('days') days?: string,
     @Query('workflowKey') workflowKey?: string,
     @Query('subAgent') subAgent?: string,
+    @Query('teamId') teamId?: string,
+    @Query('tenantId') tenantId?: string,
   ) {
-    return this.dashboard.getOverview(user.tenantId, this.parseDays(days), {
+    return this.dashboard.getOverview(this.effectiveTenant(user, tenantId), this.parseDays(days), {
       workflowKey: workflowKey || undefined,
       agentName: subAgent || undefined,
+      teamId: teamId?.trim() || undefined,
     });
   }
 
   @Get('effectiveness')
   @ApiOperation({ summary: 'Per-agent effectiveness table + tenant summary (SCENARIO 2)' })
   @ApiQuery({ name: 'days', required: false, type: Number })
-  async effectiveness(@CurrentUser() user: RequestUser, @Query('days') days?: string) {
-    return this.dashboard.getEffectiveness(user.tenantId, this.parseDays(days));
+  @ApiQuery({ name: 'teamId', required: false, type: String })
+  @ApiQuery({ name: 'tenantId', required: false, type: String, description: 'PLATFORM_ADMIN 전용' })
+  async effectiveness(
+    @CurrentUser() user: RequestUser,
+    @Query('days') days?: string,
+    @Query('teamId') teamId?: string,
+    @Query('tenantId') tenantId?: string,
+  ) {
+    return this.dashboard.getEffectiveness(this.effectiveTenant(user, tenantId), this.parseDays(days), {
+      teamId: teamId?.trim() || undefined,
+    });
   }
 
   @Get('nodes')
@@ -79,18 +110,23 @@ export class DashboardController {
   @ApiQuery({ name: 'days', required: false, type: Number })
   @ApiQuery({ name: 'category', required: false, type: String })
   @ApiQuery({ name: 'includeUnlisted', required: false, type: Boolean })
+  @ApiQuery({ name: 'teamId', required: false, type: String })
+  @ApiQuery({ name: 'tenantId', required: false, type: String, description: 'PLATFORM_ADMIN 전용' })
   async agents(
     @CurrentUser() user: RequestUser,
     @Query('days') days?: string,
     @Query('category') category?: string,
     @Query('includeUnlisted') includeUnlisted?: string,
+    @Query('teamId') teamId?: string,
+    @Query('tenantId') tenantId?: string,
   ) {
     // 기준정보(관리) 화면은 심사 전(listed=false) Agent도 봐야 하므로 includeUnlisted=true 를 보낸다.
     return this.dashboard.getAgents(
-      user.tenantId,
+      this.effectiveTenant(user, tenantId),
       this.parseDays(days),
       category?.trim() || undefined,
       includeUnlisted === 'true' || includeUnlisted === '1',
+      teamId?.trim() || undefined,
     );
   }
 

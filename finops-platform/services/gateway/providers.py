@@ -61,7 +61,13 @@ def call_mock(model: str, messages: list, sim: dict) -> tuple:
 
 
 def call_openai(model: str, messages: list, max_tokens: int, tools: list = None) -> tuple:
-    body = {"model": model, "messages": messages, "max_tokens": max_tokens}
+    body = {"model": model, "messages": messages}
+    # gpt-5 / o-시리즈(reasoning)는 max_tokens 를 거부(400) → max_completion_tokens 사용.
+    ml = (model or "").lower()
+    if ml.startswith(("gpt-5", "o1", "o3", "o4")):
+        body["max_completion_tokens"] = max_tokens
+    else:
+        body["max_tokens"] = max_tokens
     if tools:
         body["tools"] = tools
     r = _client.post(f"{OPENAI_BASE}/chat/completions",
@@ -88,7 +94,12 @@ def call_azure(model: str, messages: list, max_tokens: int, tools: list = None) 
     """Azure OpenAI — 배포(deployment) 단위 호출. 기본값: 모델명 = 배포명."""
     deployment = AZURE_DEPLOYMENT or model
     url = f"{AZURE_ENDPOINT}/openai/deployments/{deployment}/chat/completions?api-version={AZURE_API_VERSION}"
-    body = {"messages": messages, "max_tokens": max_tokens}
+    body = {"messages": messages}
+    ml = (model or "").lower()
+    if ml.startswith(("gpt-5", "o1", "o3", "o4")):
+        body["max_completion_tokens"] = max_tokens
+    else:
+        body["max_tokens"] = max_tokens
     if tools:
         body["tools"] = tools
     r = _client.post(url, headers={"api-key": AZURE_KEY}, json=body)

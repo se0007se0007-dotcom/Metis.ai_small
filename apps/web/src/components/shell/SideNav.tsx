@@ -116,6 +116,8 @@ interface NavItem {
   visibleTo: string[];
   badge?: number | string;
   badgeColor?: string;
+  /** true면 새 탭으로 여는 외부/정적 링크(<a target="_blank">)로 렌더 */
+  external?: boolean;
 }
 
 interface NavGroup {
@@ -198,12 +200,20 @@ const navigationGroups: NavGroup[] = [
       },
       {
         id: 'gov-review',
-        label: '심사·승격',
-        href: '/governance/orb-governance',
+        label: 'ORB 심사',
+        href: '/governance/orb',
         icon: <ClipboardList size={18} />,
         section: 'governance',
         badge: 'NEW',
         badgeColor: 'gold',
+        visibleTo: ADMIN_OP,
+      },
+      {
+        id: 'gov-evidence',
+        label: '증거팩 (감사)',
+        href: '/governance/evidence',
+        icon: <ShieldCheck size={18} />,
+        section: 'governance',
         visibleTo: ADMIN_OP,
       },
       {
@@ -341,6 +351,17 @@ const navigationGroups: NavGroup[] = [
         icon: <Gauge size={18} />,
         section: 'admin',
         visibleTo: ADMIN_ONLY,
+      },
+      {
+        id: 'onboarding-guide',
+        label: 'Agent 연동 가이드',
+        href: '/onboarding-guide.html',
+        icon: <BookOpen size={18} />,
+        section: 'admin',
+        visibleTo: ADMIN_ONLY,
+        external: true,
+        badge: 'NEW',
+        badgeColor: 'blue',
       },
     ],
   },
@@ -503,20 +524,16 @@ export function SideNav() {
                       : item.badge;
                 const hasBadge = displayBadge !== undefined && displayBadge !== null;
 
-                return (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    title={collapsed ? item.label : undefined}
-                    className={`relative flex items-center ${
-                      collapsed ? 'justify-center px-0' : 'gap-2.5 px-5'
-                    } py-2.5 text-[13px] font-medium border-l-[3px] border-l-transparent transition-all
-                      ${
-                        isActive
-                          ? activeClasses
-                          : 'text-[#9ca3af] hover:bg-white/[0.03] hover:text-white'
-                      }`}
-                  >
+                const itemClass = `relative flex items-center ${
+                  collapsed ? 'justify-center px-0' : 'gap-2.5 px-5'
+                } py-2.5 text-[13px] font-medium border-l-[3px] border-l-transparent transition-all
+                  ${
+                    isActive
+                      ? activeClasses
+                      : 'text-[#9ca3af] hover:bg-white/[0.03] hover:text-white'
+                  }`;
+                const itemInner = (
+                  <>
                     <span className="text-base">{item.icon}</span>
                     {!collapsed && <span className="truncate">{item.label}</span>}
                     {!collapsed && hasBadge && (
@@ -533,6 +550,29 @@ export function SideNav() {
                         )}`}
                       />
                     )}
+                  </>
+                );
+
+                // 외부/정적 링크(가이드 등)는 새 탭으로 — Next Link 대신 <a>
+                return item.external ? (
+                  <a
+                    key={item.id}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={collapsed ? item.label : undefined}
+                    className={itemClass}
+                  >
+                    {itemInner}
+                  </a>
+                ) : (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    title={collapsed ? item.label : undefined}
+                    className={itemClass}
+                  >
+                    {itemInner}
                   </Link>
                 );
               })}

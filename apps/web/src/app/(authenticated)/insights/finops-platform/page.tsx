@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import { RefreshCw, Activity, ShieldCheck, Cpu, Wallet, DollarSign, Lightbulb, ShieldAlert } from 'lucide-react';
 
 type Tab = 'control' | 'policy' | 'dev' | 'ops' | 'finance' | 'gov' | 'insight';
@@ -21,7 +22,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 const PALETTE = ['#2B6CB0', '#2C7A4B', '#B07D2B', '#B23B3B', '#6B5CA5', '#0E7C86', '#9C6B2E', '#7A7F87'];
 
-const usd = (v: unknown, d = 4) => (typeof v === 'number' ? `$${v.toFixed(d)}` : '—');
+const usd = (v: unknown, d = 4) => (typeof v === 'number' ? krw(v, { decimals: d <= 2 ? d : 2 }) : '—');
 const numv = (v: unknown) => (typeof v === 'number' ? v.toLocaleString() : '—');
 const pctv = (v: unknown) => (typeof v === 'number' ? `${(v * 100).toFixed(0)}%` : '—');
 const f2 = (v: unknown) => (typeof v === 'number' ? v.toFixed(2) : '—');
@@ -190,6 +191,7 @@ function Tbl({ cols, rows }: { cols: { h: string; r: (x: any) => React.ReactNode
 }
 
 export default function FinOpsNativePage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [tab, setTab] = useState<Tab>('control');
   const [d, setD] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);

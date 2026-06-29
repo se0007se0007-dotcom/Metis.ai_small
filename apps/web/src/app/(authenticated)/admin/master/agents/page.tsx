@@ -15,6 +15,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import { agentDisplayName } from '@/lib/agent-label';
 import { AgentRegisterModal } from '@/components/shared/AgentRegisterModal';
 import {
@@ -133,6 +134,7 @@ const CATEGORY_TABS = [
 ];
 
 export default function AgentMasterPage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [agents, setAgents] = useState<MainAgentDef[]>([]);
   const [rollups, setRollups] = useState<Record<string, MainRollup>>({});
   const [loading, setLoading] = useState(true);
@@ -415,7 +417,7 @@ export default function AgentMasterPage() {
         <Stat icon={<Layers size={15} />} label="Sub-Agent" value={String(totalSubs)} color="text-indigo-600" />
         <Stat icon={<Gauge size={15} />} label="평균 품질" value={`${avgQuality}`} unit="/100" color="text-emerald-600" />
         <Stat icon={<AlertTriangle size={15} />} label="이상 합계" value={String(totalAnom)} color={totalAnom > 0 ? 'text-red-600' : 'text-gray-700'} />
-        <Stat icon={<DollarSign size={15} />} label="비용(30일)" value={`$${totalCost.toFixed(2)}`} color="text-amber-600" />
+        <Stat icon={<DollarSign size={15} />} label="비용(30일)" value={krw(totalCost, { decimals: 0 })} color="text-amber-600" />
       </div>
 
       {/* 필터 */}
@@ -493,7 +495,7 @@ export default function AgentMasterPage() {
                   <div className="hidden md:flex items-center gap-3 text-[11px] text-gray-500 flex-shrink-0">
                     <span title="실행 수"><Activity size={11} className="inline mb-0.5" /> {a.executions}</span>
                     <span title="평균 품질"><Gauge size={11} className="inline mb-0.5" /> {a.avgScore}</span>
-                    <span title="비용(30일)"><DollarSign size={11} className="inline mb-0.5" /> ${mainCost.toFixed(2)}</span>
+                    <span title="비용(30일)"><DollarSign size={11} className="inline mb-0.5" /> {krw(mainCost, { decimals: 0 })}</span>
                     <span title="이상" className={a.anomalyCount > 0 ? 'text-red-600 font-semibold' : ''}>
                       <AlertTriangle size={11} className="inline mb-0.5" /> {a.anomalyCount}
                     </span>
@@ -564,7 +566,7 @@ export default function AgentMasterPage() {
                                     {r ? r.avgScore : <span className="text-gray-300">—</span>}
                                   </td>
                                   <td className="px-3 py-2 text-right text-gray-600">
-                                    {r ? `$${r.avgCostUsd.toFixed(4)}` : <span className="text-gray-300">—</span>}
+                                    {r ? krw(r.avgCostUsd, { decimals: 2 }) : <span className="text-gray-300">—</span>}
                                   </td>
                                   <td className={`px-3 py-2 text-center font-medium ${r ? RISK_CLS(r.worstSecurityRisk) : 'text-gray-300'}`}>
                                     {r ? RISK_LABEL(r.worstSecurityRisk) : '—'}

@@ -137,6 +137,7 @@ export default function OrbGovernancePage() {
   const [drift, setDrift] = useState<DriftResult | null>(null);
   const [chain, setChain] = useState<ChainResult | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false); // 고급(정책패치·드리프트·체인검증) 접기
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -321,8 +322,8 @@ export default function OrbGovernancePage() {
 
       <SubTabs
         items={[
-          { label: '거버넌스 심사·승격', href: '/governance/orb-governance' },
-          { label: 'ORB 심사', href: '/governance/orb' },
+          { label: '① ORB 심사 (자동평가→사람심사)', href: '/governance/orb' },
+          { label: '② 거버넌스 승격', href: '/governance/orb-governance' },
         ]}
       />
 
@@ -511,35 +512,46 @@ export default function OrbGovernancePage() {
                       enabled={canReplay}
                       busy={busy === 'Sandbox Replay'}
                     />
-                    <ActionBtn
-                      icon={<Wrench size={13} />}
-                      label="③ 정책 패치 자동삽입"
-                      onClick={doPatches}
-                      enabled={canPatch}
-                      busy={busy === '정책 패치'}
-                    />
+                    {showAdvanced && (
+                      <ActionBtn
+                        icon={<Wrench size={13} />}
+                        label="정책 패치 자동삽입"
+                        onClick={doPatches}
+                        enabled={canPatch}
+                        busy={busy === '정책 패치'}
+                      />
+                    )}
                     <ActionBtn
                       icon={<CheckCircle2 size={13} />}
-                      label="④ 승인"
+                      label="③ 승인"
                       onClick={doApprove}
                       enabled={canApprove}
                       busy={busy === '승인'}
                     />
                     <ActionBtn
                       icon={<Rocket size={13} />}
-                      label="⑤ Immutable 승격"
+                      label="④ 승격(운영 배포)"
                       onClick={doPromote}
                       enabled={canPromote}
                       busy={busy === '승격'}
                       primary
                     />
-                    <ActionBtn
-                      icon={<GitCompareArrows size={13} />}
-                      label="Drift 검사"
-                      onClick={doDriftCheck}
-                      enabled={!!selected.fingerprintHash}
-                      busy={busy === 'Drift 검사'}
-                    />
+                    {showAdvanced && (
+                      <ActionBtn
+                        icon={<GitCompareArrows size={13} />}
+                        label="Drift 검사"
+                        onClick={doDriftCheck}
+                        enabled={!!selected.fingerprintHash}
+                        busy={busy === 'Drift 검사'}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvanced((v) => !v)}
+                      className="ml-auto text-[11px] font-semibold text-accent hover:underline"
+                    >
+                      {showAdvanced ? '고급 숨기기' : '고급 거버넌스 ▾ (정책패치·Drift)'}
+                    </button>
                   </div>
 
                   {/* 해시 정보 */}

@@ -1715,6 +1715,11 @@ model OrbReview {
   // ── Auto-evaluation scores (from Evaluator engine) ──
   autoEvalScore     Float?        /// Overall score from Agent Evaluator
   autoEvalJson      Json?         /// Full auto-evaluation result
+  /// 제출 시 4-게이트 엔진 자동평가 출처/신뢰도 — 'history'(실측) | 'sample'(데이터없음) | 'none'
+  autoScoreSource     String?
+  autoScoreConfidence String?     /// 'high' | 'medium' | 'low'
+  autoScoreSampleCount Int?       /// 집계된 실측 평가 건수(0이면 데이터 없음)
+  autoScoredAt        DateTime?
 
   status            String        @default("pending") /// pending | in_review | completed
   createdAt         DateTime      @default(now())
@@ -1986,6 +1991,8 @@ model OpsReferenceConfig {
   hourlyRateUsd            Float    @default(50)
   /// 월 근무시간 — 절감시간 → MM(맨먼스) 환산 분모
   workingHoursPerMonth     Int      @default(160)
+  /// 원/달러 환율 — 모든 비용(USD) 표시를 원화로 환산하는 기준 환율
+  usdToKrw                 Int      @default(1380)
   /// Health '비정상(down)' 임계값
   healthDownScore          Int      @default(50)
   healthDownFailRate       Float    @default(0.3)

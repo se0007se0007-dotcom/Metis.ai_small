@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { SubTabs } from '@/components/shared/SubTabs';
 import { usePagination, Pager } from '@/components/shared/usePagination';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import {
   Play,
   Loader2,
@@ -665,6 +666,7 @@ function GateDetail({ label, value }: { label: string; value: React.ReactNode })
 // ── Main Page Component ────────────────────────────────────────────────────
 
 export default function AgentTestPage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [agents, setAgents] = useState<AgentDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<AgentDefinition | null>(null);
@@ -1374,7 +1376,7 @@ export default function AgentTestPage() {
                     />
                     <GateDetail
                       label="예상 비용"
-                      value={`$${result.gates.cost.estimatedCostUsd.toFixed(4)}`}
+                      value={krw(result.gates.cost.estimatedCostUsd, { decimals: 2 })}
                     />
                     <GateDetail
                       label="실행 시간"

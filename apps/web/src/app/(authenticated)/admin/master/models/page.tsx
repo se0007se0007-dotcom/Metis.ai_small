@@ -15,6 +15,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import {
   Sparkles,
   RefreshCw,
@@ -65,6 +66,7 @@ const EMPTY: ModelPrice = {
 };
 
 export default function ModelPriceMasterPage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [rows, setRows] = useState<ModelPrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,8 +174,9 @@ export default function ModelPriceMasterPage() {
             <Sparkles size={20} className="text-violet-600" /> 모델 단가 기준정보
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            LLM 모델별 호출 단가(<b>1M 토큰당 USD</b>)의 단일 소스입니다. 모든 Agent의 비용 계산이 이
-            값을 기준으로 이뤄집니다. 글로벌 공통값(테넌트 구분 없음).
+            LLM 모델별 호출 단가의 단일 소스입니다(원가는 <b>1M 토큰당 USD</b>로 입력, 표는 기준정보
+            환율로 환산한 <b>₩</b>로 표시). 모든 Agent의 비용 계산이 이 값을 기준으로 이뤄집니다. 글로벌
+            공통값(테넌트 구분 없음).
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -249,9 +252,9 @@ export default function ModelPriceMasterPage() {
               <th className="text-left px-3 py-2">모델 ID</th>
               <th className="text-left px-3 py-2">공급자</th>
               <th className="text-center px-3 py-2">티어</th>
-              <th className="text-right px-3 py-2">입력 $/1M</th>
-              <th className="text-right px-3 py-2">출력 $/1M</th>
-              <th className="text-right px-3 py-2">캐시입력 $/1M</th>
+              <th className="text-right px-3 py-2">입력 ₩/1M</th>
+              <th className="text-right px-3 py-2">출력 ₩/1M</th>
+              <th className="text-right px-3 py-2">캐시입력 ₩/1M</th>
               <th className="text-center px-3 py-2">출처</th>
               <th className="text-center px-3 py-2">상태</th>
               <th className="text-center px-3 py-2">관리</th>
@@ -280,10 +283,10 @@ export default function ModelPriceMasterPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-center text-gray-600">{TIER_LABEL[r.tier] ?? `T${r.tier}`}</td>
-                  <td className="px-3 py-2 text-right font-semibold text-gray-900">${r.inputPerMUsd}</td>
-                  <td className="px-3 py-2 text-right font-semibold text-gray-900">${r.outputPerMUsd}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-gray-900">{krw(r.inputPerMUsd, { decimals: 0 })}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-gray-900">{krw(r.outputPerMUsd, { decimals: 0 })}</td>
                   <td className="px-3 py-2 text-right text-gray-500">
-                    {r.cachedInputPerMUsd != null ? `$${r.cachedInputPerMUsd}` : '—'}
+                    {r.cachedInputPerMUsd != null ? krw(r.cachedInputPerMUsd, { decimals: 0 }) : '—'}
                   </td>
                   <td className="px-3 py-2 text-center">
                     <span className={`px-1.5 py-0.5 rounded text-[10px] ${SOURCE_CLS[r.source ?? 'BUILTIN'] ?? SOURCE_CLS.BUILTIN}`}>
@@ -375,6 +378,7 @@ export default function ModelPriceMasterPage() {
                     onChange={(e) => setEditing({ ...editing, inputPerMUsd: Number(e.target.value) })}
                     className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg"
                   />
+                  <p className="text-[10px] text-gray-400 mt-0.5">≈ {krw(editing.inputPerMUsd, { decimals: 0 })}/1M</p>
                 </Field>
                 <Field label="출력 단가 ($/1M)">
                   <input
@@ -385,6 +389,7 @@ export default function ModelPriceMasterPage() {
                     onChange={(e) => setEditing({ ...editing, outputPerMUsd: Number(e.target.value) })}
                     className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg"
                   />
+                  <p className="text-[10px] text-gray-400 mt-0.5">≈ {krw(editing.outputPerMUsd, { decimals: 0 })}/1M</p>
                 </Field>
               </div>
               <Field label="캐시입력 단가 ($/1M, 선택)">
@@ -399,6 +404,9 @@ export default function ModelPriceMasterPage() {
                   placeholder="비우면 입력 단가로 계산"
                   className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg"
                 />
+                {editing.cachedInputPerMUsd != null && (
+                  <p className="text-[10px] text-gray-400 mt-0.5">≈ {krw(editing.cachedInputPerMUsd, { decimals: 0 })}/1M</p>
+                )}
               </Field>
               <label className="flex items-center gap-2 text-xs text-gray-700">
                 <input

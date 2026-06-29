@@ -6,6 +6,7 @@ import { SubTabs } from '@/components/shared/SubTabs';
 import { SummaryStatCard } from '@/components/shared/SummaryStatCard';
 import { usePagination, Pager } from '@/components/shared/usePagination';
 import { api } from '@/lib/api-client';
+import { krw } from '@/lib/opsRef';
 import {
   Shield,
   Zap,
@@ -64,6 +65,13 @@ interface EvaluationResult {
   costEfficiency?: number;
   latencyGrade?: string;
   gatesApplied: string[];
+  llmJudge?: {
+    used: boolean;
+    provider?: string;
+    model?: string;
+    costUsd?: number;
+    qualityScore?: number;
+  };
   recommendations?: string[];
   createdAt: string;
   agentName?: string;
@@ -257,6 +265,13 @@ export default function EvaluatorPage() {
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 팀/테넌트 필터(테넌트 전환은 PLATFORM_ADMIN만)
+  const [teamF, setTeamF] = useState('');
+  const [tenantF, setTenantF] = useState('');
+  const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
+  const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
+  const [role, setRole] = useState('');
+  const isPlatformAdmin = role === 'PLATFORM_ADMIN';
 
   // Demo state
   const [demoInput, setDemoInput] = useState('');
@@ -269,7 +284,10 @@ export default function EvaluatorPage() {
   // ── Data Fetching ──
   const fetchEvaluations = useCallback(async () => {
     try {
-      const raw = await api.get<any>('/evaluator/recent?limit=50');
+      const ftq =
+        (teamF ? `&teamId=${encodeURIComponent(teamF)}` : '') +
+        (tenantF ? `&tenantId=${encodeURIComponent(tenantF)}` : '');
+      const raw = await api.get<any>(`/evaluator/recent?limit=50${ftq}`);
       let items: EvaluationResult[] = [];
       if (raw && Array.isArray(raw.evaluations)) {
         items = raw.evaluations;
@@ -282,11 +300,37 @@ export default function EvaluatorPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [teamF, tenantF]);
 
   useEffect(() => {
     fetchEvaluations();
   }, [fetchEvaluations]);
+
+  // 역할 + (PLATFORM_ADMIN이면) 테넌트 목록
+  useEffect(() => {
+    api
+      .get<{ role: string }>('/auth/me')
+      .then((r) => {
+        if (r?.role) setRole(r.role);
+        if (r?.role === 'PLATFORM_ADMIN') {
+          api
+            .get<{ items: { id: string; name: string }[] }>('/tenants/all')
+            .then((res) => setTenants(Array.isArray(res?.items) ? res.items : []))
+            .catch(() => setTenants([]));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // 팀 목록 — 선택 테넌트 기준
+  useEffect(() => {
+    const url = tenantF ? `/tenants/by-id/${tenantF}/org` : '/tenants/current/org';
+    setTeamF('');
+    api
+      .get<{ teams: { id: string; name: string }[] }>(url)
+      .then((res) => setTeams(Array.isArray(res?.teams) ? res.teams : []))
+      .catch(() => setTeams([]));
+  }, [tenantF]);
 
   useEffect(() => {
     if (autoRefresh) {
@@ -369,6 +413,34 @@ export default function EvaluatorPage() {
             </button>
           ))}
           <div className="ml-auto flex items-center gap-2 px-4">
+            {isPlatformAdmin && (
+              <select
+                value={tenantF}
+                onChange={(e) => setTenantF(e.target.value)}
+                title="테넌트 필터 (PLATFORM_ADMIN)"
+                className="bg-white border border-gray-200 rounded text-xs text-gray-900 px-2 py-1 min-w-[9rem]"
+              >
+                <option value="">🏢 내 테넌트</option>
+                {tenants.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <select
+              value={teamF}
+              onChange={(e) => setTeamF(e.target.value)}
+              title="팀 필터"
+              className="bg-white border border-gray-200 rounded text-xs text-gray-900 px-2 py-1 min-w-[9rem]"
+            >
+              <option value="">👥 전체 팀 ({teams.length})</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
             <span
               className={`flex items-center gap-1 text-xs font-medium ${autoRefresh ? 'text-green-600' : 'text-gray-400'}`}
             >
@@ -945,7 +1017,7 @@ function DemoResultPanel({ result }: { result: EvaluationResult }) {
       label: '비용 효율',
       icon: <DollarSign size={16} />,
       score: Math.round((result.costEfficiency ?? 0) * 100),
-      detail: `비용: $${result.estimatedCostUsd?.toFixed(4) ?? '0'} | 토큰: ${result.tokensUsed ?? 0} | 지연: ${result.executionTimeMs ?? 0}ms`,
+      detail: `비용: ${krw(result.estimatedCostUsd ?? 0, { decimals: 2 })} | 토큰: ${result.tokensUsed ?? 0} | 지연: ${result.executionTimeMs ?? 0}ms`,
       color: getScoreColor(Math.round((result.costEfficiency ?? 0) * 100)),
       bg: getScoreBg(Math.round((result.costEfficiency ?? 0) * 100)),
     },
@@ -978,6 +1050,39 @@ function DemoResultPanel({ result }: { result: EvaluationResult }) {
             {result.qualityGrade}
           </span>
         </div>
+      </div>
+      {/* 품질 게이트 LLM 심판(Claude/OpenAI) 실제 호출 여부 — 매 평가마다 확인 */}
+      <div
+        className={`mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-3 py-2 text-[11px] ${
+          result.llmJudge?.used
+            ? 'bg-purple-50 border-purple-200 text-purple-800'
+            : 'bg-gray-50 border-gray-200 text-gray-500'
+        }`}
+      >
+        <span className="font-semibold">
+          {result.llmJudge?.used ? '✓ LLM 심판 사용됨' : '○ LLM 심판 미사용 (통계 폴백)'}
+        </span>
+        {result.llmJudge?.used && (
+          <>
+            <span>
+              제공자: <b>{result.llmJudge.provider ?? '-'}</b>
+            </span>
+            <span>
+              모델: <b>{result.llmJudge.model ?? '-'}</b>
+            </span>
+            <span>
+              심판 비용: <b>{krw(result.llmJudge.costUsd ?? 0, { decimals: 2 })}</b>
+            </span>
+            {typeof result.llmJudge.qualityScore === 'number' && (
+              <span>
+                LLM 품질판정: <b>{result.llmJudge.qualityScore}점</b>
+              </span>
+            )}
+          </>
+        )}
+        <span className="ml-auto text-[10px] opacity-70">
+          보안·비용·이상 게이트는 LLM 비호출(규칙 기반)
+        </span>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {gates.map((gate) => (
@@ -1320,7 +1425,7 @@ function QualityTab({ evaluations }: { evaluations: EvaluationResult[] }) {
                           <div className="bg-white border border-gray-200 rounded p-3">
                             <p className="font-semibold text-emerald-600 mb-1.5">비용 Gate</p>
                             <p className="text-gray-600">
-                              비용 ${(ev.estimatedCostUsd ?? 0).toFixed(5)}
+                              비용 {krw(ev.estimatedCostUsd ?? 0, { decimals: 2 })}
                             </p>
                             <p className="text-gray-600">
                               효율 {((ev.costEfficiency ?? 0) * 100).toFixed(0)}%
@@ -1926,7 +2031,7 @@ function CostTab({ evaluations }: { evaluations: EvaluationResult[] }) {
           <p className="text-xs text-gray-500 mt-1">평균 효율</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-          <p className="text-3xl font-bold text-amber-600">${totalCost.toFixed(4)}</p>
+          <p className="text-3xl font-bold text-amber-600">{krw(totalCost, { decimals: 0 })}</p>
           <p className="text-xs text-gray-500 mt-1">총 추정 비용</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
@@ -1989,7 +2094,7 @@ function CostTab({ evaluations }: { evaluations: EvaluationResult[] }) {
                 >
                   <td className="px-3 py-2.5 text-xs font-medium text-gray-900">{name}</td>
                   <td className="px-3 py-2.5 text-xs text-gray-600 text-center">
-                    ${aCost.toFixed(4)}
+                    {krw(aCost, { decimals: 2 })}
                   </td>
                   <td className="px-3 py-2.5 text-xs text-gray-600 text-center">
                     {aTokens.toFixed(0)}

@@ -38,10 +38,21 @@ export class EvaluatorController {
     type: Number,
     description: 'Max evaluations to return (default: 50)',
   })
+  @ApiQuery({ name: 'teamId', required: false, type: String })
+  @ApiQuery({ name: 'tenantId', required: false, type: String, description: 'PLATFORM_ADMIN 전용' })
   @ApiResponse({ status: 200, description: 'Recent evaluations and stats' })
-  async getRecent(@CurrentUser() user: RequestUser, @Query('limit') limit?: string) {
+  async getRecent(
+    @CurrentUser() user: RequestUser,
+    @Query('limit') limit?: string,
+    @Query('teamId') teamId?: string,
+    @Query('tenantId') tenantId?: string,
+  ) {
     const parsedLimit = limit ? Math.max(1, Math.min(200, parseInt(limit, 10))) : 50;
-    return this.evaluatorService.getRecentEvaluations(user.tenantId, parsedLimit);
+    return this.evaluatorService.getRecentEvaluations(user.tenantId, parsedLimit, {
+      teamId: teamId?.trim() || undefined,
+      tenantId: tenantId?.trim() || undefined,
+      role: user.role,
+    });
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -70,10 +81,21 @@ export class EvaluatorController {
     type: Number,
     description: 'Number of days to look back (default: 7)',
   })
+  @ApiQuery({ name: 'teamId', required: false, type: String })
+  @ApiQuery({ name: 'tenantId', required: false, type: String, description: 'PLATFORM_ADMIN 전용' })
   @ApiResponse({ status: 200, description: 'Daily evaluation trend data' })
-  async getTrend(@CurrentUser() user: RequestUser, @Query('days') days?: string) {
+  async getTrend(
+    @CurrentUser() user: RequestUser,
+    @Query('days') days?: string,
+    @Query('teamId') teamId?: string,
+    @Query('tenantId') tenantId?: string,
+  ) {
     const parsedDays = days ? Math.max(1, Math.min(90, parseInt(days, 10))) : 7;
-    return this.evaluatorService.getEvaluationTrend(user.tenantId, parsedDays);
+    return this.evaluatorService.getEvaluationTrend(user.tenantId, parsedDays, {
+      teamId: teamId?.trim() || undefined,
+      tenantId: tenantId?.trim() || undefined,
+      role: user.role,
+    });
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -102,6 +124,8 @@ export class EvaluatorController {
     @Query('workflowKey') workflowKey?: string,
     @Query('severity') severity?: string,
     @Query('type') type?: string,
+    @Query('teamId') teamId?: string,
+    @Query('tenantId') tenantId?: string,
   ) {
     const parsedDays = days ? Math.max(1, Math.min(365, parseInt(days, 10))) : 30;
     return this.evaluatorService.getAnomalies(user.tenantId, {
@@ -109,6 +133,9 @@ export class EvaluatorController {
       workflowKey,
       severity,
       type,
+      teamId: teamId?.trim() || undefined,
+      tenantId: tenantId?.trim() || undefined,
+      role: user.role,
     });
   }
 
@@ -223,6 +250,7 @@ export class EvaluatorController {
       anomalyEvents: result.anomaly.events,
       // Meta
       gatesApplied: result.gatesApplied,
+      llmJudge: result.llmJudge, // 품질 게이트가 외부 LLM(Claude/OpenAI)을 호출했는지 + 모델/비용
       recommendations: result.cost.recommendations,
       createdAt: new Date().toISOString(),
       agentName: body.agentName || 'demo-agent',

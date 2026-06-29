@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { SubTabs } from '@/components/shared/SubTabs';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import {
   Coins,
   Send,
@@ -74,6 +75,7 @@ const DECISION_STYLE: Record<string, string> = {
 };
 
 export default function FinOpsLabPage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [prompt, setPrompt] = useState('SR-1024 티켓의 영향도를 분석하고 요약해줘');
   const [agentName, setAgentName] = useState('finops-lab-agent');
   const [dataClass, setDataClass] = useState('INTERNAL');
@@ -247,7 +249,7 @@ export default function FinOpsLabPage() {
                   />
                   <ResultCard
                     label="절감"
-                    value={`$${(result.savedUsd ?? 0).toFixed(4)} (${(result.savedPct ?? 0).toFixed(0)}%)`}
+                    value={`${krw(result.savedUsd ?? 0, { decimals: 2 })} (${(result.savedPct ?? 0).toFixed(0)}%)`}
                     tone="text-success"
                   />
                 </div>
@@ -290,8 +292,9 @@ export default function FinOpsLabPage() {
                     )}
                     {result.budget && (
                       <p className="mt-2 flex items-center gap-1 text-[10px] text-gray-400">
-                        <Wallet size={11} /> 오늘 ${result.budget.usedTodayUsd.toFixed(3)} / $
-                        {result.budget.dailyLimitUsd} ({(result.budget.budgetPressure * 100).toFixed(1)}
+                        <Wallet size={11} /> 오늘 {krw(result.budget.usedTodayUsd, { decimals: 0 })} /{' '}
+                        {krw(result.budget.dailyLimitUsd, { decimals: 0 })} (
+                        {(result.budget.budgetPressure * 100).toFixed(1)}
                         %) — {result.budget.action}
                       </p>
                     )}

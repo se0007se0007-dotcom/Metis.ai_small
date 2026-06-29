@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { usePagination, Pager } from '@/components/shared/usePagination';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import {
   RefreshCw,
   AlertCircle,
@@ -127,8 +128,7 @@ function fmtHours(n: number | null | undefined): string {
 }
 function fmtUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return EM;
-  const v = Math.round(Number(n));
-  return `${v < 0 ? '-' : ''}$${Math.abs(v).toLocaleString()}`;
+  return krw(Number(n), { decimals: 0 });
 }
 function fmtMinutes(n: number | null | undefined): string {
   if (dashIfEmpty(n)) return EM;
@@ -145,20 +145,31 @@ interface TrendPoint {
 }
 
 export default function EffectivenessPage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [data, setData] = useState<EffectivenessResponse | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState<7 | 30 | 90>(30);
+  // 팀/테넌트 필터(테넌트 전환은 PLATFORM_ADMIN만)
+  const [teamF, setTeamF] = useState('');
+  const [tenantF, setTenantF] = useState('');
+  const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
+  const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
+  const [role, setRole] = useState('');
+  const isPlatformAdmin = role === 'PLATFORM_ADMIN';
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const ftq =
+      (teamF ? `&teamId=${encodeURIComponent(teamF)}` : '') +
+      (tenantF ? `&tenantId=${encodeURIComponent(tenantF)}` : '');
     try {
       const [res, ov] = await Promise.all([
-        api.get<EffectivenessResponse>(`/dashboard/effectiveness?days=${days}`),
+        api.get<EffectivenessResponse>(`/dashboard/effectiveness?days=${days}${ftq}`),
         api
-          .get<{ timeseries?: TrendPoint[] }>(`/dashboard/overview?days=${days}`)
+          .get<{ timeseries?: TrendPoint[] }>(`/dashboard/overview?days=${days}${ftq}`)
           .catch(() => null),
       ]);
       setData(res);
@@ -169,11 +180,37 @@ export default function EffectivenessPage() {
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [days, teamF, tenantF]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // 역할 + (PLATFORM_ADMIN이면) 테넌트 목록
+  useEffect(() => {
+    api
+      .get<{ role: string }>('/auth/me')
+      .then((r) => {
+        if (r?.role) setRole(r.role);
+        if (r?.role === 'PLATFORM_ADMIN') {
+          api
+            .get<{ items: { id: string; name: string }[] }>('/tenants/all')
+            .then((res) => setTenants(Array.isArray(res?.items) ? res.items : []))
+            .catch(() => setTenants([]));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // 팀 목록 — 선택 테넌트 기준
+  useEffect(() => {
+    const url = tenantF ? `/tenants/by-id/${tenantF}/org` : '/tenants/current/org';
+    setTeamF('');
+    api
+      .get<{ teams: { id: string; name: string }[] }>(url)
+      .then((res) => setTeams(Array.isArray(res?.teams) ? res.teams : []))
+      .catch(() => setTeams([]));
+  }, [tenantF]);
 
   const summary = data?.summary;
   const agents = data?.agents ?? [];
@@ -189,7 +226,35 @@ export default function EffectivenessPage() {
         title="성과 / 효과성 지표"
         description="에이전트가 가져온 효과성 — 수작업 대비 시간 절감, ROI, MTTD/MTTR (시스템·에이전트 단위)"
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {isPlatformAdmin && (
+              <select
+                value={tenantF}
+                onChange={(e) => setTenantF(e.target.value)}
+                title="테넌트 필터 (PLATFORM_ADMIN)"
+                className="bg-white border border-border rounded text-xs text-dark px-2 py-1.5 min-w-[10rem]"
+              >
+                <option value="">🏢 내 테넌트</option>
+                {tenants.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <select
+              value={teamF}
+              onChange={(e) => setTeamF(e.target.value)}
+              title="팀 필터"
+              className="bg-white border border-border rounded text-xs text-dark px-2 py-1.5 min-w-[10rem]"
+            >
+              <option value="">👥 전체 팀 ({teams.length})</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
             <div className="flex gap-1">
               {([7, 30, 90] as const).map((d) => (
                 <button
@@ -294,7 +359,7 @@ export default function EffectivenessPage() {
                     <div
                       key={i}
                       className="flex-1 flex items-end gap-px group"
-                      title={`${t.date} · 실행 ${t.executions} · 비용 $${t.costUsd.toFixed(3)}`}
+                      title={`${t.date} · 실행 ${t.executions} · 비용 ${krw(t.costUsd, { decimals: 1 })}`}
                     >
                       <div
                         className="flex-1 rounded-t bg-accent/70 group-hover:bg-accent transition-colors"

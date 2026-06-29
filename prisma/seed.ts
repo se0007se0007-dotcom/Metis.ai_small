@@ -684,9 +684,9 @@ async function main() {
       routerStage2Enabled: true,
       routerClassifierModel: 'gpt-4o-mini',
       routerFallbackTier: 2,
-      routerTier1Models: ['gpt-4o-mini', 'claude-3-haiku'],
-      routerTier2Models: ['gpt-4o', 'claude-sonnet-4-20250514'],
-      routerTier3Models: ['gpt-4-turbo', 'claude-opus-4-20250514'],
+      routerTier1Models: ['gpt-4o-mini', 'claude-haiku-4-5'],
+      routerTier2Models: ['gpt-4o', 'claude-sonnet-4-6'],
+      routerTier3Models: ['gpt-4-turbo', 'claude-opus-4-8'],
       packerEnabled: true,
       packerMaxTokensPerSkill: 4096,
       packerOutputFormat: 'json',
@@ -874,9 +874,9 @@ async function main() {
   ];
 
   const tierModels: Record<number, string[]> = {
-    1: ['gpt-4o-mini', 'claude-3-haiku'],
-    2: ['gpt-4o', 'claude-sonnet-4-20250514'],
-    3: ['gpt-4-turbo', 'claude-opus-4-20250514'],
+    1: ['gpt-4o-mini', 'claude-haiku-4-5'],
+    2: ['gpt-4o', 'claude-sonnet-4-6'],
+    3: ['gpt-4-turbo', 'claude-opus-4-8'],
   };
 
   const TIER_COST = { 1: 0.002, 2: 0.01, 3: 0.03 };

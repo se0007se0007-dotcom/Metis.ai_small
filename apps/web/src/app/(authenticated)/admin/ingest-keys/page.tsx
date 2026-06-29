@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import type { LucideIcon } from 'lucide-react';
 import {
   KeyRound,
@@ -80,7 +81,7 @@ interface NodeOpt {
   workflows: Array<{ workflowKey: string; workflowName: string }>;
 }
 
-const usd = (v: number) => `$${(v ?? 0).toFixed(4)}`;
+const usd = (v: number) => krw(v ?? 0, { decimals: 2 });
 const fdate = (s: string | null) => (s ? new Date(s).toLocaleString('ko-KR') : '—');
 const score = (v: number | null) => (v == null ? '—' : String(v));
 const qTone = (v: number | null) =>
@@ -166,6 +167,7 @@ interface FormState {
 const emptyForm: FormState = { name: '', env: 'live', teamId: '', agentKey: '', subAgentKey: '', allowedAgentNames: '' };
 
 export default function IngestKeysAdminPage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [ov, setOv] = useState<Overview | null>(null);
   const [teams, setTeams] = useState<Array<{ id: string; name: string }>>([]);
   const [agentOpts, setAgentOpts] = useState<AgentOpt[]>([]);

@@ -367,6 +367,53 @@ export class OrbService {
       );
     }
 
+    // 제출 즉시 4-게이트 엔진(AgentEvaluation 실측 이력) 기반으로 자동 평가 → 점수 사전 저장.
+    // 평가 이력이 없으면 source='sample'(가짜) 이므로 화면에서 "평가 데이터 없음"으로 경고한다.
+    let autoData: Record<string, any> = { allMandatoryPassed: false };
+    try {
+      const auto = await this.autoScore(resolvedTenantId, data.agentKey, data.agentName);
+      const recOf = (id: string): Record<string, number> =>
+        Object.fromEntries(
+          (auto.scoringAreas.find((a: any) => a.id === id)?.items ?? []).map((it: any) => [
+            it.key,
+            it.score,
+          ]),
+        );
+      const avg = (o: Record<string, number>): number => {
+        const v = Object.values(o);
+        return v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0;
+      };
+      const qualityItems = recOf('quality');
+      const performanceItems = recOf('performance');
+      const securityItems = recOf('security');
+      const dataStdItems = recOf('datastd');
+      const scalabilityItems = recOf('scalability');
+      const mandatoryRecord = Object.fromEntries(
+        auto.mandatoryChecks.map((c: any) => [c.key, c.passed]),
+      );
+      autoData = {
+        qualityItems,
+        performanceItems,
+        securityItems,
+        dataStdItems,
+        scalabilityItems,
+        qualityScore: Math.round(avg(qualityItems) * AREA_WEIGHTS.quality * 10) / 10,
+        performanceScore: Math.round(avg(performanceItems) * AREA_WEIGHTS.performance * 10) / 10,
+        securityScore: Math.round(avg(securityItems) * AREA_WEIGHTS.security * 10) / 10,
+        dataStdScore: Math.round(avg(dataStdItems) * AREA_WEIGHTS.dataStd * 10) / 10,
+        scalabilityScore: Math.round(avg(scalabilityItems) * AREA_WEIGHTS.scalability * 10) / 10,
+        totalScore: auto.totalScore,
+        mandatoryChecks: mandatoryRecord,
+        allMandatoryPassed: ORB_MANDATORY_DEFS.every((d) => mandatoryRecord[d.key] === true),
+        autoScoreSource: auto.source,
+        autoScoreConfidence: auto.confidence,
+        autoScoreSampleCount: auto.sampleCount,
+        autoScoredAt: new Date(),
+      };
+    } catch (err) {
+      this.logger.warn(`submitReview auto-eval failed: ${(err as Error).message}`);
+    }
+
     const review = await (this.prisma as any).orbReview.create({
       data: {
         tenantId: resolvedTenantId,
@@ -377,12 +424,13 @@ export class OrbService {
         submittedTeam: data.submittedTeam || null,
         submittedDocs: data.submittedDocs || null,
         status: 'pending',
-        allMandatoryPassed: false,
+        ...autoData,
       },
     });
 
     this.logger.log(
-      `ORB Review submitted: ${review.id} for agent ${data.agentKey} by ${data.submittedBy}`,
+      `ORB Review submitted: ${review.id} for agent ${data.agentKey} by ${data.submittedBy} ` +
+        `(autoScore source=${autoData.autoScoreSource ?? 'none'}, total=${autoData.totalScore ?? '-'})`,
     );
 
     return review;
@@ -473,10 +521,12 @@ export class OrbService {
       throw new NotFoundException(`ORB Review not found: ${reviewId}`);
     }
 
-    // If mandatory checks failed, verdict is auto-overridden to rejected.
+    // 필수항목 미충족이라도 심사자의 명시적 판정(승인/조건부/반려)을 존중한다.
+    // (조건부 = 기한 내 보완 조건으로 승인하는 정상 경로이므로 자동 반려하지 않는다.)
+    // 판정이 비어 있을 때만, 필수 미충족이면 안전하게 반려로 기본값 설정.
     let verdict = body.verdict;
-    if (!existing.allMandatoryPassed) {
-      verdict = 'rejected';
+    if (!verdict) {
+      verdict = existing.allMandatoryPassed ? 'approved' : 'rejected';
     }
 
     // Accept both frontend and legacy field names.
@@ -700,6 +750,98 @@ export class OrbService {
     }
 
     return autoScoreFromMetrics(metrics, meta);
+  }
+
+  /**
+   * 채점 근거(실측) — 해당 Agent의 최근 평가에서 보안 유출/위협 상세(마스킹), 이상 이벤트,
+   * 저품질 샘플을 모아 "왜 그 점수가 나왔는지"를 심사자가 직접 확인하도록 제공.
+   */
+  async getReviewEvidence(tenantId: string, reviewId: string): Promise<any> {
+    const resolvedTenantId = await this.resolveTenantId(tenantId);
+    const review = await (this.prisma as any).orbReview.findFirst({
+      where: { id: reviewId, tenantId: resolvedTenantId },
+    });
+    if (!review) throw new NotFoundException(`ORB Review not found: ${reviewId}`);
+
+    const rows = await (this.prisma as any).agentEvaluation.findMany({
+      where: {
+        tenantId: resolvedTenantId,
+        agentName: review.agentName,
+        NOT: { workflowKey: { startsWith: 'nodetest-' } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: {
+        id: true,
+        executionSessionId: true,
+        createdAt: true,
+        overallScore: true,
+        qualityGrade: true,
+        hallucationRate: true,
+        securityScore: true,
+        securityRiskLevel: true,
+        inputThreatCount: true,
+        outputLeakageCount: true,
+        anomalyDetected: true,
+        anomalyEvents: true,
+        rawResultJson: true,
+      },
+    });
+
+    const securityEvidence: any[] = [];
+    const anomalyEvidence: any[] = [];
+    const qualityEvidence: any[] = [];
+    for (const r of rows) {
+      const secDetails = Array.isArray(r.rawResultJson?.security?.details)
+        ? r.rawResultJson.security.details
+        : [];
+      if ((r.outputLeakageCount ?? 0) > 0 || (r.inputThreatCount ?? 0) > 0 || secDetails.length) {
+        securityEvidence.push({
+          evalId: r.id,
+          sessionId: r.executionSessionId,
+          at: r.createdAt,
+          securityScore: r.securityScore,
+          riskLevel: r.securityRiskLevel,
+          inputThreatCount: r.inputThreatCount ?? 0,
+          outputLeakageCount: r.outputLeakageCount ?? 0,
+          details: secDetails, // 이미 마스킹된 근거
+        });
+      }
+      if (r.anomalyDetected) {
+        anomalyEvidence.push({
+          evalId: r.id,
+          sessionId: r.executionSessionId,
+          at: r.createdAt,
+          events: Array.isArray(r.anomalyEvents) ? r.anomalyEvents : [],
+        });
+      }
+      if (r.qualityGrade === 'F' || (r.hallucationRate ?? 0) > 0.2) {
+        qualityEvidence.push({
+          evalId: r.id,
+          sessionId: r.executionSessionId,
+          at: r.createdAt,
+          overallScore: r.overallScore,
+          qualityGrade: r.qualityGrade,
+          hallucinationRate: r.hallucationRate ?? 0,
+        });
+      }
+    }
+
+    return {
+      agentName: review.agentName,
+      agentKey: review.agentKey,
+      sampleCount: rows.length,
+      summary: {
+        leakRuns: securityEvidence.filter((e) => e.outputLeakageCount > 0).length,
+        threatRuns: securityEvidence.filter((e) => e.inputThreatCount > 0).length,
+        anomalyRuns: anomalyEvidence.length,
+        lowQualityRuns: qualityEvidence.length,
+        detailsAvailable: securityEvidence.some((e) => e.details.length > 0),
+      },
+      securityEvidence: securityEvidence.slice(0, 30),
+      anomalyEvidence: anomalyEvidence.slice(0, 30),
+      qualityEvidence: qualityEvidence.slice(0, 30),
+    };
   }
 
   // ════════════════════════════════════════════════════════════════

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import { sanitizeNodeName, sanitizeInput } from '@/lib/sanitize';
 import {
   classifyIntent,
@@ -609,7 +610,7 @@ function simulateNodeExecution(
         const tokensOut = 2000 + vulnFindings.length * 500;
         const cost = (tokensIn * 0.003 + tokensOut * 0.015) / 1000;
 
-        output = `🛡️ ${analysisType} 완료 (Model: ${model})\n\n${pentestBody}\n\n토큰: 입력 ${tokensIn.toLocaleString()} / 출력 ${tokensOut.toLocaleString()} / 비용: $${cost.toFixed(4)}`;
+        output = `🛡️ ${analysisType} 완료 (Model: ${model})\n\n${pentestBody}\n\n토큰: 입력 ${tokensIn.toLocaleString()} / 출력 ${tokensOut.toLocaleString()} / 비용: ${krw(cost, { decimals: 2 })}`;
         details = {
           model,
           temperature: temp,
@@ -779,7 +780,7 @@ ${searchArticles
         500 + searchArticles.length * 250 + (wantsTable ? 300 : 0) + (wantsChart ? 200 : 0);
       const cost = (tokensIn * 0.003 + tokensOut * 0.015) / 1000;
 
-      output = `🤖 AI 분석 완료 (Model: ${model}, Temp: ${temp})\n\n${body}\n\n토큰: 입력 ${tokensIn.toLocaleString()} / 출력 ${tokensOut.toLocaleString()} / 비용: $${cost.toFixed(4)}`;
+      output = `🤖 AI 분석 완료 (Model: ${model}, Temp: ${temp})\n\n${body}\n\n토큰: 입력 ${tokensIn.toLocaleString()} / 출력 ${tokensOut.toLocaleString()} / 비용: ${krw(cost, { decimals: 2 })}`;
       details = {
         model,
         temperature: temp,
@@ -2805,6 +2806,7 @@ function generateNodeSettings(type: NodeType, prompt: string): Record<string, an
 // ── Main Page Component ──
 
 export default function BuilderPage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const searchParams = useSearchParams();
   const [promptInput, setPromptInput] = useState('');
   const [nodes, setNodes] = useState<WorkflowNode[]>([]);
@@ -5936,7 +5938,7 @@ export default function BuilderPage() {
                     <div className="flex justify-between">
                       <span className="text-gray-600">절감 비용:</span>
                       <span className="text-green-600 font-semibold">
-                        ${(selectedNode.optimization.savedUsd || 0).toFixed(4)}
+                        {krw(selectedNode.optimization.savedUsd || 0, { decimals: 2 })}
                       </span>
                     </div>
                   </div>

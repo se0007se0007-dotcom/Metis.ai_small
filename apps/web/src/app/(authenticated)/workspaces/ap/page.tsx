@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import { DataTable, ColumnDef } from '@/components/shared/DataTable';
 import { DetailPanel } from '@/components/shared/DetailPanel';
 import { SideBySideDiff, DiffField, DiffColumn } from '@/components/shared/SideBySideDiff';
@@ -56,6 +57,7 @@ interface Summary {
 type TabType = 'inbox' | 'unmatched' | 'waiting_approval' | 'exceptions' | 'completed';
 
 export default function APWorkspacePage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   // State
   const [activeTab, setActiveTab] = useState<TabType>('inbox');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -213,8 +215,7 @@ export default function APWorkspacePage() {
       key: 'amount',
       header: '금액',
       width: '120px',
-      render: (value) =>
-        `$${(value as number).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      render: (value) => krw(value as number, { decimals: 0 }),
       sortable: true,
     },
     {
@@ -269,7 +270,7 @@ export default function APWorkspacePage() {
   // Format currency
   const formatCurrency = (value: any) => {
     if (typeof value !== 'number') return String(value);
-    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    return krw(value, { decimals: 0 });
   };
 
   // Format date

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { SubTabs } from '@/components/shared/SubTabs';
 import { usePagination, Pager } from '@/components/shared/usePagination';
@@ -26,6 +26,7 @@ import {
   User,
   Info,
   FilePlus2,
+  FileText,
   X,
 } from 'lucide-react';
 
@@ -163,7 +164,7 @@ function createDefaultAreas(): ScoringArea[] {
     },
     {
       id: 'performance',
-      label: '성능',
+      label: '비용·효율',
       maxScore: 20,
       multiplier: 4,
       color: '#10B981',
@@ -171,33 +172,33 @@ function createDefaultAreas(): ScoringArea[] {
       items: [
         {
           key: '2.1',
-          label: 'P95 응답시간',
+          label: '비용 효율',
           weight: 6,
-          description: '95퍼센타일 응답 지연 시간',
+          description: '건당 비용 대비 효율',
           score: 0,
           comment: '',
         },
         {
           key: '2.2',
-          label: '처리량',
+          label: '리소스/토큰 효율',
           weight: 5,
-          description: '단위 시간 당 처리 건수',
+          description: '토큰·리소스 사용 효율',
           score: 0,
           comment: '',
         },
         {
           key: '2.3',
-          label: '가용성/안정성',
+          label: 'P95 응답시간(비용 영향)',
           weight: 5,
-          description: '서비스 가용률 및 안정성',
+          description: '95퍼센타일 응답 지연 — 비용에 영향',
           score: 0,
           comment: '',
         },
         {
           key: '2.4',
-          label: '리소스 효율성',
+          label: '처리량',
           weight: 4,
-          description: 'CPU/메모리 사용 효율',
+          description: '단위 시간 당 처리 건수',
           score: 0,
           comment: '',
         },
@@ -711,6 +712,9 @@ export default function OrbPage() {
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+  const [evidence, setEvidence] = useState<any | null>(null);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
 
   // ── Data fetching: List ──
 
@@ -910,6 +914,77 @@ export default function OrbPage() {
   // ── Auto-score (SDK 기반 자동 채점 재실행) ──
 
   const [autoScoring, setAutoScoring] = useState(false);
+  const loadEvidence = useCallback(async () => {
+    if (!detail) return;
+    setEvidenceOpen(true);
+    setEvidenceLoading(true);
+    try {
+      const res = await api.get<any>(`/orb/reviews/${detail.id}/evidence`);
+      setEvidence(res ?? null);
+    } catch {
+      setEvidence(null);
+    } finally {
+      setEvidenceLoading(false);
+    }
+  }, [detail]);
+
+  const downloadReport = useCallback(() => {
+    if (!detail) return;
+    const esc = (s: any) =>
+      String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] as string);
+    const meta = detail.autoScoreMeta;
+    const srcLabel =
+      meta?.source === 'history' && (meta?.sampleCount ?? 0) > 0
+        ? `실측 ${meta?.sampleCount}건 기반`
+        : '표준 샘플 추정(평가 이력 없음)';
+    const areaRows = detail.scoringAreas
+      .map((a) => {
+        const aScore = computeAreaScore(a);
+        const items = a.items
+          .map(
+            (it) =>
+              `<tr><td>${esc(it.key)}</td><td>${esc(it.label)}</td><td style="text-align:right">${it.score}/5</td><td>${esc(it.comment || '-')}</td></tr>`,
+          )
+          .join('');
+        return `<h3>${esc(a.label)} — ${aScore.toFixed(1)}/${a.maxScore}</h3>
+          <table><thead><tr><th>항목</th><th>이름</th><th>점수</th><th>근거·코멘트</th></tr></thead><tbody>${items}</tbody></table>`;
+      })
+      .join('');
+    const mRows = detail.mandatoryChecks
+      .map(
+        (m) =>
+          `<tr><td>${esc(m.key)}</td><td>${esc(m.label)}</td><td>${m.passed ? '✅ 통과' : '❌ 미충족'}</td><td>${esc(m.reason || '-')}</td></tr>`,
+      )
+      .join('');
+    const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>ORB 심사 보고서 - ${esc(detail.agentName)}</title>
+<style>body{font-family:'Malgun Gothic',sans-serif;font-size:12px;color:#1f2933;max-width:800px;margin:20px auto}
+h1{font-size:20px;color:#1e3a5f}h2{font-size:15px;color:#27508a;border-bottom:1px solid #ccc;padding-bottom:4px;margin-top:24px}
+h3{font-size:13px;margin:14px 0 4px}table{width:100%;border-collapse:collapse;margin:6px 0}
+th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;font-size:11px}th{background:#f1f4f8}
+.kv{margin:2px 0}.tot{font-size:16px;font-weight:bold;color:#1e3a5f}</style></head><body>
+<h1>📋 ORB 심사 결과 보고서</h1>
+<p class="kv"><b>Agent</b>: ${esc(detail.agentName)} (v${esc(detail.agentVersion)})</p>
+<p class="kv"><b>제출자</b>: ${esc(detail.submittedBy)} · <b>제출일</b>: ${esc(detail.submittedAt)}</p>
+<p class="kv"><b>자동평가 출처</b>: ${esc(srcLabel)}</p>
+<p class="tot">종합 점수 ${totalScore.toFixed(1)} / 100 · 판정: ${esc(detail.verdict)}</p>
+<h2>최종 판정</h2>
+<p class="kv"><b>판정</b>: ${esc(detail.verdict)} · <b>심사자</b>: ${esc(detail.reviewerName || '-')} (${esc(detail.reviewerTeam || '-')})</p>
+<p class="kv"><b>강점</b>: ${esc(detail.strengths || '-')}</p>
+<p class="kv"><b>개선</b>: ${esc(detail.improvements || '-')}</p>
+<h2>필수 통과 조건 (M1–M7)</h2>
+<table><thead><tr><th>코드</th><th>항목</th><th>판정</th><th>근거</th></tr></thead><tbody>${mRows}</tbody></table>
+<h2>5대 영역 상세 채점</h2>${areaRows}
+<p style="margin-top:24px;color:#888;font-size:10px">Metis.AI · ORB Review Board · ${new Date().toLocaleString('ko-KR')}</p>
+</body></html>`;
+    const blob = new Blob(['﻿', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ORB심사보고서_${detail.agentName}_${detail.agentVersion}.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [detail, totalScore]);
+
   const handleAutoScore = useCallback(async () => {
     if (!detail) return;
     setAutoScoring(true);
@@ -982,9 +1057,15 @@ export default function OrbPage() {
           items: a.items.map((it) => ({ key: it.key, score: it.score, comment: it.comment })),
         })),
       });
-      setSaveMessage({ type: 'success', text: '채점이 저장되었습니다.' });
+      setSaveMessage({ type: 'success', text: '채점이 저장되었습니다. (상태: 검토중)' });
+      // 목록 즉시 반영(낙관적) — 채점 저장은 상태를 '검토중'으로, 총점을 갱신.
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === detail.id ? { ...r, status: 'reviewing', totalScore } : r,
+        ),
+      );
       await fetchDetail(detail.id);
-      fetchListData();
+      await fetchListData();
     } catch (e: any) {
       setSaveMessage({ type: 'error', text: e?.message ?? '채점 저장에 실패했습니다.' });
     } finally {
@@ -1007,9 +1088,22 @@ export default function OrbPage() {
         totalScore,
         mandatoryAllPassed,
       });
-      setSaveMessage({ type: 'success', text: '최종 판정이 제출되었습니다.' });
+      // 심사자가 선택한 판정을 그대로 반영(필수 미충족이라도 조건부/반려는 심사자 판단).
+      const finalVerdict = detail.verdict;
+      setSaveMessage({
+        type: 'success',
+        text: `최종 판정이 제출되었습니다. (${finalVerdict === 'approved' ? '승인' : finalVerdict === 'conditional' ? '조건부' : '반려'})`,
+      });
+      // 목록 즉시 반영(낙관적) — 상태=판정값, 총점 갱신.
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === detail.id
+            ? { ...r, status: finalVerdict, verdict: finalVerdict, totalScore }
+            : r,
+        ),
+      );
       await fetchDetail(detail.id);
-      fetchListData();
+      await fetchListData();
     } catch (e: any) {
       setSaveMessage({ type: 'error', text: e?.message ?? '최종 판정 제출에 실패했습니다.' });
     } finally {
@@ -1045,13 +1139,29 @@ export default function OrbPage() {
           title="ORB 심사"
           description={`${detail.agentName} ${detail.agentVersion} 심사`}
           actions={
-            <button
-              onClick={goBackToList}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <ChevronLeft size={16} />
-              목록으로
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadEvidence}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+              >
+                <Search size={15} />
+                근거 상세(실측)
+              </button>
+              <button
+                onClick={downloadReport}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <FileText size={15} />
+                보고서(.doc)
+              </button>
+              <button
+                onClick={goBackToList}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <ChevronLeft size={16} />
+                목록으로
+              </button>
+            </div>
           }
         />
 
@@ -1155,7 +1265,7 @@ export default function OrbPage() {
               <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
                 <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                   <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                    <ClipboardList size={18} className="text-purple-500" />
+                    <ClipboardList size={18} className="text-accent" />
                     최종 판정
                   </h2>
                   <div className="flex items-center gap-2">
@@ -1172,7 +1282,7 @@ export default function OrbPage() {
                       type="button"
                       onClick={handleSubmitVerdict}
                       disabled={submitting}
-                      className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                     >
                       {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
                       최종 판정 제출
@@ -1264,7 +1374,7 @@ export default function OrbPage() {
                   필수 통과 조건 (M1–M7)
                 </h2>
                 <span className="text-xs text-gray-500">
-                  자동 채점값 · 심사자 토글로 조정 · 1건이라도 미충족 시 자동 반려
+                  자동 채점값 · 심사자 토글로 조정 · 미충족 항목은 심사자 판단으로 판정(조건부 보완 가능)
                   {failedCount > 0 ? ` · 미충족 ${failedCount}건` : ''}
                 </span>
               </div>
@@ -1320,16 +1430,27 @@ export default function OrbPage() {
                 </button>
               </div>
 
-              {detail.autoScored && (
-                <div className="mx-4 mt-3 flex items-start gap-2 p-2.5 bg-violet-50 border border-violet-200 rounded-lg text-xs text-violet-800">
-                  <span className="font-bold">자동 채점 적용됨</span>
-                  <span className="text-violet-600">
-                    — 출처:{' '}
-                    {detail.autoScoreMeta?.source === 'history' ? '실행/평가 이력' : '표준 샘플'}, 신뢰도:{' '}
-                    {detail.autoScoreMeta?.confidence ?? '-'}, 표본: {detail.autoScoreMeta?.sampleCount ?? 0}건. 항목은 자유롭게 조정 가능.
-                  </span>
-                </div>
-              )}
+              {detail.autoScoreMeta &&
+                (detail.autoScoreMeta.source === 'history' &&
+                (detail.autoScoreMeta.sampleCount ?? 0) > 0 ? (
+                  <div className="mx-4 mt-3 flex items-start gap-2 p-2.5 bg-violet-50 border border-violet-200 rounded-lg text-xs text-violet-800">
+                    <span className="font-bold">✓ 엔진 자동평가 (실측)</span>
+                    <span className="text-violet-600">
+                      — 4-게이트 엔진이 <b>실행/평가 이력 {detail.autoScoreMeta.sampleCount}건</b>을
+                      집계해 채점했습니다. 신뢰도: {detail.autoScoreMeta.confidence}. 항목은 심사자가
+                      조정 가능합니다.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mx-4 mt-3 flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-800">
+                    <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                    <span>
+                      <b>⚠ 평가 데이터 없음 — 점수를 신뢰할 수 없습니다.</b> 이 Agent의 실행/평가
+                      이력이 없어 <b>표준 샘플 추정치</b>로 채워졌습니다. 신뢰할 수 있는 점수를 보려면
+                      먼저 Agent를 실행해 4-게이트 평가가 쌓이게 한 뒤 다시 심사하세요.
+                    </span>
+                  </div>
+                ))}
 
               {/* 탭바 */}
               <div className="flex flex-wrap gap-1 px-3 pt-3 border-b border-gray-100">
@@ -1391,6 +1512,114 @@ export default function OrbPage() {
           </div>
         )}
 
+        {evidenceOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+            onClick={() => setEvidenceOpen(false)}
+          >
+            <div
+              className="bg-white rounded-lg w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <h3 className="text-base font-bold text-gray-900">채점 근거 (실측 평가)</h3>
+                <button
+                  onClick={() => setEvidenceOpen(false)}
+                  className="text-gray-400 hover:text-gray-700 text-2xl leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              {evidenceLoading ? (
+                <p className="text-sm text-muted-dark py-8 text-center">근거 불러오는 중…</p>
+              ) : !evidence || evidence.sampleCount === 0 ? (
+                <p className="text-sm text-muted-dark py-8 text-center">
+                  이 Agent의 실측 평가 이력이 없습니다. 점수는 표준 샘플 추정치이며, 실제 근거를
+                  보려면 먼저 Agent를 실행해 4-게이트 평가가 쌓여야 합니다.
+                </p>
+              ) : (
+                <div className="space-y-4 text-xs">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="px-2 py-1 bg-gray-100 rounded">실측 {evidence.sampleCount}건</span>
+                    <span className="px-2 py-1 bg-red-50 text-red-700 rounded">
+                      출력유출 {evidence.summary.leakRuns}건
+                    </span>
+                    <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded">
+                      입력위협 {evidence.summary.threatRuns}건
+                    </span>
+                    <span className="px-2 py-1 bg-violet-50 text-violet-700 rounded">
+                      이상 {evidence.summary.anomalyRuns}건
+                    </span>
+                    <span className="px-2 py-1 bg-gray-100 rounded">
+                      저품질 {evidence.summary.lowQualityRuns}건
+                    </span>
+                  </div>
+
+                  {/* 보안 근거 */}
+                  <div>
+                    <p className="font-semibold text-gray-800 mb-1">🔒 보안 — 유출/위협 근거</p>
+                    {evidence.securityEvidence.length === 0 ? (
+                      <p className="text-muted-dark">해당 없음</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {evidence.securityEvidence.map((e: any) => (
+                          <div key={e.evalId} className="border border-gray-200 rounded p-2">
+                            <div className="flex items-center justify-between text-[11px] text-muted-dark">
+                              <span>{new Date(e.at).toLocaleString('ko-KR')}</span>
+                              <span>
+                                보안 {e.securityScore ?? '-'}점 · 위험 {e.riskLevel ?? '-'} · 유출{' '}
+                                {e.outputLeakageCount} · 위협 {e.inputThreatCount}
+                              </span>
+                            </div>
+                            {e.details && e.details.length > 0 ? (
+                              <ul className="mt-1 space-y-0.5">
+                                {e.details.map((d: any, i: number) => (
+                                  <li key={i} className="text-gray-700">
+                                    <span className="text-[10px] px-1 py-0.5 bg-gray-100 rounded mr-1">
+                                      {d.kind === 'output_leak' ? '출력유출' : '입력위협'}·{d.type}
+                                    </span>
+                                    {d.detail}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="mt-1 text-[11px] text-muted-dark">
+                                상세 내용 미저장(이전 평가) — 이후 실행분부터 마스킹된 유출/위협 내용이
+                                표시됩니다.
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 이상 근거 */}
+                  {evidence.anomalyEvidence.length > 0 && (
+                    <div>
+                      <p className="font-semibold text-gray-800 mb-1">📈 이상 근거</p>
+                      <div className="space-y-1">
+                        {evidence.anomalyEvidence.map((e: any) => (
+                          <div key={e.evalId} className="text-gray-700">
+                            {new Date(e.at).toLocaleString('ko-KR')} —{' '}
+                            {(e.events || [])
+                              .map((ev: any) => `${ev.type ?? ''} ${ev.detail ?? ''}`)
+                              .join(' / ') || '이상 감지'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-dark">
+                    ※ 유출/위협 내용은 개인정보 보호를 위해 <b>마스킹</b>되어 표시됩니다. 원문은 실행
+                    이력에서 권한에 따라 확인하세요.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {mInfo && (
           <div
             className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
@@ -1435,7 +1664,7 @@ export default function OrbPage() {
                 </div>
               </dl>
               <p className="mt-4 text-xs text-gray-500">
-                ※ 자동 채점값이며, 심사자가 토글로 직접 조정할 수 있습니다. 1건이라도 미충족이면 최종 판정이 자동 반려됩니다.
+                ※ 자동 채점값이며, 심사자가 토글로 직접 조정할 수 있습니다. 미충족 항목이 있어도 심사자가 승인/조건부/반려를 직접 판정합니다(조건부는 기한 내 보완 조건부 승인).
               </p>
               <button
                 onClick={() => setMInfo(null)}
@@ -1480,10 +1709,33 @@ export default function OrbPage() {
 
       <SubTabs
         items={[
-          { label: '거버넌스 심사·승격', href: '/governance/orb-governance' },
-          { label: 'ORB 심사', href: '/governance/orb' },
+          { label: '① ORB 심사 (자동평가→사람심사)', href: '/governance/orb' },
+          { label: '② 거버넌스 승격', href: '/governance/orb-governance' },
         ]}
       />
+
+      {/* 심사 라이프사이클 — 하나의 흐름으로 안내 */}
+      <div className="px-6 pt-4">
+        <div className="flex items-center gap-1 text-[11px] overflow-x-auto pb-1">
+          {[
+            { n: '1', t: '심사 요청', d: '개발자 제출' },
+            { n: '2', t: '자동 점검', d: '4-게이트 엔진(품질·보안·비용·이상)' },
+            { n: '3', t: '사람 심사', d: '표준성·확장성 확정 + 승인/조건부/반려' },
+            { n: '4', t: '거버넌스 승격', d: '지문·불변버전·카탈로그 등재' },
+          ].map((s, i, arr) => (
+            <Fragment key={s.n}>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 whitespace-nowrap">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-accent text-white text-[9px] font-bold">
+                  {s.n}
+                </span>
+                <span className="font-semibold text-gray-800">{s.t}</span>
+                <span className="text-gray-400">· {s.d}</span>
+              </div>
+              {i < arr.length - 1 && <span className="text-gray-300">→</span>}
+            </Fragment>
+          ))}
+        </div>
+      </div>
 
       <div className="px-6 pb-8 space-y-6">
         {/* Stats Row */}

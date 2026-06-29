@@ -159,30 +159,30 @@ export function autoScoreFromMetrics(m: AgentMetrics, meta?: AgentDefMeta): Auto
     },
   ];
 
-  // ── Area 2: 성능 (4 items) ──
+  // ── Area 2: 비용·효율 (4 items) — 비용 효율 중심(성능 신호 포함) ──
   const performance: ScoredItem[] = [
     {
       key: '2.1',
-      score: latScore,
-      comment: cmt('P95 응답시간', m.p95LatencyMs != null ? `${m.p95LatencyMs}ms` : '데이터 없음'),
+      score: ratioTo5(costEff),
+      comment: cmt('비용 효율', `비용효율 ${(costEff * 100).toFixed(0)}%`),
     },
     {
       key: '2.2',
+      score: ratioTo5(costEff),
+      comment: cmt('리소스/토큰 효율', `비용효율 ${(costEff * 100).toFixed(0)}%`),
+    },
+    {
+      key: '2.3',
+      score: latScore,
+      comment: cmt('P95 응답시간(비용 영향)', m.p95LatencyMs != null ? `${m.p95LatencyMs}ms` : '데이터 없음'),
+    },
+    {
+      key: '2.4',
       score:
         m.executionCount != null
           ? clamp15(m.executionCount >= 50 ? 5 : m.executionCount >= 10 ? 4 : 3)
           : 3,
       comment: cmt('처리량', `실행 ${m.executionCount ?? 0}건`),
-    },
-    {
-      key: '2.3',
-      score: ratioTo5(success),
-      comment: cmt('가용성/안정성', `성공률 ${(success * 100).toFixed(0)}%`),
-    },
-    {
-      key: '2.4',
-      score: ratioTo5(costEff),
-      comment: cmt('리소스 효율', `비용효율 ${(costEff * 100).toFixed(0)}%`),
     },
   ];
 

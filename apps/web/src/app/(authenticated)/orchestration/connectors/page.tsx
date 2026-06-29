@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { usePagination, Pager } from '@/components/shared/usePagination';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import {
   RefreshCw,
   AlertCircle,
@@ -702,6 +703,7 @@ const FEATURED_CONNECTORS: Connector[] = [...BUILTIN_NODE_CONNECTORS, ...EXTERNA
 // ── Page ──
 
 export default function ConnectorsPage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [connectors, setConnectors] = useState<Connector[]>(FEATURED_CONNECTORS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1379,7 +1381,7 @@ function ConnectorDetail({
           results.push({
             step: '③ 비용(Cost)',
             status: 'pass',
-            message: `비용 $${(gt.cost?.costUsd ?? 0).toFixed?.(5) ?? gt.cost?.costUsd ?? 0} · 효율 ${gt.cost?.efficiency != null ? Math.round(gt.cost.efficiency * 100) + '%' : '-'} · 지연 ${gt.cost?.latencyGrade ?? '-'}`,
+            message: `비용 ${krw(Number(gt.cost?.costUsd ?? 0), { decimals: 2 })} · 효율 ${gt.cost?.efficiency != null ? Math.round(gt.cost.efficiency * 100) + '%' : '-'} · 지연 ${gt.cost?.latencyGrade ?? '-'}`,
           });
           results.push({
             step: '④ 이상동작(Anomaly)',

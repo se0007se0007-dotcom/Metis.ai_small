@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { SubTabs } from '@/components/shared/SubTabs';
 import { usePagination, Pager } from '@/components/shared/usePagination';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import {
   RefreshCw, DollarSign, TrendingUp, TrendingDown, Sparkles, Settings2, Gauge, AlertCircle,
   Zap, BarChart3, Clock, Layers, CheckCircle2, XCircle, Loader2,
@@ -85,6 +86,7 @@ interface TokenLogsResponse {
 // ── Page Component ──
 
 export default function FinOpsPage() {
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [tab, setTab] = useState<'current' | 'predict' | 'recommend' | 'logs'>('current');
   const [stats, setStats] = useState<FinOpsStats | null>(null);
   const [forecast, setForecast] = useState<CostForecast | null>(null);
@@ -238,15 +240,15 @@ export default function FinOpsPage() {
             <StatCard
               icon={DollarSign}
               label="이번달 비용"
-              value={`$${monthCost.toFixed(2)}`}
-              sub={`전월: $${prevMonthCost.toFixed(2)}`}
+              value={krw(monthCost, { decimals: 0 })}
+              sub={`전월: ${krw(prevMonthCost, { decimals: 0 })}`}
               color="accent"
             />
             <StatCard
               icon={momPct > 0 ? TrendingUp : TrendingDown}
               label="전월 대비"
               value={`${momPct > 0 ? '+' : ''}${momPct.toFixed(1)}%`}
-              sub={forecast ? `예측: $${forecast.projectedMonthTotal.toFixed(2)}` : ''}
+              sub={forecast ? `예측: ${krw(forecast.projectedMonthTotal, { decimals: 0 })}` : ''}
               color={momPct > 0 ? 'danger' : 'success'}
             />
             <StatCard
@@ -259,7 +261,7 @@ export default function FinOpsPage() {
             <StatCard
               icon={Zap}
               label="오늘 절감액"
-              value={`$${dailySavings.toFixed(2)}`}
+              value={krw(dailySavings, { decimals: 0 })}
               sub={`응답시간: ${stats?.avgResponseTimeMs ?? 0}ms`}
               color="success"
             />
@@ -342,7 +344,7 @@ export default function FinOpsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5 text-xs text-right text-success font-semibold">
-                          ${agent.savedUsd.toFixed(4)}
+                          {krw(agent.savedUsd, { decimals: 2 })}
                         </td>
                       </tr>
                     ))}
@@ -397,14 +399,14 @@ export default function FinOpsPage() {
               <StatCard
                 icon={DollarSign}
                 label="이번달 실제"
-                value={`$${forecast.currentMonthActual.toFixed(2)}`}
+                value={krw(forecast.currentMonthActual, { decimals: 0 })}
                 sub={`${forecast.daysElapsed}/${forecast.totalDays}일 경과`}
                 color="accent"
               />
               <StatCard
                 icon={BarChart3}
                 label="월말 예측"
-                value={`$${forecast.projectedMonthTotal.toFixed(2)}`}
+                value={krw(forecast.projectedMonthTotal, { decimals: 0 })}
                 sub={`신뢰도: ${(forecast.confidence * 100).toFixed(0)}%`}
                 color="warning"
               />
@@ -412,7 +414,7 @@ export default function FinOpsPage() {
                 icon={momPct > 0 ? TrendingUp : TrendingDown}
                 label="전월 대비"
                 value={`${momPct > 0 ? '+' : ''}${momPct.toFixed(1)}%`}
-                sub={`전월: $${forecast.previousMonthTotal.toFixed(2)}`}
+                sub={`전월: ${krw(forecast.previousMonthTotal, { decimals: 0 })}`}
                 color={momPct > 0 ? 'danger' : 'success'}
               />
               <StatCard
@@ -516,15 +518,15 @@ export default function FinOpsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">기준 월 비용</p>
-                <p className="text-2xl font-bold text-gray-900">${simResult.baselineMonthlyCost.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-gray-900">{krw(simResult.baselineMonthlyCost, { decimals: 0 })}</p>
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 mt-3">시뮬레이션 비용</p>
-                <p className="text-2xl font-bold text-accent">${simResult.simulatedMonthlyCost.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-accent">{krw(simResult.simulatedMonthlyCost, { decimals: 0 })}</p>
               </div>
 
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">절감 기대액</p>
                 <p className={`text-3xl font-bold ${simResult.savings > 0 ? 'text-success' : 'text-danger'}`}>
-                  ${Math.abs(simResult.savings).toFixed(2)}
+                  {krw(Math.abs(simResult.savings), { decimals: 0 })}
                 </p>
                 <p className="text-[11px] text-gray-500 mt-1">
                   {simResult.savingsPct > 0 ? `${simResult.savingsPct.toFixed(1)}% 절감` : `${Math.abs(simResult.savingsPct).toFixed(1)}% 증가`}
@@ -588,7 +590,7 @@ export default function FinOpsPage() {
                   </div>
                   <div className="text-right ml-4">
                     <p className="text-sm font-bold text-success">
-                      ${rec.estimatedSavingsMonthly.toFixed(2)}
+                      {krw(rec.estimatedSavingsMonthly, { decimals: 0 })}
                     </p>
                     <p className="text-[10px] text-gray-500">월 절감 추정</p>
                   </div>
@@ -709,10 +711,10 @@ export default function FinOpsPage() {
                         {log.totalTokens.toLocaleString()}
                       </td>
                       <td className="px-4 py-2 text-xs text-right text-accent font-semibold">
-                        ${log.optimizedCostUsd.toFixed(4)}
+                        {krw(log.optimizedCostUsd, { decimals: 2 })}
                       </td>
                       <td className="px-4 py-2 text-xs text-right text-success font-semibold">
-                        ${log.savedUsd.toFixed(4)}
+                        {krw(log.savedUsd, { decimals: 2 })}
                       </td>
                       <td className="px-4 py-2 text-xs text-right text-gray-500 font-mono">
                         {log.responseTimeMs}
@@ -770,7 +772,11 @@ function BreakdownRow({ label, value }: { label: string; value: number }) {
     <div className="flex items-center justify-between text-[11px]">
       <span className="text-gray-500">{label}</span>
       <span className={value < 0 ? 'text-success font-semibold' : value > 0 ? 'text-danger font-semibold' : 'text-gray-500'}>
-        {value < 0 ? `-$${Math.abs(value).toFixed(2)}` : value > 0 ? `+$${value.toFixed(2)}` : '$0.00'}
+        {value < 0
+          ? `-${krw(Math.abs(value), { decimals: 0 })}`
+          : value > 0
+            ? `+${krw(value, { decimals: 0 })}`
+            : krw(0, { decimals: 0 })}
       </span>
     </div>
   );

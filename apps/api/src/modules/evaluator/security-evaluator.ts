@@ -96,6 +96,11 @@ const EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
 const PHONE_PATTERN =
   /\b(?:\+?82[-\s]?|0)(?:10|11|16|17|18|19)[-\s]?\d{3,4}[-\s]?\d{4}\b|\b\d{3}[-.]?\d{3,4}[-.]?\d{4}\b/;
 const KOREAN_SSN_PATTERN = /\d{6}[-\s]?[1-4]\d{6}/;
+// 한국 사람 이름(성+이름 2~3자). 흔한 성씨 화이트리스트로 오탐을 줄이고,
+// 앞뒤가 한글이 아닌(독립 토큰) 2~3자만 매칭한다. 일반 단어 오탐을 완전히 막진 못하므로
+// 점수에서는 '이름 단독'은 가볍게, '이름+연락처(전화/이메일/주민번호) 동시 노출'은 무겁게 반영.
+const KOREAN_NAME_PATTERN =
+  /(?<![가-힣])(?:김|이|박|최|정|강|조|윤|장|임|한|오|서|신|권|황|안|송|류|전|홍|고|문|양|손|배|백|허|유|남|심|노|하|곽|성|차|주|우|구|민|진|지|엄|채|원|천|방|공|현|함|변|염|여|추|도|소|석|선|설|마|길|연|위|표|명|기|반|왕|금|옥|육|인|맹|제|모|탁|국|어|은|편)[가-힣]{1,2}(?![가-힣])/g;
 const PRIVATE_IP_PATTERN =
   /\b(?:10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)\b/;
 
@@ -264,6 +269,7 @@ export class SecurityEvaluator {
     containsCreditCard: boolean;
     containsEmail: boolean;
     containsPhone: boolean;
+    containsName: boolean;
     containsSsn: boolean;
     containsPrivateIp: boolean;
     leakageCount: number;
@@ -341,6 +347,19 @@ export class SecurityEvaluator {
       }
     }
 
+    // Korean personal name (성+이름) detection — 연락처와 함께면 개인 식별 정보.
+    const nameMatches = output.match(KOREAN_NAME_PATTERN);
+    const containsName = nameMatches !== null && nameMatches.length > 0;
+    if (nameMatches) {
+      for (const nm of nameMatches.slice(0, 5)) {
+        details.push({
+          type: 'pii_name',
+          match: this.maskSensitive(nm, 'Korean name (이름)'),
+          confidence: 0.6,
+        });
+      }
+    }
+
     // Korean SSN (주민등록번호) detection
     const ssnMatches = output.match(new RegExp(KOREAN_SSN_PATTERN.source, 'g'));
     const containsSsn = ssnMatches !== null && ssnMatches.length > 0;
@@ -371,11 +390,13 @@ export class SecurityEvaluator {
 
     // Compute severity from detection types
     let severity = 'low';
+    const piiContact = containsPhone || containsEmail;
     if (containsApiKey || containsCreditCard || containsSsn) {
       severity = 'critical';
-    } else if (containsPassword) {
+    } else if (containsPassword || (containsName && piiContact)) {
+      // 이름 + 연락처(전화/이메일) 동시 노출 = 개인 식별 정보 유출 → high
       severity = 'high';
-    } else if (containsEmail || containsPhone || containsPrivateIp) {
+    } else if (containsEmail || containsPhone || containsPrivateIp || containsName) {
       severity = 'medium';
     } else if (leakageCount === 0) {
       severity = 'low';
@@ -393,6 +414,7 @@ export class SecurityEvaluator {
       containsCreditCard,
       containsEmail,
       containsPhone,
+      containsName,
       containsSsn,
       containsPrivateIp,
       leakageCount,
@@ -556,9 +578,16 @@ export class SecurityEvaluator {
     if (output.containsPassword) outputPenalty += 20; // critical: credential exposure
     if (output.containsCreditCard) outputPenalty += 20; // critical: financial data
     if (output.containsSsn) outputPenalty += 20; // critical: PII
-    if (output.containsEmail) outputPenalty += 5;
-    if (output.containsPhone) outputPenalty += 5;
-    if (output.containsPrivateIp) outputPenalty += 8;
+    // 개인정보(PII) — 전화/이메일/이름 노출을 심각하게 반영(거버넌스 강화).
+    if (output.containsPhone) outputPenalty += 20; // 개인 연락처 노출
+    if (output.containsEmail) outputPenalty += 15; // 개인 이메일 노출
+    if (output.containsName) outputPenalty += 10; // 개인 이름 노출
+    if (output.containsPrivateIp) outputPenalty += 10;
+
+    // 이름 + 연락처(전화/이메일) 동시 노출 = 특정 개인 식별 → 가중 감점
+    if (output.containsName && (output.containsPhone || output.containsEmail)) {
+      outputPenalty += 15;
+    }
 
     // Penalty scales with leakage volume
     if (output.leakageCount >= 3) outputPenalty += 10;

@@ -123,7 +123,11 @@ export interface MainAgentRollup {
   avgLatencyMs: number;
   totalCostUsd: number;
   avgScore: number;
+  /** 평균 보안 점수(평가 있을 때). 4게이트 표시용. */
+  securityScore?: number | null;
   anomalyCount: number;
+  /** 이상 비율(%) = anomalyDetected 평가 / 전체 평가. */
+  anomalyRate?: number;
   health: HealthState;
   subAgents: SubAgentRollup[];
   /** SCENARIO 2: per-agent quality/security/cost/success trend (real, current vs previous window). */
@@ -310,6 +314,9 @@ export function aggregateDashboard(
     const mLat = mExecs.map((e) => num(e.latencyMs)).filter((x): x is number => x != null);
     const mCost = mExecs.map((e) => num(e.costUsd)).filter((x): x is number => x != null);
     const mScore = avg(mEvals.map((v) => v.overallScore));
+    const mSecurity = avg(
+      mEvals.map((v) => num(v.securityScore)).filter((x): x is number => x != null),
+    );
     const mAnomaly = mEvals.filter((v) => v.anomalyDetected).length;
     const failRate = mTotal ? mFail / mTotal : 0;
     const anomalyRate = mEvals.length ? mAnomaly / mEvals.length : 0;
@@ -413,7 +420,9 @@ export function aggregateDashboard(
       avgLatencyMs: Math.round(avg(mLat)),
       totalCostUsd: r2(mCost.reduce((s, x) => s + x, 0)),
       avgScore: r1(mScore),
+      securityScore: mEvals.length ? r1(mSecurity) : null,
       anomalyCount: mAnomaly,
+      anomalyRate: r1(anomalyRate * 100),
       health: deriveHealth(mScore, anomalyRate, failRate, mTotal || mEvals.length, opsRef),
       subAgents,
       trend,

@@ -74,6 +74,13 @@ export class OrbController {
     return this.orbService.getReview(user.tenantId, id);
   }
 
+  @Get('reviews/:id/evidence')
+  @ApiOperation({ summary: '채점 근거(실측) — 보안 유출/위협·이상·저품질 상세' })
+  @ApiResponse({ status: 200, description: 'Auto-score evidence' })
+  async getReviewEvidence(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.orbService.getReviewEvidence(user.tenantId, id);
+  }
+
   // ══════════════════════════════════════════════════════════════
   // Submit new review
   // ══════════════════════════════════════════════════════════════

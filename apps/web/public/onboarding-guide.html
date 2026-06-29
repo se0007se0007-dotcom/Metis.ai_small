@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Metis.AI — Agent 연동 온보딩 가이드</title>
+<style>
+  :root{
+    --navy:#1e3a5f; --navy2:#27508a; --accent:#2B6CB0; --accent2:#0E7C86;
+    --ink:#1f2933; --muted:#6b7280; --line:#e5e7eb; --bg:#f7f8fa;
+    --ok:#15803d; --okbg:#ecfdf5; --warn:#b45309; --warnbg:#fffbeb;
+    --code-bg:#0f172a; --code-ink:#e2e8f0;
+    --chip:#eef2ff; --chip-ink:#3949ab;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,-apple-system,sans-serif;
+    line-height:1.65; font-size:15px;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 20px 80px;}
+  /* Header */
+  header.hero{
+    background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);
+    color:#fff; padding:38px 0 30px; margin-bottom:28px;
+  }
+  .hero .wrap{padding-bottom:0}
+  .brand{display:flex; align-items:center; gap:12px; margin-bottom:14px}
+  .brand svg{flex:0 0 auto}
+  .brand .name{font-size:20px; font-weight:800; letter-spacing:-.3px}
+  .brand .sub{font-size:12px; opacity:.8; font-weight:500}
+  .hero h1{margin:6px 0 8px; font-size:27px; font-weight:800; letter-spacing:-.5px}
+  .hero p{margin:0; opacity:.92; font-size:15px; max-width:680px}
+  .hero .meta{margin-top:14px; font-size:12px; opacity:.75}
+  /* Flow strip */
+  .flow{display:flex; gap:10px; flex-wrap:wrap; margin:22px 0 6px}
+  .flow .node{
+    flex:1 1 150px; background:#fff; border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; position:relative;
+  }
+  .flow .num{font-size:12px; font-weight:800; color:var(--accent); }
+  .flow .t{font-weight:700; margin-top:2px}
+  .flow .d{font-size:12.5px; color:var(--muted); margin-top:3px}
+  /* Sections */
+  section{background:#fff; border:1px solid var(--line); border-radius:14px; padding:24px 26px; margin-top:20px}
+  h2{font-size:19px; font-weight:800; margin:0 0 4px; color:var(--navy); letter-spacing:-.3px;
+     display:flex; align-items:center; gap:10px}
+  h2 .step{display:inline-flex; align-items:center; justify-content:center;
+     width:26px; height:26px; border-radius:8px; background:var(--accent); color:#fff; font-size:13px; font-weight:800}
+  h3{font-size:15px; font-weight:700; margin:20px 0 8px; color:var(--ink)}
+  .lead{color:var(--muted); margin:2px 0 4px}
+  p{margin:8px 0}
+  ul,ol{margin:8px 0 8px; padding-left:22px}
+  li{margin:5px 0}
+  code{background:#eef1f5; padding:1.5px 6px; border-radius:5px; font-size:12.5px;
+       font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace; color:#0b3a6f}
+  /* Code block */
+  pre{
+    background:var(--code-bg); color:var(--code-ink); border-radius:12px;
+    padding:18px 18px; overflow-x:auto; font-size:12.5px; line-height:1.6;
+    font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace; margin:12px 0;
+  }
+  pre .c{color:#7f9cc4}      /* comment */
+  pre .k{color:#79c0ff}      /* keyword */
+  pre .s{color:#9ece6a}      /* string */
+  pre .f{color:#e6db74}      /* func/arg */
+  /* Table */
+  table{width:100%; border-collapse:collapse; margin:12px 0; font-size:13.5px}
+  th,td{border:1px solid var(--line); padding:9px 11px; text-align:left; vertical-align:top}
+  th{background:#f1f4f8; font-weight:700; color:var(--navy)}
+  td code{font-size:12px}
+  .req{color:#b91c1c; font-weight:700}
+  .rec{color:var(--accent); font-weight:700}
+  .opt{color:var(--muted); font-weight:600}
+  /* Chips & callouts */
+  .chip{display:inline-block; background:var(--chip); color:var(--chip-ink); font-size:11.5px;
+        font-weight:700; padding:2px 9px; border-radius:999px; margin-right:6px}
+  .callout{border-radius:10px; padding:13px 16px; margin:14px 0; font-size:13.5px}
+  .callout.ok{background:var(--okbg); border:1px solid #bbf7d0}
+  .callout.ok b{color:var(--ok)}
+  .callout.warn{background:var(--warnbg); border:1px solid #fde68a}
+  .callout.warn b{color:var(--warn)}
+  .gates{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin:14px 0}
+  .gate{border:1px solid var(--line); border-radius:11px; padding:13px 15px; background:#fcfdff}
+  .gate .gt{font-weight:800; color:var(--navy)}
+  .gate .gw{font-size:11.5px; color:var(--accent2); font-weight:700; margin-left:6px}
+  .gate .gd{font-size:12.5px; color:var(--muted); margin-top:4px}
+  .check li{margin:7px 0}
+  .check li::marker{content:"✅  "}
+  hr{border:none; border-top:1px solid var(--line); margin:26px 0}
+  footer{color:var(--muted); font-size:12px; text-align:center; margin-top:30px}
+  @media (max-width:640px){
+    .gates{grid-template-columns:1fr}
+    .hero h1{font-size:23px}
+  }
+  @media print{
+    body{background:#fff} section{break-inside:avoid; border-color:#ccc}
+    header.hero{background:var(--navy) !important; -webkit-print-color-adjust:exact; print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M24 3 L42 13.5 V34.5 L24 45 L6 34.5 V13.5 Z" fill="#ffffff" fill-opacity="0.10" stroke="#ffffff" stroke-width="1.5"/>
+        <circle cx="18" cy="22" r="4.4" fill="#ffffff"/><circle cx="30" cy="22" r="4.4" fill="#ffffff"/>
+        <circle cx="18" cy="22" r="1.8" fill="#1e3a5f"/><circle cx="30" cy="22" r="1.8" fill="#1e3a5f"/>
+        <path d="M21 30 q3 2.4 6 0" stroke="#ffffff" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div class="name">Metis.AI</div>
+        <div class="sub">OPS.AI Governance Platform</div>
+      </div>
+    </div>
+    <h1>Agent 연동 온보딩 가이드</h1>
+    <p>여러분이 개발한 Agent를 Metis에 연결하면, 호출마다 <b>품질·보안·비용·이상</b> 4게이트로 자동 평가·통제되어
+       대시보드와 이력에 한 화면으로 모입니다. 이 가이드 한 장이면 연동이 끝납니다.</p>
+    <div class="meta">대상: Agent를 개발·운영하는 모든 구성원 · 소요: 약 10분 · Python SDK 기준</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 한눈에 보는 흐름 -->
+  <div class="flow">
+    <div class="node"><div class="num">STEP 1</div><div class="t">기준정보 등록</div><div class="d">내 Agent를 Metis에 등록</div></div>
+    <div class="node"><div class="num">STEP 2</div><div class="t">Ingest 키 발급</div><div class="d">팀/Agent용 인증 키 받기</div></div>
+    <div class="node"><div class="num">STEP 3</div><div class="t">표준 스니펫 계측</div><div class="d">코드에 데코레이터 한 줄</div></div>
+    <div class="node"><div class="num">STEP 4</div><div class="t">대시보드 확인</div><div class="d">4게이트 현황·이력 확인</div></div>
+  </div>
+
+  <div class="callout ok">
+    <b>딱 두 가지만 하면 됩니다</b> — ① 기준정보에 Agent 등록, ② 코드에 표준 스니펫 한 줄.
+    평가·집계·통제는 플랫폼이 자동으로 합니다. 정답·근거 데이터가 없어도 4게이트는 모두 동작합니다.
+  </div>
+
+  <!-- STEP 1 -->
+  <section>
+    <h2><span class="step">1</span> 기준정보에 Agent 등록</h2>
+    <p class="lead">메뉴: <b>기준정보 &gt; Agent</b>. 내 Agent를 먼저 등록해 두면 표시명·비용·ROI·전용 실행화면·정책이 붙습니다.</p>
+    <p>등록 시 정해 두는 값(아래 스니펫에서 그대로 사용합니다):</p>
+    <table>
+      <tr><th>항목</th><th>설명</th><th>스니펫 인자</th></tr>
+      <tr><td><b>Agent 이름(코드)</b></td><td>대시보드·이력에서 이 Agent를 식별하는 이름. <code>[코드] 이름</code> 표준 표기</td><td><code>agent</code></td></tr>
+      <tr><td><b>메인 Agent 키</b></td><td>여러 단계로 구성되면 묶음 기준. 단일이면 이름과 같게</td><td><code>workflow_key</code></td></tr>
+      <tr><td><b>사용 모델</b></td><td>호출 모델 ID. <b>모델 단가 기준정보</b>에 등록된 ID와 일치해야 비용·₩이 정확</td><td><code>model</code></td></tr>
+      <tr><td><b>ROI 설정(선택)</b></td><td>시급·수작업 분 → 절감액/순가치 계산에 사용(운영기준값과 연동)</td><td>—</td></tr>
+      <tr><td><b>전용 실행화면 URL(선택)</b></td><td>Metis 안에서 이 Agent를 바로 실행/열람</td><td>—</td></tr>
+    </table>
+    <div class="callout warn">
+      <b>미등록도 기록은 됩니다.</b> 다만 표시명·ROI·실행화면·정책이 빠진 <b>“느슨한 Agent”</b>로 잡혀 한눈에 구분됩니다.
+      정식 거버넌스 대상이 되려면 등록을 권장합니다.
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section>
+    <h2><span class="step">2</span> Ingest 키 발급</h2>
+    <p class="lead">메뉴: <b>관리 &gt; Ingest 키</b>(또는 “Agent 연동” 모달). 외부 Agent가 Metis로 실행을 보고할 때 쓰는 인증 키입니다.</p>
+    <ul>
+      <li><b>팀/Agent 단위로 발급</b>하세요. 누가 무엇을 보고하는지 책임 추적이 됩니다.</li>
+      <li>생성 시 <b>평문 키(<code>mts_live_…</code>)는 딱 한 번</b> 표시됩니다 — 그때 복사해 안전한 곳(시크릿 매니저)에 보관.</li>
+      <li>키에 <b>agentName 허용목록</b>을 걸면, 등록되지 않은 이름으로 보고하는 스푸핑을 차단합니다(권장).</li>
+    </ul>
+    <div class="callout warn"><b>키는 비밀입니다.</b> 코드·깃에 하드코딩하지 말고 환경변수/시크릿으로 주입하세요.</div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section>
+    <h2><span class="step">3</span> 표준 스니펫으로 계측</h2>
+    <p class="lead">실제 Agent 함수 위에 데코레이터 한 줄. <b>필수 4가지</b>만 채우면 4게이트가 모두 평가됩니다.</p>
+
+<pre><span class="k">from</span> metis <span class="k">import</span> Metis
+
+m = Metis(
+    api_key=<span class="s">"mts_live_…"</span>,   <span class="c"># 팀/Agent별 Ingest 키 (환경변수 권장)</span>
+    base_url=<span class="s">"https://&lt;사내 Metis API&gt;"</span>,  <span class="c"># 내 Metis API 서버 (로컬은 http://localhost:4000)</span>
+)
+
+<span class="c"># ── 표준 연동 (이 형태로 통일) ───────────────────────────</span>
+<span class="c">#   필수 : agent, question_arg(입력), return값(출력), model</span>
+<span class="c">#   권장 : workflow_key(메인) / step_key(단계)</span>
+<span class="c">#   → 위 입력만으로 품질·보안·비용·이상 4게이트가 모두 평가됨</span>
+@m.<span class="f">eval</span>(
+    agent=<span class="s">"&lt;코드&gt;-&lt;이름&gt;"</span>,          <span class="c"># 기준정보에 등록한 Agent 이름과 동일</span>
+    workflow_key=<span class="s">"&lt;메인 Agent 키&gt;"</span>,  <span class="c"># 대시보드 그룹핑(서브→메인 합산)</span>
+    step_key=<span class="s">"main"</span>,                <span class="c"># 단계가 여러 개면 단계명으로 구분</span>
+    task_type=<span class="s">"qa"</span>,                 <span class="c"># qa / summarize / classify ...</span>
+    model=<span class="s">"claude-haiku-4-5"</span>,       <span class="c"># 모델 단가 기준정보의 모델 ID와 일치</span>
+    question_arg=<span class="s">"q"</span>,               <span class="c"># 함수의 입력 kwarg 이름과 동일</span>
+)
+<span class="k">def</span> <span class="f">my_agent</span>(q):
+    <span class="c"># ★ LLM "원본 응답 객체"를 그대로 return → 출력·토큰 자동 추출(비용 계산)</span>
+    <span class="k">return</span> call_my_real_llm(q)
+
+my_agent(q=<span class="s">"환불 정책 알려줘"</span>)</pre>
+
+    <div class="callout warn">
+      <b>토큰이 0이면 비용도 0</b> 입니다. 함수가 <b>LLM 원본 응답 객체</b>(OpenAI/Anthropic/LangChain)를 그대로 return하면
+      텍스트·토큰이 자동 추출됩니다. 문자열만 반환해야 한다면 토큰을 직접 넘기세요:
+      <code>m.log_run(agent=…, input=…, output=…, model=…, tokensIn=…, tokensOut=…)</code>
+    </div>
+
+    <h3>인자 → 무엇에 쓰이나</h3>
+    <table>
+      <tr><th>구분</th><th>인자</th><th>역할</th></tr>
+      <tr><td><span class="req">필수</span></td><td><code>agent</code></td><td>이 실행이 귀속될 Agent 이름(기준정보와 일치)</td></tr>
+      <tr><td><span class="req">필수</span></td><td><code>question_arg</code></td><td>입력 인자 이름 → 품질·보안(입력) 게이트</td></tr>
+      <tr><td><span class="req">필수</span></td><td>return값</td><td>출력 → 품질·보안(출력)·LLM 심판</td></tr>
+      <tr><td><span class="req">필수</span></td><td><code>model</code></td><td>모델 ID → 비용 게이트(단가로 ₩ 계산)</td></tr>
+      <tr><td><span class="rec">권장</span></td><td><code>workflow_key</code> / <code>step_key</code></td><td>메인 Agent / 단계(Sub-Agent) 구분 → 대시보드 롤업</td></tr>
+      <tr><td><span class="opt">선택</span></td><td><code>context_arg</code></td><td>RAG 근거 문서(런타임 검색 결과) → 환각 탐지 강화</td></tr>
+      <tr><td><span class="opt">선택</span></td><td><code>ground_truth_arg</code></td><td>정답(평가셋) → 정확도 30/70 보정. <b>오프라인 평가 때만</b></td></tr>
+    </table>
+
+    <h3>(선택) RAG Agent면 한 줄 추가</h3>
+    <p>이미 검색해 둔 근거 문서를 <code>docs</code>로 같이 넘기면, “답이 근거에 실제로 있는가”를 대조해 환각을 잡아냅니다.</p>
+<pre>@m.<span class="f">eval</span>(..., context_arg=<span class="s">"docs"</span>)
+<span class="k">def</span> <span class="f">my_agent</span>(q, docs=<span class="k">None</span>):
+    <span class="k">return</span> call_my_real_llm(system=<span class="s">f"참고 문서:\n{docs}"</span>, user=q)
+
+docs = retriever.search(q)          <span class="c"># 질문마다 동적으로 검색</span>
+my_agent(q=q, docs=docs)            <span class="c"># 검색 결과를 kwarg로 전달</span></pre>
+    <p style="font-size:13px;color:var(--muted)">
+      ※ <code>ground_truth_arg</code>는 정답이 있는 <b>평가/회귀 테스트</b>에서만 사용합니다. 운영 트래픽은 보통 생략하며,
+      이때 정확도는 LLM 심판이 100% 채점합니다.
+    </p>
+  </section>
+
+  <!-- STEP 4 -->
+  <section>
+    <h2><span class="step">4</span> 대시보드·이력에서 확인</h2>
+    <p class="lead">호출 즉시 평가·거버넌스를 거쳐 집계됩니다. 같은 <code>workflow_key</code>는 메인=서브 합계로 롤업됩니다.</p>
+    <div class="gates">
+      <div class="gate"><span class="gt">품질</span><span class="gw">Quality 40%</span><div class="gd">정확도·환각·응답품질. LLM 심판(Claude)로 채점. 근거/정답 있으면 더 엄밀.</div></div>
+      <div class="gate"><span class="gt">보안</span><span class="gw">Security 30%</span><div class="gd">규칙 기반(LLM 비호출). 입력 인젝션 + 출력 PII·시크릿 유출 탐지.</div></div>
+      <div class="gate"><span class="gt">비용</span><span class="gw">Cost 15%</span><div class="gd">모델 단가 × 토큰 → ₩ 환산. 효율·절감 추정.</div></div>
+      <div class="gate"><span class="gt">이상</span><span class="gw">Anomaly 15%</span><div class="gd">지연·비용·토큰 추세 이탈 탐지(자동).</div></div>
+    </div>
+    <p>확인 위치:</p>
+    <ul>
+      <li><b>홈 대시보드</b> — Agent별 품질·보안·비용·이상, Health 등급, ROI·순가치 한눈에</li>
+      <li><b>실행 이력</b> — 호출 단건별 입력/출력/게이트 점수/₩/지연, 행 클릭 시 상세</li>
+      <li><b>품질평가(Insights)</b> — 게이트별 분포, LLM 심판 사용·모델·비용</li>
+    </ul>
+    <div class="callout ok">
+      정답을 주지 않아도 <b>품질은 LLM 심판으로, 보안은 규칙으로</b> 채점되므로, 팀이 달라도
+      <b>모든 Agent가 동일 잣대로 통제·비교</b>됩니다. 이것이 거버넌스 플랫폼의 핵심 가치입니다.
+    </div>
+  </section>
+
+  <!-- 거버넌스 운영 규칙 -->
+  <section>
+    <h2>운영·거버넌스 규칙 (권장 표준)</h2>
+    <ul>
+      <li><b>등록을 기본 절차로</b> — 새 Agent는 기준정보 등록 후 배포. 미등록은 “느슨한 Agent”로 노출되어 자연히 등록을 유도.</li>
+      <li><b>키는 팀/Agent별 + allowlist</b> — 책임 추적 + 스푸핑 차단.</li>
+      <li><b>모델 ID 일치 강제</b> — 비용·FinOps 정확도 확보(모델 단가 기준정보와 동일 ID).</li>
+      <li><b>정책 설정</b> — 허용 도구/도메인·런타임 게이트로 위반 시 자동 차단·다운그레이드 + 알림(모니터링을 넘어 통제).</li>
+      <li><b>단계가 여러 개인 Agent</b> — 같은 <code>workflow_key</code> 아래 <code>step_key</code>를 단계별로 다르게 → Sub-Agent 단위 추적.</li>
+    </ul>
+  </section>
+
+  <!-- 체크리스트 -->
+  <section>
+    <h2>배포 전 체크리스트</h2>
+    <ul class="check">
+      <li>기준정보에 Agent 등록 완료(이름·메인키·모델)</li>
+      <li>팀/Agent용 Ingest 키 발급 + 시크릿으로 주입(하드코딩 금지)</li>
+      <li>표준 스니펫의 <b>필수 4인자</b>(agent·question_arg·return값·model) 채움</li>
+      <li><code>question_arg</code> 값이 함수 kwarg 이름과 일치</li>
+      <li>함수가 <b>LLM 원본 응답</b>을 return(또는 토큰 직접 전달)</li>
+      <li>호출 1건 보낸 뒤 대시보드/이력에 표시되는지 확인</li>
+    </ul>
+  </section>
+
+  <!-- FAQ -->
+  <section>
+    <h2>자주 묻는 질문</h2>
+    <h3>base_url에는 뭘 넣나요?</h3>
+    <p>metis.ai 같은 외부 도메인이 아니라 <b>우리 Metis API 서버</b> 주소입니다. 로컬은 <code>http://localhost:4000</code>, 운영은 사내 Metis API 주소.</p>
+    <h3>Agent 이름을 기준정보에 꼭 등록해야 하나요?</h3>
+    <p>연동·기록만 목적이면 필수는 아닙니다(자동 기록됨). 단, ROI·실행화면·정책 등 거버넌스 기능을 쓰려면 같은 이름으로 등록하세요. 키에 allowlist를 걸었다면 이름이 목록과 일치해야 합니다.</p>
+    <h3>비용이 0으로 나와요.</h3>
+    <p>토큰이 0이기 때문입니다. <b>LLM 원본 응답 객체</b>를 return하거나, <code>model</code>과 함께 <code>tokensIn/tokensOut</code>를 직접 넘기세요.</p>
+    <h3>정답(ground_truth)을 매번 어떻게 주죠?</h3>
+    <p>운영에선 안 줍니다. 정답이 있는 <b>평가/회귀 테스트 데이터셋</b>을 돌릴 때만 사용합니다.</p>
+  </section>
+
+  <footer>
+    Metis.AI · OPS.AI Governance Platform — Agent 연동 온보딩 가이드 · 사내 배포용
+  </footer>
+
+</div>
+</body>
+</html>

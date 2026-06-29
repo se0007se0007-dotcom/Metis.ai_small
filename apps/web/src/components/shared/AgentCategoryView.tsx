@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
+import { useOpsRef, krw } from '@/lib/opsRef';
 import {
   Bot,
   Play,
@@ -170,6 +171,7 @@ export function AgentCategoryView({
   description: string;
 }) {
   const router = useRouter();
+  useOpsRef(); // 환율(원화 표시) 기준정보 로드 + 로드되면 재렌더
   const [agents, setAgents] = useState<AgentItem[]>([]);
   const [history, setHistory] = useState<ExecLog[]>([]);
   const [histPage, setHistPage] = useState(1);
@@ -520,7 +522,7 @@ export function AgentCategoryView({
                       {h.latencyMs != null ? `${h.latencyMs}ms` : '—'}
                     </td>
                     <td className="px-3 py-2 text-right text-gray-600">
-                      {h.costUsd != null ? `$${h.costUsd.toFixed(4)}` : '—'}
+                      {h.costUsd != null ? krw(h.costUsd, { decimals: 2 }) : '—'}
                     </td>
                     <td className="px-3 py-2 text-center">
                       <ChevronRight size={13} className="text-gray-400 inline" />
@@ -683,7 +685,7 @@ function ExecutionDetailBody({
         <MetricCard
           icon={<DollarSign size={14} />}
           label="비용"
-          value={`$${(s.costUsd ?? totalEvalCost ?? 0).toFixed(4)}`}
+          value={krw(s.costUsd ?? totalEvalCost ?? 0, { decimals: 2 })}
           unit=""
           color="text-emerald-600"
         />
@@ -820,8 +822,8 @@ function ExecutionDetailBody({
       {/* cost */}
       <Section icon={<DollarSign size={13} />} title="비용">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-          <KV k="세션 비용" v={`$${(s.costUsd ?? 0).toFixed(4)}`} />
-          <KV k="평가 합산 비용" v={`$${totalEvalCost.toFixed(4)}`} />
+          <KV k="세션 비용" v={krw(s.costUsd ?? 0, { decimals: 2 })} />
+          <KV k="평가 합산 비용" v={krw(totalEvalCost, { decimals: 2 })} />
           <KV k="토큰 사용량" v={`${totalTokens.toLocaleString()} tok`} />
         </div>
       </Section>

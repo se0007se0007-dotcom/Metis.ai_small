@@ -8,6 +8,7 @@
 export interface OpsReference {
   hourlyRateUsd: number;
   workingHoursPerMonth: number;
+  usdToKrw: number;
   healthDownScore: number;
   healthDownFailRate: number;
   healthDownAnomalyRate: number;
@@ -23,6 +24,7 @@ export interface OpsReference {
 export const OPS_REFERENCE_DEFAULTS: OpsReference = {
   hourlyRateUsd: 50,
   workingHoursPerMonth: 160,
+  usdToKrw: 1380,
   healthDownScore: 50,
   healthDownFailRate: 0.3,
   healthDownAnomalyRate: 0.4,
@@ -58,6 +60,7 @@ export function sanitizeOpsRefPatch(patch: Record<string, any>): Partial<OpsRefe
     if (k.endsWith('FailRate') || k.endsWith('AnomalyRate')) out[k] = Math.min(1, v);
     else if (k.startsWith('grade') || k.endsWith('Score')) out[k] = Math.min(100, Math.round(v));
     else if (k === 'workingHoursPerMonth') out[k] = Math.max(1, Math.round(v));
+    else if (k === 'usdToKrw') out[k] = Math.max(1, Math.round(v)); // 원/달러 환율(정수)
     else out[k] = v;
   }
   return out as Partial<OpsReference>;
