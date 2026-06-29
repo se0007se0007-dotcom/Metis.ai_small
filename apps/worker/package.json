@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "build": "tsc --build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "start": "node dist/main.js",
     "clean": "rm -rf dist"
   },
