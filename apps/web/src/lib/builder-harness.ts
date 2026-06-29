@@ -637,7 +637,7 @@ export function runLocalSimulation(
   );
 
   const missingConnectors = new Set(connectorGaps?.missing || []);
-  const placeholderKeys = new Set((connectorGaps?.placeholder || []).map((c) => c.connectorKey));
+  const placeholderKeys = new Set((connectorGaps?.placeholder || []).map((c) => c.key));
   const hasTrigger =
     nodes.length > 0 && (nodes[0].type === 'schedule' || nodes[0].type === 'webhook');
   const exitTypes = new Set([

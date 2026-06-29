@@ -3078,6 +3078,7 @@ type NodeType =
   | 'schedule'
   | 'web-search'
   | 'ai-processing'
+  | 'pentest'
   | 'email-send'
   | 'slack-message'
   | 'data-storage'

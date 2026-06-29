@@ -760,6 +760,7 @@ export default function AgentTestPage() {
           },
           source: 'error',
           note: e?.message ?? '시뮬레이션 API 호출에 실패했습니다.',
+          timestamp: new Date().toISOString(),
         } as SimulationResult;
       }
     },
@@ -1322,7 +1323,7 @@ export default function AgentTestPage() {
                     />
                     {result.gates.anomaly.detected && result.gates.anomaly.events.length > 0 && (
                       <>
-                        {result.gates.anomaly.events.map((evt, idx) => (
+                        {result.gates.anomaly.events.map((evt: any, idx: number) => (
                           <div
                             key={idx}
                             className={`text-[10px] p-2 rounded border mt-1 ${
