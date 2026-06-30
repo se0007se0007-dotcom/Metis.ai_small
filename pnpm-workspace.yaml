@@ -2,14 +2,14 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
-# Packages explicitly allowed to run install/build scripts (pnpm 10+/11 supply-chain
-# safety: un-approved build scripts fail `pnpm install` in CI). Moved here from
-# package.json#pnpm.onlyBuiltDependencies, which newer pnpm no longer reads.
-onlyBuiltDependencies:
-  - esbuild
-  - sharp
-  - prisma
-  - '@prisma/client'
-  - '@prisma/engines'
-  - '@nestjs/core'
-  - msgpackr-extract
+# Approve install/build scripts. pnpm 10.4+/11 blocks un-approved build scripts
+# (supply-chain safety) and fails `pnpm install` with ERR_PNPM_IGNORED_BUILDS.
+# pnpm 11 reads this `allowBuilds` map (package -> true/false).
+allowBuilds:
+  '@nestjs/core': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  msgpackr-extract: true
+  prisma: true
+  sharp: true

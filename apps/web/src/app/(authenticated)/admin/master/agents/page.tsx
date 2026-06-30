@@ -634,8 +634,15 @@ export default function AgentMasterPage() {
                   <label className="block text-[11px] font-semibold text-gray-500 mb-1">코드</label>
                   <input
                     value={editAgent.code}
-                    onChange={(e) => setEditAgent({ ...editAgent, code: e.target.value })}
+                    onChange={(e) =>
+                      setEditAgent({
+                        ...editAgent,
+                        // 표준 코드 형식 강제: 영문 대문자·숫자·하이픈만
+                        code: e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''),
+                      })
+                    }
                     placeholder="OPS-001"
+                    title="영문 대문자, 숫자, 하이픈(-)만 입력됩니다"
                     className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg font-mono"
                   />
                 </div>

@@ -300,9 +300,20 @@ export function aggregateDashboard(
   };
 
   // ── Per-main-agent rollup (group by workflowKey) ──
+  // "실제 main agent"만 노출: 등록된 Agent(Workflow) 목록에 있는 키만 인정.
+  // 등록 목록이 비어있을 때만(폴백) 실행 키를 쓰되, test/adhoc 잡음은 항상 제외.
+  // → sub-agent 자체 키·노드별 키·미등록/테스트 키가 main agent 목록을 부풀리는 문제 해결.
+  const registeredSet = new Set(
+    registeredAgents.map((a) => a.workflowKey).filter((k): k is string => !!k),
+  );
+  const isRealMainAgent = (k: string | null | undefined): k is string =>
+    !!k &&
+    !k.startsWith('adhoc-') &&
+    !k.startsWith('nodetest-') &&
+    (registeredSet.size === 0 || registeredSet.has(k));
   const mainKeys = new Set<string>();
-  for (const e of E) if (e.workflowKey) mainKeys.add(e.workflowKey);
-  for (const v of V) if (v.workflowKey) mainKeys.add(v.workflowKey);
+  for (const e of E) if (isRealMainAgent(e.workflowKey)) mainKeys.add(e.workflowKey);
+  for (const v of V) if (isRealMainAgent(v.workflowKey)) mainKeys.add(v.workflowKey);
 
   const mainAgents: MainAgentRollup[] = [];
   for (const key of mainKeys) {

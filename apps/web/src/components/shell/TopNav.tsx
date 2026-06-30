@@ -85,9 +85,9 @@ export function TopNav() {
         <button
           onClick={() => setShowAthene(true)}
           className="px-3 py-1.5 rounded-md text-[13px] font-medium text-accent border border-accent/30 bg-accent/10 hover:bg-accent/20 transition-all"
-          title="Athene 개발 Agent 스튜디오 (외부 연결)"
+          title="Metis.studio 개발 Agent 스튜디오 (외부 연결)"
         >
-          Athene 바로가기 ↗
+          Metis.studio 바로가기 ↗
         </button>
         <span className="px-2 py-1 bg-accent/10 text-accent rounded text-[10px] font-semibold">
           {user?.role ?? 'Loading...'}
@@ -115,9 +115,9 @@ export function TopNav() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-3xl mb-3">🚀</div>
-            <h2 className="text-base font-bold text-gray-900">Athene 개발 Agent 스튜디오</h2>
+            <h2 className="text-base font-bold text-gray-900">Metis.studio 개발 Agent 스튜디오</h2>
             <p className="text-sm text-gray-600 mt-2">
-              Athene는 별도의 개발 Agent 스튜디오로 연결되는 기능입니다.
+              Metis.studio는 별도의 개발 Agent 스튜디오로 연결되는 기능입니다.
               <br />
               현재는 준비 중이며, 향후 제공될 예정입니다.
             </p>

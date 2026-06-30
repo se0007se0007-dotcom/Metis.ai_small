@@ -75,6 +75,94 @@ export class GovernanceController {
     return { items };
   }
 
+  @Get('policy-violations/recent')
+  @Roles('AUDITOR')
+  @ApiOperation({ summary: 'Tenant-wide recent policy violations (non-PASS evaluations)' })
+  @ApiQuery({ name: 'days', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getRecentViolations(
+    @CurrentUser() user: RequestUser,
+    @Query('days') days?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.governanceService.getRecentViolations(
+      { tenantId: user.tenantId, userId: user.userId, role: user.role },
+      { days: days ? parseInt(days, 10) : undefined, limit: limit ? parseInt(limit, 10) : undefined },
+    );
+  }
+
+  @Get('policy-field-options')
+  @Roles('AUDITOR')
+  @ApiOperation({ summary: 'Selectable key values for the policy rule builder (workflows/capabilities)' })
+  async getPolicyFieldOptions(@CurrentUser() user: RequestUser) {
+    return this.governanceService.getPolicyFieldOptions({
+      tenantId: user.tenantId,
+      userId: user.userId,
+      role: user.role,
+    });
+  }
+
+  @Get('policy-stats')
+  @Roles('AUDITOR')
+  @ApiOperation({ summary: 'Policy call/violation stats (overall + per-policy + daily timeseries)' })
+  @ApiQuery({ name: 'days', required: false, type: Number })
+  async getPolicyStats(@CurrentUser() user: RequestUser, @Query('days') days?: string) {
+    return this.governanceService.getPolicyStats(
+      { tenantId: user.tenantId, userId: user.userId, role: user.role },
+      days ? parseInt(days, 10) : undefined,
+    );
+  }
+
+  @Get('policy-evaluations')
+  @Roles('AUDITOR')
+  @ApiOperation({ summary: 'Policy evaluation history (filter by policy/result/period, paginated)' })
+  @ApiQuery({ name: 'policyId', required: false })
+  @ApiQuery({ name: 'result', required: false })
+  @ApiQuery({ name: 'days', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number })
+  async getPolicyEvaluations(
+    @CurrentUser() user: RequestUser,
+    @Query('policyId') policyId?: string,
+    @Query('result') result?: string,
+    @Query('days') days?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.governanceService.getPolicyEvaluations(
+      { tenantId: user.tenantId, userId: user.userId, role: user.role },
+      {
+        policyId,
+        result,
+        days: days ? parseInt(days, 10) : undefined,
+        page: page ? parseInt(page, 10) : undefined,
+        pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      },
+    );
+  }
+
+  @Get('policies/:id/violations')
+  @Roles('AUDITOR')
+  @ApiOperation({ summary: 'Recent evaluation/violation history for a policy' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'onlyViolations', required: false, type: Boolean })
+  async getPolicyViolations(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+    @Query('onlyViolations') onlyViolations?: string,
+  ) {
+    const items = await this.governanceService.getPolicyViolations(
+      { tenantId: user.tenantId, userId: user.userId, role: user.role },
+      id,
+      {
+        limit: limit ? parseInt(limit, 10) : undefined,
+        onlyViolations: onlyViolations === 'true',
+      },
+    );
+    return { items };
+  }
+
   @Post('policies')
   @Roles('TENANT_ADMIN')
   @HttpCode(HttpStatus.CREATED)
@@ -89,6 +177,7 @@ export class GovernanceController {
       scope?: Record<string, unknown>;
       rules?: unknown[];
       description?: string;
+      scopeLevel?: string;
     },
   ) {
     return this.governanceService.createPolicy(

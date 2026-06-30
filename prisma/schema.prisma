@@ -211,6 +211,8 @@ model Membership {
 model Policy {
   id            String               @id @default(cuid())
   tenantId      String
+  /// Scope precedence: PLATFORM (공통 — applies to ALL tenants) | TENANT (this tenant only)
+  scopeLevel    String               @default("TENANT")
   key           String
   name          String
   description   String?
@@ -225,6 +227,7 @@ model Policy {
 
   @@unique([tenantId, key])
   @@index([tenantId, isActive])
+  @@index([scopeLevel, isActive])
 }
 
 model PolicyEvaluation {

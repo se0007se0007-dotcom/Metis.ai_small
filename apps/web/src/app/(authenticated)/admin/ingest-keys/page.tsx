@@ -522,13 +522,41 @@ export default function IngestKeysAdminPage() {
             </div>
 
             <details className="text-[11px]">
-              <summary className="cursor-pointer text-gray-500">고급: 허용 agentName 목록(콤마)</summary>
-              <input
-                value={form.f.allowedAgentNames}
-                onChange={(e) => setForm({ ...form, f: { ...form.f, allowedAgentNames: e.target.value } })}
-                placeholder="비우면 제한 없음 — 채우면 그 이름만 이 키로 ingest 허용"
-                className="mt-1 w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
-              />
+              <summary className="cursor-pointer text-gray-500">고급: 허용 agentName 제한 (선택)</summary>
+              <p className="mt-1 text-[10px] text-gray-400">
+                비워두면 제한 없음. 선택한 Agent 이름만 이 키로 ingest가 허용됩니다.
+              </p>
+              <div className="mt-1 max-h-40 overflow-y-auto border border-gray-200 rounded p-2 grid grid-cols-2 gap-1">
+                {agentOpts.length === 0 ? (
+                  <span className="text-[10px] text-gray-400">등록된 Agent가 없습니다</span>
+                ) : (
+                  agentOpts.map((a) => {
+                    const sel = form.f.allowedAgentNames
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    const checked = sel.includes(a.name);
+                    return (
+                      <label key={a.key} className="flex items-center gap-1 text-[11px] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const set = new Set(sel);
+                            if (checked) set.delete(a.name);
+                            else set.add(a.name);
+                            setForm({
+                              ...form,
+                              f: { ...form.f, allowedAgentNames: [...set].join(', ') },
+                            });
+                          }}
+                        />
+                        <span className="truncate">{a.name}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
             </details>
 
             <div className="flex justify-end gap-2 pt-1">

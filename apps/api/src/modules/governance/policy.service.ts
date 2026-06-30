@@ -62,8 +62,14 @@ export class PolicyService {
     tenantId: string,
     context: EvaluationContext,
   ): Promise<{ result: 'PASS' | 'FAIL' | 'WARN'; evaluations: EvaluationResult[] }> {
+    // Scope precedence (공통 + 테넌트): evaluate this tenant's own active policies
+    // PLUS every active PLATFORM (공통) policy, which applies to all tenants.
+    // Guardrails are additive — a FAIL at any level blocks (handled by aggregation below).
     const policies = await this.prisma.policy.findMany({
-      where: { tenantId, isActive: true },
+      where: {
+        isActive: true,
+        OR: [{ tenantId }, { scopeLevel: 'PLATFORM' }],
+      },
     });
 
     const evaluations: EvaluationResult[] = [];
